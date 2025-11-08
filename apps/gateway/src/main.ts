@@ -1,10 +1,12 @@
 import Fastify from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { z } from 'zod';
 import { getDatabase } from '@jani/db';
 import { PackType, SubscriptionTier } from '@jani/shared';
+import { TelegramInitDataError, validateTelegramInitData } from '@jani/utils';
 import { OrchestratorService } from '../../orchestrator/src/service';
 import { BillingService } from '../../billing/src/service';
 import { ShopService } from '../../shop/src/service';
@@ -21,7 +23,27 @@ fastify.register(swagger, {
     info: {
       title: 'Gateway API',
       version: '1.0.0',
+      description:
+        'API шлюз Mini App. Авторизация через проверенный `initData` Telegram (query/body) либо DEV-заголовки в режиме отладки.',
     },
+    components: {
+      securitySchemes: {
+        TelegramInitData: {
+          type: 'apiKey',
+          in: 'query',
+          name: 'initData',
+          description:
+            'Подпись Telegram Mini App. Можно передавать как query-параметр `initData` или в JSON-теле запроса.',
+        },
+        TelegramDevAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-telegram-id',
+          description: 'DEV-ветка авторизации через мок PWA. Доступно только вне production.',
+        },
+      },
+    },
+    security: [{ TelegramInitData: [] }],
   },
 });
 fastify.register(swaggerUi);
@@ -32,25 +54,91 @@ declare module 'fastify' {
   }
 }
 
-const authSchema = z.object({
-  tgId: z.string().default('demo-user'),
+const devAuthSchema = z.object({
+  tgId: z.string(),
   locale: z.string().optional(),
 });
+
+const initDataMaxAgeSecondsRaw = Number(process.env.TELEGRAM_INITDATA_MAX_AGE ?? '86400');
+const initDataMaxAgeSeconds = Number.isFinite(initDataMaxAgeSecondsRaw)
+  ? initDataMaxAgeSecondsRaw
+  : 86400;
+const allowDevAuth =
+  process.env.GATEWAY_ALLOW_DEV_AUTH === 'true' || process.env.NODE_ENV !== 'production';
+
+function extractInitData(request: FastifyRequest): string | undefined {
+  const query = request.query as Record<string, unknown> | undefined;
+  const fromQuery = query?.initData ?? query?.init_data;
+  if (typeof fromQuery === 'string' && fromQuery.length > 0) {
+    return fromQuery;
+  }
+  const body = request.body as Record<string, unknown> | undefined;
+  if (body && typeof body === 'object') {
+    const fromBody = body['initData'] ?? body['init_data'];
+    if (typeof fromBody === 'string' && fromBody.length > 0) {
+      return fromBody;
+    }
+  }
+  return undefined;
+}
 
 fastify.addHook('preHandler', async (request, reply) => {
   if (request.routerPath?.startsWith('/docs')) {
     return;
   }
-  const headers = authSchema.safeParse({
-    tgId: (request.headers['x-telegram-id'] as string) ?? 'demo-user',
-    locale: request.headers['x-user-locale'] as string | undefined,
-  });
-  if (!headers.success) {
-    reply.code(400).send({ message: 'Invalid auth headers' });
+  const initData = extractInitData(request);
+  if (initData) {
+    const secretKey = process.env.TELEGRAM_WEBAPP_SECRET;
+    const botToken = secretKey ? undefined : process.env.TELEGRAM_BOT_TOKEN;
+
+    if (!secretKey && !botToken) {
+      request.log.error('Telegram initData secret is not configured');
+      reply.code(500).send({ message: 'Telegram initData verification is not configured' });
+      return;
+    }
+
+    try {
+      const validation = validateTelegramInitData(initData, {
+        secretKey,
+        botToken,
+        maxAgeSeconds: initDataMaxAgeSeconds,
+      });
+
+      if (!validation.user) {
+        reply.code(400).send({ message: 'initData must contain user payload' });
+        return;
+      }
+
+      const ensured = db.ensureUser(validation.user.id.toString(), validation.user.language_code);
+      request.user = { id: ensured.id, tgId: ensured.tgId };
+      return;
+    } catch (error) {
+      if (error instanceof TelegramInitDataError) {
+        const status = error.code === 'EXPIRED' ? 401 : 400;
+        reply.code(status).send({ message: error.message, code: error.code });
+        return;
+      }
+      request.log.error({ err: error }, 'Unexpected initData validation error');
+      reply.code(500).send({ message: 'Unable to verify initData' });
+      return;
+    }
+  }
+
+  if (allowDevAuth) {
+    const headers = devAuthSchema.safeParse({
+      tgId: request.headers['x-telegram-id'] as string | undefined,
+      locale: request.headers['x-user-locale'] as string | undefined,
+    });
+    if (!headers.success) {
+      reply.code(400).send({ message: 'Invalid auth headers' });
+      return;
+    }
+    const user = db.ensureUser(headers.data.tgId, headers.data.locale);
+    request.user = { id: user.id, tgId: user.tgId };
     return;
   }
-  const user = db.ensureUser(headers.data.tgId, headers.data.locale);
-  request.user = { id: user.id, tgId: user.tgId };
+
+  reply.code(401).send({ message: 'Unauthorized' });
 });
 
 fastify.get('/api/characters', async (request, reply) => {

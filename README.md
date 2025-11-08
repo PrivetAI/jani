@@ -41,6 +41,14 @@ packages/
    ```
 4. PWA доступна на `http://localhost:5173` и использует общий API `http://localhost:3000` (прокси через devServer).
 
+### Авторизация Mini App
+
+- Реальные мини-приложения передают строку `initData` в query или теле запроса. Gateway валидирует подпись по алгоритму Telegram (HMAC-SHA256 + `WebAppData`). Для этого задайте один из секретов:
+  - `TELEGRAM_WEBAPP_SECRET` — готовый secret key (hex или utf-8).
+  - `TELEGRAM_BOT_TOKEN` — токен бота; secret выводится автоматически.
+- Дополнительно можно настроить TTL подписи через `TELEGRAM_INITDATA_MAX_AGE` (секунды, по умолчанию 86400).
+- Локальная PWA по-прежнему доступна через DEV-ветку авторизации — включается автоматически, если `NODE_ENV !== 'production'` или `GATEWAY_ALLOW_DEV_AUTH=true`, и использует заголовок `x-telegram-id`.
+
 ## Тестирование
 
 Все основные сценарии покрыты Vitest (диалог, магазин, подписки, квоты, CRUD персонажей).
@@ -61,7 +69,10 @@ pnpm test
 
 ## Переменные окружения
 
-- `TELEGRAM_BOT_TOKEN` — токен бота (обязателен для `pnpm dev:bot`).
+- `TELEGRAM_BOT_TOKEN` — токен бота (обязателен для `pnpm dev:bot`, также может использоваться для проверки initData).
+- `TELEGRAM_WEBAPP_SECRET` — опциональный secret key для проверки initData (если задан, токен не требуется).
+- `TELEGRAM_INITDATA_MAX_AGE` — TTL `initData` в секундах (по умолчанию 86400).
+- `GATEWAY_ALLOW_DEV_AUTH` — разрешить DEV-ветку авторизации (по умолчанию включена, кроме production).
 
 Прочие настройки (лимиты, цены) зашиты в `packages/shared/src/config.ts`, при необходимости их можно изменить перед запуском.
 
