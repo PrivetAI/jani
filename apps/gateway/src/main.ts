@@ -7,6 +7,7 @@ import { getDatabase } from '@jani/db';
 import { PackType, SubscriptionTier } from '@jani/shared';
 import { OrchestratorService } from '../../orchestrator/src/service';
 import { BillingService } from '../../billing/src/service';
+import type { InvoiceResult } from '../../billing/src/service';
 import { ShopService } from '../../shop/src/service';
 
 const fastify = Fastify({ logger: true });
@@ -112,28 +113,51 @@ fastify.post('/api/payments/invoice', async (request, reply) => {
   if (!request.user) {
     return reply.code(401).send({ message: 'Unauthorized' });
   }
-  const body = request.body as { item: 'subscription' | 'story' | 'memory' | 'creator'; tier?: SubscriptionTier };
-  let invoice;
+  const body = request.body as {
+    item: 'subscription' | 'story' | 'memory' | 'creator';
+    tier?: SubscriptionTier;
+    delivery?: 'link' | 'send';
+  };
+  const delivery = body.delivery === 'send' ? 'send' : 'link';
+  let invoiceResult: InvoiceResult | undefined;
   switch (body.item) {
     case 'subscription':
       if (!body.tier || body.tier === SubscriptionTier.Free) {
         return reply.code(400).send({ message: 'tier required' });
       }
-      invoice = billing.createSubscriptionInvoice(request.user.id, body.tier);
+      invoiceResult = await billing.createSubscriptionInvoice(request.user.id, body.tier, { createLink: true });
       break;
     case 'story':
-      invoice = billing.createPackInvoice(request.user.id, PackType.Story);
+      invoiceResult = await billing.createPackInvoice(request.user.id, PackType.Story, { createLink: true });
       break;
     case 'memory':
-      invoice = billing.createPackInvoice(request.user.id, PackType.Memory);
+      invoiceResult = await billing.createPackInvoice(request.user.id, PackType.Memory, { createLink: true });
       break;
     case 'creator':
-      invoice = billing.createPackInvoice(request.user.id, PackType.Creator);
+      invoiceResult = await billing.createPackInvoice(request.user.id, PackType.Creator, { createLink: true });
       break;
     default:
       return reply.code(400).send({ message: 'Invalid item' });
   }
-  return reply.send({ invoice_id: invoice.invoiceId, mock: invoice.mock, total: invoice.total });
+  if (!invoiceResult) {
+    return reply.code(500).send({ message: 'Invoice creation failed' });
+  }
+  if (delivery === 'send') {
+    return reply.send({
+      invoice_id: invoiceResult.invoiceId,
+      send_invoice: invoiceResult.sendInvoicePayload,
+      total: invoiceResult.total,
+      currency: invoiceResult.currency,
+      description: invoiceResult.description,
+    });
+  }
+  return reply.send({
+    invoice_id: invoiceResult.invoiceId,
+    payment_url: invoiceResult.paymentUrl,
+    total: invoiceResult.total,
+    currency: invoiceResult.currency,
+    description: invoiceResult.description,
+  });
 });
 
 fastify.get('/api/shop/items', async (request, reply) => {

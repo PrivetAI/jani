@@ -119,6 +119,7 @@ export interface Payment {
   type: PaymentType;
   xtrAmount: number;
   tgChargeId?: string | null;
+  quantity?: number | null;
   status: PaymentStatus;
   createdAt: Date;
   item?: string;

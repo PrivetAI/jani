@@ -37,7 +37,13 @@ export class ShopService {
     const price = item.prices[0];
     const discount = price.tierDiscount?.[tier] ?? 0;
     const total = Math.round(price.xtrAmount * quantity * (1 - discount / 100));
-    const payment = this.db.recordPayment({ userId, type: PaymentType.OneOff, xtrAmount: total, item: item.slug });
+    const payment = this.db.recordPayment({
+      userId,
+      type: PaymentType.OneOff,
+      xtrAmount: total,
+      item: item.slug,
+      quantity,
+    });
     this.db.adjustInventory({ userId, itemId: item.id, qty: quantity });
     return {
       paymentId: payment.id,

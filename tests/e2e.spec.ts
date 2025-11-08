@@ -1,9 +1,31 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryDatabase } from '@jani/db';
 import { defaultConfig, SubscriptionTier } from '@jani/shared';
 import { OrchestratorService } from '../apps/orchestrator/src/service';
 import { ShopService } from '../apps/shop/src/service';
 import { BillingService } from '../apps/billing/src/service';
+
+let fetchMock: ReturnType<typeof vi.fn>;
+const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+
+beforeEach(() => {
+  process.env.TELEGRAM_BOT_TOKEN = 'test-bot-token';
+  fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ ok: true, result: 'https://t.me/invoice/mock-link' }),
+  });
+  vi.stubGlobal('fetch', fetchMock);
+});
+
+afterEach(() => {
+  if (typeof originalToken === 'undefined') {
+    delete process.env.TELEGRAM_BOT_TOKEN;
+  } else {
+    process.env.TELEGRAM_BOT_TOKEN = originalToken;
+  }
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 const createServices = () => {
   const db = new InMemoryDatabase(defaultConfig);
@@ -14,7 +36,7 @@ const createServices = () => {
 };
 
 describe('end-to-end flows', () => {
-  it('creates dialog, handles message, offers item, and upgrades subscription', async () => {
+  it('creates dialog, handles message, offers item, and processes payments', async () => {
     const { db, orchestrator, shop, billing } = createServices();
     const user = db.ensureUser('1001', 'ru');
     const character = db.getCharacters()[0];
@@ -26,14 +48,36 @@ describe('end-to-end flows', () => {
     const quota = db.getQuotaToday(user.id);
     expect(quota.messagesUsed).toBe(1);
 
-    const checkout = shop.checkout(user.id, 'plot-key-asylum13', 1);
-    expect(checkout.total).toBeGreaterThan(0);
+    const itemInvoice = await billing.createItemInvoice(user.id, 'plot-key-asylum13', 1);
+    expect(itemInvoice.paymentUrl).toContain('https://t.me/invoice/mock-link');
+    expect(billing.verifyPreCheckoutQuery(itemInvoice.invoiceId, itemInvoice.total)).toBe(true);
+
+    const itemPayment = await billing.handleSuccessfulPayment({
+      payload: itemInvoice.invoiceId,
+      telegramPaymentChargeId: 'charge-item-1',
+      totalAmount: itemInvoice.total,
+      currency: itemInvoice.currency,
+    });
+    expect(itemPayment?.payment.tgChargeId).toBe('charge-item-1');
+    expect(itemPayment?.fulfillment.kind).toBe('inventory');
+    expect(billing.verifyPreCheckoutQuery(itemInvoice.invoiceId, itemInvoice.total)).toBe(false);
 
     const consume = shop.consume(user.id, dialog.id, 'plot-key-asylum13');
     expect(consume.inventory.qty).toBeGreaterThanOrEqual(0);
 
-    const invoice = billing.createSubscriptionInvoice(user.id, SubscriptionTier.Plus);
-    expect(invoice.total).toBeGreaterThan(0);
+    const subscriptionInvoice = await billing.createSubscriptionInvoice(user.id, SubscriptionTier.Plus);
+    expect(subscriptionInvoice.paymentUrl).toContain('https://t.me/invoice/mock-link');
+    expect(subscriptionInvoice.total).toBeGreaterThan(0);
+    expect(billing.verifyPreCheckoutQuery(subscriptionInvoice.invoiceId, subscriptionInvoice.total)).toBe(true);
+
+    const subscriptionPayment = await billing.handleSuccessfulPayment({
+      payload: subscriptionInvoice.invoiceId,
+      telegramPaymentChargeId: 'charge-sub-1',
+      totalAmount: subscriptionInvoice.total,
+      currency: subscriptionInvoice.currency,
+    });
+    expect(subscriptionPayment?.payment.tgChargeId).toBe('charge-sub-1');
+    expect(subscriptionPayment?.fulfillment.kind).toBe('subscription');
     expect(db.getSubscriptionTier(user.id)).toBe(SubscriptionTier.Plus);
 
     const next = await orchestrator.handleMessage({ dialogId: dialog.id, userId: user.id, text: 'Продолжаем расследование.' });
@@ -41,6 +85,21 @@ describe('end-to-end flows', () => {
 
     const memories = db.retrieveMemories(user.id, character.id, 5);
     expect(memories.length).toBeGreaterThan(0);
+
+    if (subscriptionPayment) {
+      billing.refundPayment(subscriptionPayment.payment.id);
+    }
+    expect(db.getSubscriptionTier(user.id)).toBe(SubscriptionTier.Free);
+
+    if (itemPayment) {
+      billing.refundPayment(itemPayment.payment.id);
+    }
+    const itemRecord = db
+      .getUserById(user.id)
+      ?.inventory.find((inv) => inv.itemId === db.getItemBySlug('plot-key-asylum13')?.id);
+    expect(itemRecord?.qty ?? 0).toBe(0);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('enforces quota for free tier users', async () => {

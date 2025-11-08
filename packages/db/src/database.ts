@@ -45,6 +45,21 @@ type ItemSeed = Omit<Item, 'prices' | 'createdAt'> & {
   prices: Array<Omit<ItemPrice, 'createdAt'> & { createdAt: string }>;
 };
 
+export interface PendingInvoiceRecord {
+  payload: string;
+  userId: string;
+  kind: 'subscription' | 'pack' | 'inventory';
+  tier?: SubscriptionTier;
+  pack?: PackType;
+  itemSlug?: string;
+  quantity?: number;
+  dialogId?: string;
+  total: number;
+  currency: string;
+  description: string;
+  createdAt: Date;
+}
+
 export interface DialogCreationInput {
   userId: string;
   characterId: string;
@@ -80,6 +95,7 @@ export interface PaymentRecordInput {
   item?: string;
   tier?: SubscriptionTier;
   tgChargeId?: string;
+  quantity?: number;
 }
 
 export interface MemoryRecord {
@@ -112,6 +128,7 @@ export class InMemoryDatabase {
   private readonly items: Item[];
   private readonly users = new Map<string, UserInternal>();
   private readonly dialogs = new Map<string, Dialog>();
+  private readonly pendingInvoices = new Map<string, PendingInvoiceRecord>();
 
   constructor(config: Config) {
     this.config = config;
@@ -313,6 +330,22 @@ export class InMemoryDatabase {
     return inventory;
   }
 
+  public savePendingInvoice(record: PendingInvoiceRecord): void {
+    this.pendingInvoices.set(record.payload, record);
+  }
+
+  public getPendingInvoice(payload: string): PendingInvoiceRecord | undefined {
+    return this.pendingInvoices.get(payload);
+  }
+
+  public deletePendingInvoice(payload: string): void {
+    this.pendingInvoices.delete(payload);
+  }
+
+  public listPendingInvoices(): PendingInvoiceRecord[] {
+    return Array.from(this.pendingInvoices.values());
+  }
+
   public consumeInventory(userId: string, itemId: string): Inventory {
     const inventory = this.adjustInventory({ userId, itemId, qty: -1 });
     return inventory;
@@ -438,6 +471,7 @@ export class InMemoryDatabase {
       tier: input.tier,
       status: PaymentStatus.Paid,
       tgChargeId: input.tgChargeId ?? null,
+      quantity: input.quantity ?? null,
       createdAt: new Date(),
     };
     user.payments.push(payment);
