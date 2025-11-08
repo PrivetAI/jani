@@ -1,0 +1,6 @@
+{
+  "name": "@jani/pwa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module"
+}

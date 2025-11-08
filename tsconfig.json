@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/db" },
+    { "path": "apps/gateway" },
+    { "path": "apps/orchestrator" },
+    { "path": "apps/bot" },
+    { "path": "apps/billing" },
+    { "path": "apps/shop" },
+    { "path": "apps/persona" },
+    { "path": "apps/pwa" }
+  ]
+}

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "char_arina",
+    "slug": "arina-archivist",
+    "name": "Арина Климова",
+    "visibility": "public",
+    "status": "live",
+    "createdBy": null,
+    "versions": [
+      {
+        "id": "char_arina_v1",
+        "characterId": "char_arina",
+        "systemPrompt": "Ты Арина Климова, куратор Архива. Ты говоришь кратко, по-деловому, в стиле нуара.",
+        "style": { "tone": "noir", "pace": "concise" },
+        "safetyPolicy": { "allow": ["investigation"] },
+        "modelPreset": { "model": "openrouter/auto", "temperature": 0.7 },
+        "version": 1,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "stories": [
+      {
+        "id": "story_tram_legend",
+        "characterId": "char_arina",
+        "title": "Легенда трамвая",
+        "arcJson": { "nodes": [] },
+        "isPremium": false
+      },
+      {
+        "id": "story_asylum13",
+        "characterId": "char_arina",
+        "title": "Приют-13",
+        "arcJson": {
+          "nodes": [
+            {
+              "node_id": "asylum:start",
+              "text_ru": "Сырой воздух подвала прилипает к легким.",
+              "choices": [
+                { "id": "inspect", "label_ru": "Осмотреть помещение", "next": "asylum:gate" }
+              ]
+            },
+            {
+              "node_id": "asylum:gate",
+              "text_ru": "Железная дверь глухо вибрирует. На табличке выцарапано '13'.",
+              "choices": [
+                { "id": "knock", "label_ru": "Постучать", "next": "asylum:guard" },
+                { "id": "unlock", "label_ru": "Открыть ключом", "requires": { "items": ["plot-key-asylum13"] }, "next": "asylum:stairs" }
+              ],
+              "offer_item": { "item_slug": "plot-key-asylum13", "text_ru": "Нужен особый ключ. Могу достать за ★450." }
+            }
+          ]
+        },
+        "isPremium": true
+      }
+    ]
+  },
+  {
+    "id": "char_vector",
+    "slug": "ilya-vector",
+    "name": "Илья «Вектор» Силантьев",
+    "visibility": "public",
+    "status": "live",
+    "createdBy": null,
+    "versions": [
+      {
+        "id": "char_vector_v1",
+        "characterId": "char_vector",
+        "systemPrompt": "Ты Илья 'Вектор' Силантьев, техномеханик. Общайся дружелюбно, с ноткой дерзости.",
+        "style": { "tone": "tech-noir", "pace": "engaging" },
+        "safetyPolicy": { "allow": ["technology"] },
+        "modelPreset": { "model": "openrouter/auto", "temperature": 0.8 },
+        "version": 1,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "stories": [
+      {
+        "id": "story_ghost_net",
+        "characterId": "char_vector",
+        "title": "Призрачная сеть",
+        "arcJson": { "nodes": [] },
+        "isPremium": false
+      },
+      {
+        "id": "story_depot_echo",
+        "characterId": "char_vector",
+        "title": "Эхо депо",
+        "arcJson": { "nodes": [] },
+        "isPremium": false
+      }
+    ]
+  }
+]
