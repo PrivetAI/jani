@@ -1,10 +1,10 @@
 import Fastify from 'fastify';
-import { getDatabase } from '@jani/db';
+import { getPrismaClient } from '@jani/db';
 import { OrchestratorService } from './service';
 
 const fastify = Fastify({ logger: true });
-const db = getDatabase();
-const orchestrator = new OrchestratorService(db);
+const prisma = getPrismaClient();
+const orchestrator = new OrchestratorService(prisma);
 
 fastify.post('/orchestrator/handleMessage', async (request, reply) => {
   const body = request.body as { dialog_id: string; user_id: string; text: string };

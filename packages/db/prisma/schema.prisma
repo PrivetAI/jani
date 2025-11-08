@@ -1,0 +1,290 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "vector"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("PG_DSN")
+  extensions = [
+    { name = "vector" }
+  ]
+}
+
+enum CharacterVisibility {
+  public
+  premium
+  creator
+}
+
+enum CharacterStatus {
+  draft
+  live
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+enum DialogStatus {
+  open
+  closed
+}
+
+enum SubscriptionTier {
+  Free
+  Plus
+  Pro
+  Ultra
+}
+
+enum SubscriptionStatus {
+  active
+  canceled
+  past_due
+}
+
+enum PackType {
+  Story
+  Memory
+  Creator
+}
+
+enum PaymentType {
+  oneoff
+  subscription
+}
+
+enum PaymentStatus {
+  paid
+  refunded
+  failed
+}
+
+enum QuotaWindow {
+  daily
+  rolling24h
+}
+
+enum ItemCategory {
+  consumable
+  key
+  booster
+  cosmetic
+  utility
+}
+
+enum ItemRarity {
+  common
+  rare
+  epic
+  legendary
+}
+
+model User {
+  id             String           @id @default(cuid())
+  tgId           String           @unique
+  locale         String?
+  createdAt      DateTime         @default(now())
+  dialogs        Dialog[]
+  quotas         Quota[]
+  subscriptions  Subscription[]
+  entitlements   Entitlement[]
+  payments       Payment[]
+  inventory      Inventory[]
+  activeEffects  ActiveEffect[]
+  memories       MemoryEpisodic[]
+}
+
+model Character {
+  id         String             @id @default(cuid())
+  slug       String             @unique
+  name       String
+  visibility CharacterVisibility
+  status     CharacterStatus
+  createdBy  String?
+  createdAt  DateTime           @default(now())
+  versions   CharacterVersion[]
+  stories    Story[]
+  dialogs    Dialog[]
+  memories   MemoryEpisodic[]
+}
+
+model CharacterVersion {
+  id            String    @id @default(cuid())
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterId   String
+  systemPrompt  String
+  style         Json
+  safetyPolicy  Json
+  modelPreset   Json
+  version       Int
+  isActive      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([characterId, isActive])
+}
+
+model Story {
+  id          String    @id @default(cuid())
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterId String
+  title       String
+  arcJson     Json
+  isPremium   Boolean   @default(false)
+  dialogs     Dialog[]
+}
+
+model Dialog {
+  id            String       @id @default(cuid())
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  character     Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterId   String
+  story         Story?       @relation(fields: [storyId], references: [id])
+  storyId       String?
+  status        DialogStatus @default(open)
+  summary       String?
+  modelOverride Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  messages      Message[]
+  activeEffects ActiveEffect[]
+
+  @@index([userId])
+  @@index([characterId])
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  dialog    Dialog      @relation(fields: [dialogId], references: [id], onDelete: Cascade)
+  dialogId  String
+  role      MessageRole
+  content   String
+  tokensIn  Int?
+  tokensOut Int?
+  createdAt DateTime    @default(now())
+
+  @@index([dialogId, createdAt])
+}
+
+model MemoryEpisodic {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterId String
+  embedding   Unsupported("vector")
+  text        String
+  createdAt   DateTime   @default(now())
+
+  @@index([userId, characterId, createdAt])
+}
+
+model Subscription {
+  id         String             @id @default(cuid())
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  tier       SubscriptionTier
+  startedAt  DateTime
+  renewsAt   DateTime
+  status     SubscriptionStatus @default(active)
+
+  @@index([userId, status])
+}
+
+model Entitlement {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  pack      PackType
+  meta      Json?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, pack])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  type       PaymentType
+  xtrAmount  Int
+  item       String?
+  tier       SubscriptionTier?
+  tgChargeId String?
+  status     PaymentStatus @default(paid)
+  createdAt  DateTime       @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Quota {
+  id           String      @id @default(cuid())
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  windowStart  DateTime
+  messagesUsed Int         @default(0)
+  windowType   QuotaWindow
+
+  @@unique([userId, windowStart, windowType])
+}
+
+model Item {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  titleRu       String
+  descriptionRu String
+  category      ItemCategory
+  effect        Json
+  rarity        ItemRarity
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  prices        ItemPrice[]
+  inventory     Inventory[]
+  activeEffects ActiveEffect[]
+}
+
+model ItemPrice {
+  id           String   @id @default(cuid())
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId       String
+  variant      String?
+  xtrAmount    Int
+  tierDiscount Json
+  createdAt    DateTime @default(now())
+}
+
+model Inventory {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId     String
+  qty        Int      @default(0)
+  expiresAt  DateTime?
+  meta       Json?
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, itemId])
+}
+
+model ActiveEffect {
+  id                String   @id @default(cuid())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  dialog            Dialog?  @relation(fields: [dialogId], references: [id], onDelete: Cascade)
+  dialogId          String?
+  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId            String
+  effect            Json
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+  remainingMessages Int?
+
+  @@index([userId])
+  @@index([dialogId])
+}

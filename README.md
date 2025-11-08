@@ -15,7 +15,7 @@ apps/
   pwa/            # React/Vite PWA для локальной отладки
 packages/
   shared/         # Общие типы, перечисления, конфиг
-  db/             # InMemoryDatabase + сиды персонажей/предметов
+  db/             # Prisma Client, схема и сиды персонажей/предметов
 ```
 
 ## Быстрый старт
@@ -24,7 +24,7 @@ packages/
    ```bash
    pnpm install
    ```
-2. Запустите нужные сервисы в отдельных окнах (все используют общий InMemoryDatabase):
+2. Запустите нужные сервисы в отдельных окнах (все используют общий PostgreSQL через Prisma):
    ```bash
    pnpm dev:gateway
    pnpm dev:bot            # требует TELEGRAM_BOT_TOKEN
@@ -67,6 +67,5 @@ pnpm test
 
 ## Ограничения прототипа
 
-- Все сервисы используют общий InMemoryDatabase вместо PostgreSQL/Prisma.
 - Оплата Stars и pgvector эмулируются.
 - SSE и реальный OpenRouter не подключены — ответы ассистента генерируются программно, но сохраняют структуру действий.

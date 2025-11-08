@@ -1,11 +1,21 @@
-import { defaultConfig } from '@jani/shared';
-import { InMemoryDatabase } from './database';
+import { PrismaClient } from '@prisma/client';
 
-let instance: InMemoryDatabase | null = null;
+let instance: PrismaClient | null = null;
 
-export const getDatabase = (): InMemoryDatabase => {
+export type DatabaseClient = PrismaClient;
+
+export const getPrismaClient = (): PrismaClient => {
   if (!instance) {
-    instance = new InMemoryDatabase(defaultConfig);
+    const url = process.env.PG_DSN;
+    instance = new PrismaClient({
+      datasources: url
+        ? {
+            db: {
+              url,
+            },
+          }
+        : undefined,
+    });
   }
   return instance;
 };
