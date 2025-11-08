@@ -13,7 +13,11 @@
     "dev:billing": "tsx apps/billing/src/server.ts",
     "dev:shop": "tsx apps/shop/src/server.ts",
     "dev:pwa": "vite --config apps/pwa/vite.config.ts --host",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "db:generate": "pnpm --filter @jani/db generate",
+    "db:migrate": "pnpm --filter @jani/db migrate:deploy",
+    "db:migrate:dev": "pnpm --filter @jani/db migrate:dev",
+    "db:seed": "pnpm --filter @jani/db db:seed"
   },
   "workspaces": [
     "apps/*",

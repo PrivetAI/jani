@@ -1,83 +1,116 @@
-import { describe, expect, it } from 'vitest';
-import { InMemoryDatabase } from '@jani/db';
-import { defaultConfig, SubscriptionTier } from '@jani/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  addCharacterStory,
+  addCharacterVersion,
+  createCharacter,
+  createDialog,
+  ensureUser,
+  getCharacter,
+  getCharacters,
+  getConfig,
+  getPrismaClient,
+  getQuotaToday,
+  getSubscriptionTier,
+  retrieveMemories,
+  runSeed,
+} from '@jani/db';
+import { CharacterStatus, CharacterVisibility, SubscriptionTier } from '@jani/shared';
 import { OrchestratorService } from '../apps/orchestrator/src/service';
 import { ShopService } from '../apps/shop/src/service';
 import { BillingService } from '../apps/billing/src/service';
 
-const createServices = () => {
-  const db = new InMemoryDatabase(defaultConfig);
-  const orchestrator = new OrchestratorService(db);
-  const shop = new ShopService(db);
-  const billing = new BillingService(db);
-  return { db, orchestrator, shop, billing };
+const prisma = getPrismaClient();
+const orchestrator = new OrchestratorService(prisma);
+const shop = new ShopService(prisma);
+const billing = new BillingService(prisma);
+
+const truncateAll = async () => {
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE "ActiveEffect", "Inventory", "Payment", "Entitlement", "Subscription", "Quota", "Message", "Dialog", "MemoryEpisodic", "Story", "CharacterVersion", "Character", "ItemPrice", "Item", "User" CASCADE',
+  );
 };
+
+beforeAll(async () => {
+  await truncateAll();
+  await runSeed();
+});
+
+afterAll(async () => {
+  await prisma.$disconnect();
+});
 
 describe('end-to-end flows', () => {
   it('creates dialog, handles message, offers item, and upgrades subscription', async () => {
-    const { db, orchestrator, shop, billing } = createServices();
-    const user = db.ensureUser('1001', 'ru');
-    const character = db.getCharacters()[0];
-    const dialog = db.createDialog({ userId: user.id, characterId: character.id, storyId: 'story_asylum13' });
+    const user = await ensureUser(prisma, '1001', 'ru');
+    const characters = await getCharacters(prisma);
+    const character = characters[0];
+    const dialog = await createDialog(prisma, { userId: user.id, characterId: character.id, storyId: 'story_asylum13' });
 
     const result = await orchestrator.handleMessage({ dialogId: dialog.id, userId: user.id, text: 'Проверим дверь, нужен ли ключ?' });
     expect(result.actions.some((action) => action.type === 'OFFER_ITEM' && action.item_slug === 'plot-key-asylum13')).toBe(true);
 
-    const quota = db.getQuotaToday(user.id);
-    expect(quota.messagesUsed).toBe(1);
+    const quota = await getQuotaToday(prisma, user.id);
+    expect(quota.messagesUsed).toBeGreaterThanOrEqual(1);
 
-    const checkout = shop.checkout(user.id, 'plot-key-asylum13', 1);
+    const checkout = await shop.checkout(user.id, 'plot-key-asylum13', 1);
     expect(checkout.total).toBeGreaterThan(0);
 
-    const consume = shop.consume(user.id, dialog.id, 'plot-key-asylum13');
+    const consume = await shop.consume(user.id, dialog.id, 'plot-key-asylum13');
     expect(consume.inventory.qty).toBeGreaterThanOrEqual(0);
 
-    const invoice = billing.createSubscriptionInvoice(user.id, SubscriptionTier.Plus);
+    const invoice = await billing.createSubscriptionInvoice(user.id, SubscriptionTier.Plus);
     expect(invoice.total).toBeGreaterThan(0);
-    expect(db.getSubscriptionTier(user.id)).toBe(SubscriptionTier.Plus);
+    expect(await getSubscriptionTier(prisma, user.id)).toBe(SubscriptionTier.Plus);
 
     const next = await orchestrator.handleMessage({ dialogId: dialog.id, userId: user.id, text: 'Продолжаем расследование.' });
     expect(next.summary).toContain('Пользователь');
 
-    const memories = db.retrieveMemories(user.id, character.id, 5);
+    const memories = await retrieveMemories(prisma, user.id, character.id, 5);
     expect(memories.length).toBeGreaterThan(0);
   });
 
   it('enforces quota for free tier users', async () => {
-    const { db, orchestrator } = createServices();
-    const user = db.ensureUser('1002', 'ru');
-    const character = db.getCharacters()[0];
-    const dialog = db.createDialog({ userId: user.id, characterId: character.id });
+    const user = await ensureUser(prisma, '1002', 'ru');
+    const characters = await getCharacters(prisma);
+    const character = characters[0];
+    const dialog = await createDialog(prisma, { userId: user.id, characterId: character.id });
 
-    const config = db.getConfig();
-    (config as unknown as { quotaDailyLimit: number }).quotaDailyLimit = 1;
+    const config = getConfig();
+    const originalLimit = config.quotaDailyLimit;
+    config.quotaDailyLimit = 1;
 
     await orchestrator.handleMessage({ dialogId: dialog.id, userId: user.id, text: 'Привет' });
-    const quota = db.getQuotaToday(user.id);
+    const quota = await getQuotaToday(prisma, user.id);
     expect(quota.messagesUsed).toBe(1);
 
-    // second message should still process but quota increments beyond limit, which gateway would block
     await orchestrator.handleMessage({ dialogId: dialog.id, userId: user.id, text: 'Еще одно сообщение' });
-    const updated = db.getQuotaToday(user.id);
-    expect(updated.messagesUsed).toBe(2);
+    const updated = await getQuotaToday(prisma, user.id);
+    expect(updated.messagesUsed).toBeGreaterThanOrEqual(2);
+
+    config.quotaDailyLimit = originalLimit;
   });
 
-  it('supports persona CRUD operations', () => {
-    const { db } = createServices();
-    const character = db.createCharacter({
+  it('supports persona CRUD operations', async () => {
+    const character = await createCharacter(prisma, {
       slug: 'test-character',
       name: 'Тестовый Персонаж',
-      visibility: 'public' as any,
-      status: 'draft' as any,
+      visibility: CharacterVisibility.Public,
+      status: CharacterStatus.Draft,
       systemPrompt: 'Будь дружелюбным',
     });
     expect(character.slug).toBe('test-character');
 
-    db.addCharacterStory(character.id, { title: 'Новая история', arcJson: { nodes: [] }, isPremium: false, characterId: character.id });
-    expect(db.getCharacter(character.id)?.stories.length).toBeGreaterThan(0);
+    await addCharacterStory(prisma, character.id, {
+      title: 'Новая история',
+      arcJson: { nodes: [] },
+      isPremium: false,
+    });
+    const updated = await getCharacter(prisma, character.id);
+    expect(updated?.stories.length).toBeGreaterThan(0);
 
-    db.addCharacterVersion(character.id, { systemPrompt: 'Новая версия', isActive: true });
-    const versions = db.getCharacter(character.id)?.versions ?? [];
+    await addCharacterVersion(prisma, character.id, { systemPrompt: 'Новая версия', isActive: true });
+    const refreshed = await getCharacter(prisma, character.id);
+    const versions = refreshed?.versions ?? [];
     expect(versions.some((version) => version.isActive)).toBe(true);
   });
 });

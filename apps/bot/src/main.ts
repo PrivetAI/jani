@@ -1,9 +1,18 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { run } from '@grammyjs/runner';
-import { getDatabase } from '@jani/db';
+import {
+  createDialog,
+  ensureUser,
+  getCharacters,
+  getConfig,
+  getPrismaClient,
+  getQuotaToday,
+  getSubscriptionTier,
+} from '@jani/db';
 import { OrchestratorService } from '../../orchestrator/src/service';
 import { ShopService } from '../../shop/src/service';
-import { DialogStatus, SubscriptionTier } from '@jani/shared';
+import { DialogStatus } from '@prisma/client';
+import { SubscriptionTier } from '@jani/shared';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -12,20 +21,28 @@ if (!token) {
   process.exit(1);
 }
 
-const db = getDatabase();
-const orchestrator = new OrchestratorService(db);
-const shop = new ShopService(db);
+const prisma = getPrismaClient();
+const orchestrator = new OrchestratorService(prisma);
+const shop = new ShopService(prisma);
+const config = getConfig();
 
 const bot = new Bot(token);
 
-const ensureDialog = (userId: string) => {
-  const user = db.getUserById(userId);
-  const existing = user?.dialogs.find((dialog) => dialog.status === DialogStatus.Open);
+const ensureDialog = async (userId: string) => {
+  const existing = await prisma.dialog.findFirst({
+    where: { userId, status: DialogStatus.open },
+    orderBy: { createdAt: 'desc' },
+  });
   if (existing) {
     return existing;
   }
-  const defaultCharacter = db.getCharacters().find((char) => char.slug === 'arina-archivist') ?? db.getCharacters()[0];
-  return db.createDialog({ userId, characterId: defaultCharacter.id, storyId: defaultCharacter.stories[0]?.id });
+  const characters = await getCharacters(prisma);
+  const defaultCharacter = characters.find((char) => char.slug === 'arina-archivist') ?? characters[0];
+  if (!defaultCharacter) {
+    throw new Error('No characters available');
+  }
+  const storyId = defaultCharacter.stories[0]?.id;
+  return createDialog(prisma, { userId, characterId: defaultCharacter.id, storyId });
 };
 
 bot.command('start', async (ctx) => {
@@ -37,11 +54,11 @@ bot.on('message:text', async (ctx) => {
   if (!from) {
     return;
   }
-  const user = db.ensureUser(from.id.toString(), from.language_code);
-  const dialog = ensureDialog(user.id);
-  const quota = db.getQuotaToday(user.id);
-  const limit = db.getConfig().quotaDailyLimit;
-  const tier = db.getSubscriptionTier(user.id);
+  const user = await ensureUser(prisma, from.id.toString(), from.language_code);
+  const dialog = await ensureDialog(user.id);
+  const quota = await getQuotaToday(prisma, user.id);
+  const limit = config.quotaDailyLimit;
+  const tier = await getSubscriptionTier(prisma, user.id);
   if (tier === SubscriptionTier.Free && quota.messagesUsed >= limit) {
     await ctx.reply('Лимит: Дневной лимит сообщений исчерпан. Оформить подписку, чтобы снять ограничения?');
     return;
@@ -68,8 +85,8 @@ bot.on('callback_query:data', async (ctx) => {
     await ctx.answerCallbackQuery({ text: 'Ошибка' });
     return;
   }
-  const user = db.ensureUser(from.id.toString(), from.language_code);
-  shop.checkout(user.id, itemSlug, 1);
+  const user = await ensureUser(prisma, from.id.toString(), from.language_code);
+  await shop.checkout(user.id, itemSlug, 1);
   await ctx.answerCallbackQuery({ text: 'Оплачено' });
   await ctx.reply('Готово! 🔑 Ключ добавлен в инвентарь. Продолжаем.');
   const result = await orchestrator.handleMessage({ dialogId, userId: user.id, text: 'Предмет куплен, продолжаем.' });

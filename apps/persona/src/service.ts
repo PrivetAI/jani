@@ -1,17 +1,30 @@
-import { getDatabase } from '@jani/db';
+import { PrismaClient } from '@prisma/client';
+import {
+  addCharacterStory,
+  addCharacterVersion,
+  createCharacter,
+  getCharacter,
+  getCharacters,
+  getPrismaClient,
+  updateCharacter,
+} from '@jani/db';
 import {
   CharacterStatus,
   CharacterVisibility,
 } from '@jani/shared';
 
 export class PersonaService {
-  private readonly db = getDatabase();
+  private readonly prisma: PrismaClient;
 
-  public list() {
-    return this.db.getCharacters();
+  constructor(prisma?: PrismaClient) {
+    this.prisma = prisma ?? getPrismaClient();
   }
 
-  public create(input: {
+  public async list() {
+    return getCharacters(this.prisma);
+  }
+
+  public async create(input: {
     slug: string;
     name: string;
     visibility: CharacterVisibility;
@@ -19,19 +32,19 @@ export class PersonaService {
     systemPrompt: string;
     createdBy?: string | null;
   }) {
-    return this.db.createCharacter(input);
+    return createCharacter(this.prisma, input);
   }
 
-  public update(id: string, patch: Partial<{ name: string; visibility: CharacterVisibility; status: CharacterStatus }>) {
-    return this.db.updateCharacter(id, patch);
+  public async update(id: string, patch: Partial<{ name: string; visibility: CharacterVisibility; status: CharacterStatus }>) {
+    return updateCharacter(this.prisma, id, patch);
   }
 
-  public addStory(characterId: string, story: { title: string; arcJson: Record<string, unknown>; isPremium: boolean }) {
-    return this.db.addCharacterStory(characterId, { ...story, characterId });
+  public async addStory(characterId: string, story: { title: string; arcJson: Record<string, unknown>; isPremium: boolean }) {
+    return addCharacterStory(this.prisma, characterId, story);
   }
 
-  public addVersion(characterId: string, version: { systemPrompt: string; isActive?: boolean }) {
-    this.db.addCharacterVersion(characterId, version);
-    return this.db.getCharacter(characterId);
+  public async addVersion(characterId: string, version: { systemPrompt: string; isActive?: boolean }) {
+    await addCharacterVersion(this.prisma, characterId, version);
+    return getCharacter(this.prisma, characterId);
   }
 }

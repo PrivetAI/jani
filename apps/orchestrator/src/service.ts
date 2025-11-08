@@ -1,16 +1,29 @@
-import { InMemoryDatabase } from '@jani/db';
+import { PrismaClient, DialogStatus, MessageRole, SubscriptionTier } from '@prisma/client';
+import {
+  applyActions,
+  appendMessage,
+  decrementEffectMessages,
+  getCharacter,
+  getDialog,
+  getPrismaClient,
+  getSubscriptionTier,
+  incrementQuota,
+  listActiveEffects,
+  retrieveMemories,
+  storeMemory,
+  updateSummary,
+} from '@jani/db';
 import {
   ActionEnvelopeAction,
   Character,
   Dialog,
-  MessageRole,
+  Message,
   OrchestratorHandleMessageInput,
   OrchestratorHandleMessageResult,
-  SubscriptionTier,
 } from '@jani/shared';
 
 interface ComposeContext {
-  dialog: Dialog;
+  dialog: Dialog & { messages: Message[] };
   character: Character;
   lastPairs: Array<{ user: string; assistant: string }>;
   summary: string;
@@ -19,7 +32,7 @@ interface ComposeContext {
   tier: SubscriptionTier;
 }
 
-const summariseMessages = (dialog: Dialog): string => {
+const summariseMessages = (dialog: Dialog & { messages: Message[] }): string => {
   const lastMessages = dialog.messages.slice(-8);
   if (!lastMessages.length) {
     return '';
@@ -29,7 +42,7 @@ const summariseMessages = (dialog: Dialog): string => {
     .join(' \n');
 };
 
-const deriveLastPairs = (dialog: Dialog): Array<{ user: string; assistant: string }> => {
+const deriveLastPairs = (dialog: Dialog & { messages: Message[] }): Array<{ user: string; assistant: string }> => {
   const pairs: Array<{ user: string; assistant: string }> = [];
   let current: { user?: string; assistant?: string } = {};
   for (const message of dialog.messages.slice(-8)) {
@@ -99,30 +112,53 @@ const craftResponse = (context: ComposeContext, userText: string): { text: strin
 };
 
 export class OrchestratorService {
-  constructor(private readonly db: InMemoryDatabase) {}
+  private readonly prisma: PrismaClient;
+
+  constructor(prisma?: PrismaClient) {
+    this.prisma = prisma ?? getPrismaClient();
+  }
 
   public async handleMessage(input: OrchestratorHandleMessageInput): Promise<OrchestratorHandleMessageResult> {
-    const dialog = this.db.getDialog(input.dialogId);
-    if (!dialog) {
+    const dialogRecord = await getDialog(this.prisma, input.dialogId);
+    if (!dialogRecord) {
       throw new Error(`Dialog ${input.dialogId} not found`);
     }
-    const character = this.db.getCharacter(dialog.characterId);
-    if (!character) {
-      throw new Error(`Character ${dialog.characterId} not found`);
+    const characterRecord = await getCharacter(this.prisma, dialogRecord.characterId);
+    if (!characterRecord) {
+      throw new Error(`Character ${dialogRecord.characterId} not found`);
     }
-    this.db.incrementQuota(dialog.userId, 1);
-    this.db.appendMessage({ dialogId: dialog.id, role: MessageRole.User, content: input.text });
-    const updatedDialog = this.db.getDialog(dialog.id)!;
-    const summary = summariseMessages(updatedDialog);
-    const lastPairs = deriveLastPairs(updatedDialog);
-    const tier = this.db.getSubscriptionTier(dialog.userId);
-    const effects = this.db.listActiveEffects(dialog.userId, dialog.id).map((effect) => effect.effect);
+
+    await incrementQuota(this.prisma, dialogRecord.userId, 1);
+    await appendMessage(this.prisma, { dialogId: dialogRecord.id, role: MessageRole.User, content: input.text });
+    const updatedDialogRecord = await getDialog(this.prisma, dialogRecord.id);
+    if (!updatedDialogRecord) {
+      throw new Error(`Dialog ${dialogRecord.id} not found after append`);
+    }
+
+    const dialog: Dialog & { messages: Message[] } = {
+      ...(updatedDialogRecord as Dialog),
+      messages: updatedDialogRecord.messages.map((message) => ({
+        id: message.id,
+        dialogId: message.dialogId,
+        role: message.role as MessageRole,
+        content: message.content,
+        tokensIn: message.tokensIn ?? undefined,
+        tokensOut: message.tokensOut ?? undefined,
+        createdAt: message.createdAt,
+      })),
+    } as Dialog & { messages: Message[] };
+
+    const summary = summariseMessages(dialog);
+    const lastPairs = deriveLastPairs(dialog);
+    const tier = await getSubscriptionTier(this.prisma, dialog.userId);
+    const activeEffects = await listActiveEffects(this.prisma, dialog.userId, dialog.id);
+    const effects = activeEffects.map((effect) => effect.effect as Record<string, unknown>);
     const topK = computeMemoryTopK(tier, effects);
-    const memories = topK ? this.db.retrieveMemories(dialog.userId, dialog.characterId, topK) : [];
+    const memories = topK ? await retrieveMemories(this.prisma, dialog.userId, dialog.characterId, topK) : [];
 
     const context: ComposeContext = {
-      dialog: updatedDialog,
-      character,
+      dialog,
+      character: characterRecord as Character,
       lastPairs,
       summary,
       memoryFacts: memories,
@@ -131,13 +167,23 @@ export class OrchestratorService {
     };
     const result = craftResponse(context, input.text);
 
-    this.db.appendMessage({ dialogId: dialog.id, role: MessageRole.Assistant, content: result.text, tokensOut: 120 });
-    this.db.updateSummary(dialog.id, summary);
+    await appendMessage(this.prisma, {
+      dialogId: dialog.id,
+      role: MessageRole.Assistant,
+      content: result.text,
+      tokensOut: 120,
+    });
+    await updateSummary(this.prisma, dialog.id, summary);
     if (summary) {
-      this.db.storeMemory({ userId: dialog.userId, characterId: dialog.characterId, text: summary, embedding: [Math.random(), Math.random()] });
+      await storeMemory(this.prisma, {
+        userId: dialog.userId,
+        characterId: dialog.characterId,
+        text: summary,
+        embedding: [Math.random(), Math.random()],
+      });
     }
     await this.applyEffects(dialog.userId, dialog.id, result.actions);
-    this.db.decrementEffectMessages(dialog.userId, dialog.id);
+    await decrementEffectMessages(this.prisma, dialog.userId, dialog.id);
 
     const tokensOut = 120;
 
@@ -150,18 +196,19 @@ export class OrchestratorService {
   }
 
   public async cancel(dialogId: string): Promise<void> {
-    const dialog = this.db.getDialog(dialogId);
-    if (!dialog) {
-      return;
-    }
-    dialog.status = DialogStatus.Closed;
+    await this.prisma.dialog
+      .update({
+        where: { id: dialogId },
+        data: { status: DialogStatus.closed },
+      })
+      .catch(() => undefined);
   }
 
   public async applyEffects(userId: string, dialogId: string, actions: ActionEnvelopeAction[]): Promise<void> {
-    this.db.applyActions(userId, dialogId, actions);
+    await applyActions(this.prisma, userId, dialogId, actions);
   }
 
   public async storeMemory(userId: string, characterId: string, text: string): Promise<void> {
-    this.db.storeMemory({ userId, characterId, text, embedding: [Math.random(), Math.random()] });
+    await storeMemory(this.prisma, { userId, characterId, text, embedding: [Math.random(), Math.random()] });
   }
 }
