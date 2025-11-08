@@ -1,0 +1,62 @@
+[
+  {
+    "id": "item_memory_crystal",
+    "slug": "memory-crystal",
+    "titleRu": "Кристалл Памяти",
+    "descriptionRu": "Временно усиливает память. +3 факта на 10 сообщений.",
+    "category": "consumable",
+    "effect": { "type": "memory.boost", "topK": 3, "ttl_messages": 10 },
+    "rarity": "rare",
+    "isActive": true,
+    "prices": [
+      {
+        "id": "price_memory_crystal",
+        "itemId": "item_memory_crystal",
+        "xtrAmount": 120,
+        "tierDiscount": { "Plus": 5, "Pro": 10, "Ultra": 15 },
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "item_plot_key_asylum13",
+    "slug": "plot-key-asylum13",
+    "titleRu": "Сюжетный Ключ: «Приют-13»",
+    "descriptionRu": "Открывает двери подвала в деле Приюта-13.",
+    "category": "key",
+    "effect": { "type": "gate.key", "key": "asylum13" },
+    "rarity": "epic",
+    "isActive": true,
+    "prices": [
+      {
+        "id": "price_plot_key_asylum13",
+        "itemId": "item_plot_key_asylum13",
+        "xtrAmount": 450,
+        "tierDiscount": { "Plus": 5, "Pro": 10, "Ultra": 15 },
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "item_fastlane",
+    "slug": "fastlane",
+    "titleRu": "Быстрый Проход",
+    "descriptionRu": "Временный ускоритель ответа (премиум-модель) на 5 сообщений.",
+    "category": "booster",
+    "effect": { "type": "llm.fastlane", "model": "openrouter/auto-premium", "ttl_messages": 5 },
+    "rarity": "rare",
+    "isActive": true,
+    "prices": [
+      {
+        "id": "price_fastlane",
+        "itemId": "item_fastlane",
+        "xtrAmount": 200,
+        "tierDiscount": { "Plus": 5, "Pro": 10, "Ultra": 15 },
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+]
