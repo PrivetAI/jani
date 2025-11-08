@@ -1,18 +1,22 @@
 import Fastify from 'fastify';
 import { getDatabase } from '@jani/db';
 import { OrchestratorService } from './service';
+import { enqueueMessage, registerWorker } from './queue';
 
 const fastify = Fastify({ logger: true });
 const db = getDatabase();
 const orchestrator = new OrchestratorService(db);
+registerWorker(db);
 
 fastify.post('/orchestrator/handleMessage', async (request, reply) => {
   const body = request.body as { dialog_id: string; user_id: string; text: string };
-  const result = await orchestrator.handleMessage({
+  const payload = {
     dialogId: body.dialog_id,
     userId: body.user_id,
     text: body.text,
-  });
+  };
+  const asyncResult = await enqueueMessage(payload);
+  const result = asyncResult ?? (await orchestrator.handleMessage(payload));
   return reply.send({
     user_visible_text: result.userVisibleText,
     actions: result.actions,

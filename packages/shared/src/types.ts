@@ -212,6 +212,7 @@ export type ActionEnvelopeAction = ActionOfferItem | ActionConsumeItem | ActionS
 export interface ActionEnvelope {
   user_visible_text: string;
   actions: ActionEnvelopeAction[];
+  summary?: string | null;
 }
 
 export interface PaginatedResult<T> {

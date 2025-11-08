@@ -214,6 +214,27 @@ export class InMemoryDatabase {
     return message;
   }
 
+  public updateMessage(dialogId: string, messageId: string, patch: Partial<Pick<Message, 'content' | 'tokensOut' | 'tokensIn'>>): Message {
+    const dialog = this.getDialog(dialogId);
+    if (!dialog) {
+      throw new Error(`Dialog ${dialogId} not found`);
+    }
+    const message = dialog.messages.find((msg) => msg.id === messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found in dialog ${dialogId}`);
+    }
+    if (typeof patch.content === 'string') {
+      message.content = patch.content;
+    }
+    if (typeof patch.tokensOut === 'number') {
+      message.tokensOut = patch.tokensOut;
+    }
+    if (typeof patch.tokensIn === 'number') {
+      message.tokensIn = patch.tokensIn;
+    }
+    return message;
+  }
+
   public updateSummary(dialogId: string, summary: string): void {
     const dialog = this.getDialog(dialogId);
     if (!dialog) {
@@ -467,6 +488,14 @@ export class InMemoryDatabase {
     }
     const active = user.subscriptions.find((sub) => sub.status === SubscriptionStatus.Active);
     return active?.tier ?? SubscriptionTier.Free;
+  }
+
+  public hasMemoryPack(userId: string): boolean {
+    const user = this.getUserById(userId);
+    if (!user) {
+      return false;
+    }
+    return user.entitlements.some((entitlement) => entitlement.pack === PackType.Memory);
   }
 
   public ensureDailyQuota(userId: string): Quota {
