@@ -148,7 +148,7 @@ export class OrchestratorService {
       })),
     } as Dialog & { messages: Message[] };
 
-    const summary = summariseMessages(dialog);
+    const summaryBefore = summariseMessages(dialog);
     const lastPairs = deriveLastPairs(dialog);
     const tier = await getSubscriptionTier(this.prisma, dialog.userId);
     const activeEffects = await listActiveEffects(this.prisma, dialog.userId, dialog.id);
@@ -160,7 +160,7 @@ export class OrchestratorService {
       dialog,
       character: characterRecord as Character,
       lastPairs,
-      summary,
+      summary: summaryBefore,
       memoryFacts: memories,
       effects,
       tier,
@@ -173,12 +173,29 @@ export class OrchestratorService {
       content: result.text,
       tokensOut: 120,
     });
-    await updateSummary(this.prisma, dialog.id, summary);
-    if (summary) {
+    const finalDialogRecord = await getDialog(this.prisma, dialog.id);
+    if (!finalDialogRecord) {
+      throw new Error(`Dialog ${dialog.id} not found after assistant response`);
+    }
+    const finalDialog: Dialog & { messages: Message[] } = {
+      ...(finalDialogRecord as Dialog),
+      messages: finalDialogRecord.messages.map((message) => ({
+        id: message.id,
+        dialogId: message.dialogId,
+        role: message.role as MessageRole,
+        content: message.content,
+        tokensIn: message.tokensIn ?? undefined,
+        tokensOut: message.tokensOut ?? undefined,
+        createdAt: message.createdAt,
+      })),
+    } as Dialog & { messages: Message[] };
+    const summaryAfter = summariseMessages(finalDialog);
+    await updateSummary(this.prisma, dialog.id, summaryAfter);
+    if (summaryAfter) {
       await storeMemory(this.prisma, {
         userId: dialog.userId,
         characterId: dialog.characterId,
-        text: summary,
+        text: summaryAfter,
         embedding: [Math.random(), Math.random()],
       });
     }
@@ -190,7 +207,7 @@ export class OrchestratorService {
     return {
       userVisibleText: result.text,
       actions: result.actions,
-      summary,
+      summary: summaryAfter,
       tokensOut,
     };
   }
