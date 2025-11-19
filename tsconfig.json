@@ -1,14 +1,22 @@
 {
-  "files": [],
-  "references": [
-    { "path": "packages/shared" },
-    { "path": "packages/db" },
-    { "path": "apps/gateway" },
-    { "path": "apps/orchestrator" },
-    { "path": "apps/bot" },
-    { "path": "apps/billing" },
-    { "path": "apps/shop" },
-    { "path": "apps/persona" },
-    { "path": "apps/pwa" }
-  ]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@jani/*": ["packages/*/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
 }

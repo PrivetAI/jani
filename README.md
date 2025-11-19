@@ -1,71 +1,84 @@
-# Jani Platform
+# Jani Monorepo
 
-Полноценный прототип Telegram Mini App + Bot для ролевого опыта в стиле "Архиватор". Репозиторий содержит монорепозиторий pnpm с сервисами Fastify/grammY и пакетами общих типов. Все пользовательские интерфейсы для клиентов (Mini App/PWA/Bot) представлены на русском языке.
+Turborepo монорепо для Mini App + Telegram бота. Сейчас реализован только **Этап 0** – базовая инфраструктура, которая включает:
+
+- pnpm + Turborepo workspace (`apps/*`, `packages/*`)
+- Docker Compose с PostgreSQL 16 (pgvector) и Redis 7
+- Prisma схема с таблицами `users`, `characters`, `dialogs`, `messages` и базовыми сущностями монетизации
+- Библиотеки `@jani/database`, `@jani/shared`, заглушки `@jani/telegram`, `@jani/llm`, `@jani/payments`
+- Приложения: API (Express), PWA (Vite + React), бот-заглушка, worker с BullMQ, admin-заглушка
+- ESLint + Prettier конфигурации
+
+## Быстрый старт
+
+1. Скопируйте `.env.example` → `.env` и при необходимости обновите порты/токены.
+2. Скопируйте `.env.example` → `.env` и при необходимости обновите токены (Telegram, JWT).
+
+> Значения DATABASE_URL/REDIS_URL указывают на docker-сервисы `postgres` и `redis`. Если запускаете сервисы напрямую на хосте без Compose, замените `postgres`/`redis` на `localhost`.
+
+3. Запустите весь стек (Docker Compose поднимет PostgreSQL, Redis и `pnpm dev`):
+
+```bash
+docker compose -f docker/docker-compose.yml up app
+```
+
+Первый запуск выполнит `pnpm install` внутри контейнера и запустит `turbo dev`, поэтому API (3001), Mini App (5173), Admin (4173) и бот (3002) станут доступны на хосте.
+
+4. Выполните миграции и сидинг (также через контейнер):
+
+```bash
+docker compose -f docker/docker-compose.yml run --rm app pnpm --filter @jani/database db:migrate -- --name init
+docker compose -f docker/docker-compose.yml run --rm app pnpm --filter @jani/database db:seed
+```
+
+PWA доступна на http://localhost:5173 и сразу проходит Telegram-auth (через mock initData, если не в Mini App).
+
+## Docker сервисы
+
+- PostgreSQL: `postgresql://jani:jani_dev_pass@localhost:5432/jani_dev`
+- Redis: `redis://localhost:6379`
+
+`docker/init-db.sql` включает pgvector расширение.
 
 ## Структура
 
 ```
 apps/
-  gateway/        # REST API для Mini App / PWA
-  bot/            # Telegram бот на grammY
-  orchestrator/   # Оркестратор диалогов и эффектов
-  billing/        # Управление подписками и пакетами
-  shop/           # Каталог предметов и потребление
-  persona/        # CRUD персонажей/историй для админов
-  pwa/            # React/Vite PWA для локальной отладки
+  api/      – Express REST API
+  bot/      – Telegram bot placeholder
+  worker/   – BullMQ worker
+  pwa/      – React PWA (Vite)
+  admin/    – Admin placeholder
 packages/
-  shared/         # Общие типы, перечисления, конфиг
-  db/             # Prisma Client, схема и сиды персонажей/предметов
+  database/ – Prisma schema + client
+  shared/   – Общие константы/типы
+  telegram/ – Telegram helper (заглушка)
+  llm/      – OpenRouter client (заглушка)
+  payments/ – Mock payments helper
 ```
 
-## Быстрый старт
+## Полезные команды
 
-1. Установите зависимости:
-   ```bash
-   pnpm install
-   ```
-2. Запустите нужные сервисы в отдельных окнах (все используют общий PostgreSQL через Prisma):
-   ```bash
-   pnpm dev:gateway
-   pnpm dev:bot            # требует TELEGRAM_BOT_TOKEN
-   pnpm dev:orchestrator
-   pnpm dev:billing
-   pnpm dev:shop
-   pnpm dev:persona
-   pnpm dev:pwa
-   ```
-3. Для запуска бота задайте переменные окружения:
-   ```bash
-   export TELEGRAM_BOT_TOKEN=123:ABC
-   pnpm dev:bot
-   ```
-4. PWA доступна на `http://localhost:5173` и использует общий API `http://localhost:3000` (прокси через devServer).
+| Команда | Описание |
+| --- | --- |
+| `docker compose -f docker/docker-compose.yml up app` | Единый запуск всех приложений + инфраструктуры |
+| `pnpm lint` | Запустить ESLint для всех пакетов |
+| `pnpm db:migrate` | Прогнать миграции Prisma через Turbo |
+| `pnpm db:seed` | Сидинг базовых персонажей |
 
-## Тестирование
+## Дальнейшие шаги
 
-Все основные сценарии покрыты Vitest (диалог, магазин, подписки, квоты, CRUD персонажей).
+Следующий этап – `task/01-auth.md`: внедрение авторизации, ролей и лимитов. Перед началом убедитесь, что инфраструктура работает и базовые сервисы (API, worker, PWA) проходят smoke-тесты.
 
-```bash
-pnpm test
-```
+## Auth API (Этап 1)
 
-## Возможности
+- `POST /api/auth/telegram` — принимает `initData` (из Mini App) и возвращает `{ user, accessToken }`. Refresh токен хранится в httpOnly cookie.
+- `POST /api/auth/refresh` — обновляет access token (использует cookie `jid`).
+- `POST /api/auth/logout` — отзывает refresh-сессию.
+- `GET /api/me` — профиль пользователя (roles, tier, entitlements, permissions).
+- `GET /api/limits` — оставшийся дневной лимит и soft cap.
+- `GET /api/admin/users` — список пользователей (доступ только роли `admin`).
 
-- Мини-приложение (через Gateway API) выдаёт персонажей, создаёт диалоги, рассчитывает квоты и возвращает русский текст.
-- Оркестратор комбинирует суммаризацию последних сообщений, память (в том числе эффекты Memory Pack) и действия (offer/consume).
-- Магазин поддерживает скидки по подпискам, выдачу предметов и активацию эффектов, включая сюжетные ключи.
-- Биллинг выпускает счета для подписок и пакетов, мгновенно назначая подписку/пакет в режиме Stars mock.
-- Persona-сервис позволяет админам добавлять новых персонажей, истории и версии.
-- Telegram бот строится на grammY, поддерживает inline-кнопки покупки и учитывает дневные лимиты.
-- PWA (RU UI) напоминает о режиме отладки Stars.
+Для локальных тестов можно использовать `MOCK_TELEGRAM_INIT_DATA` из `.env`. Проверка подписи отключается, если `AUTH_ALLOW_DEV_INIT_DATA=true` (только для dev-сред).
 
-## Переменные окружения
-
-- `TELEGRAM_BOT_TOKEN` — токен бота (обязателен для `pnpm dev:bot`).
-
-Прочие настройки (лимиты, цены) зашиты в `packages/shared/src/config.ts`, при необходимости их можно изменить перед запуском.
-
-## Ограничения прототипа
-
-- Оплата Stars и pgvector эмулируются.
-- SSE и реальный OpenRouter не подключены — ответы ассистента генерируются программно, но сохраняют структуру действий.
+> `TELEGRAM_WEBAPP_SECRET` должен совпадать с токеном бота (или секретом Mini App) — он используется для HMAC проверки `initData` в соответствии с [Telegram WebApp auth](https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app).
