@@ -1,0 +1,74 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jani_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-jani}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jani_dev_pass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  backend:
+    build: ./backend
+    depends_on:
+      - postgres
+    environment:
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://jani:jani_dev_pass@postgres:5432/jani_dev}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-replace-me}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jani_dev_bot}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-super-secret-token}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-123456}
+      WEBAPP_URL: ${WEBAPP_URL:-http://localhost:4173}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-replace-me}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/auto}
+      FREE_DAILY_MESSAGE_LIMIT: ${FREE_DAILY_MESSAGE_LIMIT:-50}
+      SUBSCRIPTION_DURATION_DAYS: ${SUBSCRIPTION_DURATION_DAYS:-30}
+      AUTH_ALLOW_DEV_INIT_DATA: ${AUTH_ALLOW_DEV_INIT_DATA:-true}
+      MOCK_TELEGRAM_INIT_DATA: ${MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A999%2C%22username%22%3A%22mock_user%22%7D&auth_date=1700000000&hash=dummy}
+      TELEGRAM_AUTO_WEBHOOK: ${TELEGRAM_AUTO_WEBHOOK:-false}
+      TELEGRAM_WEBHOOK_EXTERNAL_URL: ${TELEGRAM_WEBHOOK_EXTERNAL_URL:-}
+      NGROK_API_URL: ${NGROK_API_URL:-http://ngrok:4040/api/tunnels}
+      WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_PROXY_TARGET: http://backend:3000
+        VITE_DEV_SERVER_PORT: 4173
+        VITE_API_BASE_URL: http://localhost:3000
+        VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jani_dev_bot}
+        VITE_MOCK_TELEGRAM_INIT_DATA: ${VITE_MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A999%2C%22username%22%3A%22mock_user%22%7D&auth_date=1700000000&hash=dummy}
+    depends_on:
+      - backend
+    environment:
+      VITE_PROXY_TARGET: http://backend:3000
+      VITE_DEV_SERVER_PORT: 4173
+      VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jani_dev_bot}
+      VITE_MOCK_TELEGRAM_INIT_DATA: ${VITE_MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A999%2C%22username%22%3A%22mock_user%22%7D&auth_date=1700000000&hash=dummy}
+    ports:
+      - "4173:4173"
+
+  ngrok:
+    image: ngrok/ngrok:alpine
+    depends_on:
+      - backend
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    command:
+      - "http"
+      - "--url=${NGROK_DOMAIN:-}"
+      - "backend:3000"
+    ports:
+      - "4040:4040"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

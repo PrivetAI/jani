@@ -1,84 +1,77 @@
-# Jani Monorepo
+# Jani AI Mini App
 
-Turborepo монорепо для Mini App + Telegram бота. Сейчас реализован только **Этап 0** – базовая инфраструктура, которая включает:
+Минимальная реализация сервиса общения с AI-персонажами по ТЗ. В проект входят:
 
-- pnpm + Turborepo workspace (`apps/*`, `packages/*`)
-- Docker Compose с PostgreSQL 16 (pgvector) и Redis 7
-- Prisma схема с таблицами `users`, `characters`, `dialogs`, `messages` и базовыми сущностями монетизации
-- Библиотеки `@jani/database`, `@jani/shared`, заглушки `@jani/telegram`, `@jani/llm`, `@jani/payments`
-- Приложения: API (Express), PWA (Vite + React), бот-заглушка, worker с BullMQ, admin-заглушка
-- ESLint + Prettier конфигурации
+- **backend** — Node.js + Express, PostgreSQL, Telegram webhook и интеграция с OpenRouter.
+- **frontend** — Vite + React SPA (mini app / PWA + простая админка).
+- **docker-compose** — запуск Postgres, API и фронтенда одной командой.
 
 ## Быстрый старт
 
-1. Скопируйте `.env.example` → `.env` и при необходимости обновите порты/токены.
-2. Скопируйте `.env.example` → `.env` и при необходимости обновите токены (Telegram, JWT).
-
-> Значения DATABASE_URL/REDIS_URL указывают на docker-сервисы `postgres` и `redis`. Если запускаете сервисы напрямую на хосте без Compose, замените `postgres`/`redis` на `localhost`.
-
-3. Запустите весь стек (Docker Compose поднимет PostgreSQL, Redis и `pnpm dev`):
+1. Создайте файл `.env` на основе `.env.example` и заполните токены Telegram/ OpenRouter.
+2. Запустите сервисы:
 
 ```bash
-docker compose -f docker/docker-compose.yml up app
+docker compose up --build
 ```
 
-Первый запуск выполнит `pnpm install` внутри контейнера и запустит `turbo dev`, поэтому API (3001), Mini App (5173), Admin (4173) и бот (3002) станут доступны на хосте.
+Сервисы:
 
-4. Выполните миграции и сидинг (также через контейнер):
+- API: http://localhost:3000
+- Frontend (PWA/WebApp): http://localhost:4173
+- Postgres: localhost:5433 (user/password из `.env`).
+
+## Настройка Telegram
+
+1. Укажите `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` и `WEBAPP_URL` (URL фронтенда).
+2. Для кнопки WebApp нужен HTTPS: задайте `WEBAPP_PUBLIC_URL` (например, ссылку из ngrok) — это значение уйдёт в inline-кнопки бота. Если не указать, будет использован `WEBAPP_URL`. В docker-compose можно переопределить `WEBAPP_PUBLIC_URL` через env без ребилда.
+2. Настройте webhook: `https://your-domain/telegram/webhook` и передайте `secret_token` = `TELEGRAM_WEBHOOK_SECRET`.
+3. Для мини-приложения передавайте `initData` в виде строки `window.Telegram.WebApp.initData` во все REST-запросы (фронт делает это автоматически).
+4. Для локального теста без внешнего домена можно поднять ngrok как отдельный сервис из docker-compose: задайте `NGROK_AUTHTOKEN` (и опционально `NGROK_DOMAIN`, если нужен кастомный домен), затем `docker compose up ngrok`. Логи ngrok покажут публичный URL. Если включите `TELEGRAM_AUTO_WEBHOOK=true` в `.env`, backend сам будет опрашивать ngrok API и выставлять вебхук на актуальный URL (`<public-url>/telegram/webhook`) с `secret_token=TELEGRAM_WEBHOOK_SECRET`. Или можно задать фиксированный `TELEGRAM_WEBHOOK_EXTERNAL_URL` и автообновление будет использовать его.
+
+## Локальный запуск
 
 ```bash
-docker compose -f docker/docker-compose.yml run --rm app pnpm --filter @jani/database db:migrate -- --name init
-docker compose -f docker/docker-compose.yml run --rm app pnpm --filter @jani/database db:seed
+cp .env.example .env
+# заполняем TELEGRAM_BOT_TOKEN/USERNAME, OPENROUTER_API_KEY, TELEGRAM_WEBHOOK_SECRET, NGROK_AUTHTOKEN при необходимости
+
+# backend
+cd backend && npm install && npm run dev
+
+# frontend (в другом терминале)
+cd frontend && npm install && npm run dev
+
+# если нужен публичный URL для бота: в корне
+docker compose up ngrok
+# вариант 1: включите TELEGRAM_AUTO_WEBHOOK=true — backend сам подтянет URL из ngrok и дернет setWebhook
+# вариант 2: вручную дернуть:
+# curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+#   -H "Content-Type: application/json" \
+#   -d "{\"url\":\"<ngrok-url>/telegram/webhook\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
+# при перезапуске ngrok адрес меняется — авто-режим решает это, либо повторите setWebhook вручную
 ```
 
-PWA доступна на http://localhost:5173 и сразу проходит Telegram-auth (через mock initData, если не в Mini App).
+## Фичи
 
-## Docker сервисы
-
-- PostgreSQL: `postgresql://jani:jani_dev_pass@localhost:5432/jani_dev`
-- Redis: `redis://localhost:6379`
-
-`docker/init-db.sql` включает pgvector расширение.
-
-## Структура
-
-```
-apps/
-  api/      – Express REST API
-  bot/      – Telegram bot placeholder
-  worker/   – BullMQ worker
-  pwa/      – React PWA (Vite)
-  admin/    – Admin placeholder
-packages/
-  database/ – Prisma schema + client
-  shared/   – Общие константы/типы
-  telegram/ – Telegram helper (заглушка)
-  llm/      – OpenRouter client (заглушка)
-  payments/ – Mock payments helper
-```
+- CRUD персонажей, список пользователей и базовая статистика (админка доступна по Telegram ID из `ADMIN_TELEGRAM_IDS`).
+- Ограничение на 50 сообщений/день без подписки, премиум-доступ через простую заглушку оплаты.
+- Реальная отправка сообщений в Telegram + вызов OpenRouter для генерации ответов.
+- История диалога хранится в БД, LLM получает последние 4 пары сообщений.
+- Простое PWA: manifest + service worker, единый SPA для мини-приложения и админки.
+- Аватары персонажей лежат локально в `frontend/public/characters`. В админке достаточно указать путь вида `/characters/<filename>.jpg`, и картинка будет отдаваться фронтендом.
 
 ## Полезные команды
 
-| Команда | Описание |
-| --- | --- |
-| `docker compose -f docker/docker-compose.yml up app` | Единый запуск всех приложений + инфраструктуры |
-| `pnpm lint` | Запустить ESLint для всех пакетов |
-| `pnpm db:migrate` | Прогнать миграции Prisma через Turbo |
-| `pnpm db:seed` | Сидинг базовых персонажей |
+```bash
+# backend
+cd backend
+npm install
+npm run dev
 
-## Дальнейшие шаги
+# frontend
+cd frontend
+npm install
+npm run dev
+```
 
-Следующий этап – `task/01-auth.md`: внедрение авторизации, ролей и лимитов. Перед началом убедитесь, что инфраструктура работает и базовые сервисы (API, worker, PWA) проходят smoke-тесты.
-
-## Auth API (Этап 1)
-
-- `POST /api/auth/telegram` — принимает `initData` (из Mini App) и возвращает `{ user, accessToken }`. Refresh токен хранится в httpOnly cookie.
-- `POST /api/auth/refresh` — обновляет access token (использует cookie `jid`).
-- `POST /api/auth/logout` — отзывает refresh-сессию.
-- `GET /api/me` — профиль пользователя (roles, tier, entitlements, permissions).
-- `GET /api/limits` — оставшийся дневной лимит и soft cap.
-- `GET /api/admin/users` — список пользователей (доступ только роли `admin`).
-
-Для локальных тестов можно использовать `MOCK_TELEGRAM_INIT_DATA` из `.env`. Проверка подписи отключается, если `AUTH_ALLOW_DEV_INIT_DATA=true` (только для dev-сред).
-
-> `TELEGRAM_WEBAPP_SECRET` должен совпадать с токеном бота (или секретом Mini App) — он используется для HMAC проверки `initData` в соответствии с [Telegram WebApp auth](https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app).
+Перед запуском вне Docker убедитесь, что Postgres доступен и `DATABASE_URL` указывает на него.
