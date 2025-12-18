@@ -7,6 +7,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-jani_dev}
       POSTGRES_USER: ${POSTGRES_USER:-jani}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jani_dev_pass}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U jani" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -15,7 +20,8 @@ services:
   backend:
     build: ./backend
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://jani:jani_dev_pass@postgres:5432/jani_dev}
@@ -29,8 +35,8 @@ services:
       FREE_DAILY_MESSAGE_LIMIT: ${FREE_DAILY_MESSAGE_LIMIT:-50}
       SUBSCRIPTION_DURATION_DAYS: ${SUBSCRIPTION_DURATION_DAYS:-30}
       AUTH_ALLOW_DEV_INIT_DATA: ${AUTH_ALLOW_DEV_INIT_DATA:-true}
-      MOCK_TELEGRAM_INIT_DATA: ${MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A999%2C%22username%22%3A%22mock_user%22%7D&auth_date=1700000000&hash=dummy}
-      TELEGRAM_AUTO_WEBHOOK: ${TELEGRAM_AUTO_WEBHOOK:-false}
+      MOCK_TELEGRAM_INIT_DATA: ${MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A123456%2C%22username%22%3A%22admin_user%22%7D&auth_date=1700000000&hash=dummy}
+      TELEGRAM_AUTO_WEBHOOK: "false"
       TELEGRAM_WEBHOOK_EXTERNAL_URL: ${TELEGRAM_WEBHOOK_EXTERNAL_URL:-}
       NGROK_API_URL: ${NGROK_API_URL:-http://ngrok:4040/api/tunnels}
       WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
@@ -45,14 +51,16 @@ services:
         VITE_DEV_SERVER_PORT: 4173
         VITE_API_BASE_URL: http://localhost:3000
         VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jani_dev_bot}
-        VITE_MOCK_TELEGRAM_INIT_DATA: ${VITE_MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A999%2C%22username%22%3A%22mock_user%22%7D&auth_date=1700000000&hash=dummy}
+        VITE_MOCK_TELEGRAM_INIT_DATA: ${VITE_MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A123456%2C%22username%22%3A%22admin_user%22%7D&auth_date=1700000000&hash=dummy}
+        VITE_DEBUG_LOG: ${VITE_DEBUG_LOG:-true}
     depends_on:
       - backend
     environment:
       VITE_PROXY_TARGET: http://backend:3000
       VITE_DEV_SERVER_PORT: 4173
       VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-jani_dev_bot}
-      VITE_MOCK_TELEGRAM_INIT_DATA: ${VITE_MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A999%2C%22username%22%3A%22mock_user%22%7D&auth_date=1700000000&hash=dummy}
+      VITE_MOCK_TELEGRAM_INIT_DATA: ${VITE_MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A123456%2C%22username%22%3A%22admin_user%22%7D&auth_date=1700000000&hash=dummy}
+      VITE_DEBUG_LOG: ${VITE_DEBUG_LOG:-true}
     ports:
       - "4173:4173"
 

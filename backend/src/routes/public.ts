@@ -5,9 +5,10 @@ import { telegramAuth } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createSubscription } from '../modules/subscriptions.js';
 import { recordPayment } from '../modules/payments.js';
-import { getDialogHistory, type DialogRecord } from '../modules/dialogs.js';
+import { getDialogHistory, countUserMessagesToday, type DialogRecord } from '../modules/dialogs.js';
 import { config } from '../config.js';
-import { updateLastCharacter } from '../modules/users.js';
+import { updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById } from '../modules/users.js';
+import { getAllTags } from '../modules/tags.js';
 
 const router = Router();
 
@@ -26,9 +27,36 @@ router.get(
   asyncHandler(async (req, res) => {
     const subscription = res.locals.subscription as { status: string } | undefined;
     const includePremium = subscription?.status === 'active';
-    const characters = await listCharacters();
-    const filtered = includePremium ? characters : characters.filter((c) => c.access_type === 'free');
-    res.json({ characters: filtered.map(characterResponse), includePremium });
+
+    // Parse filters
+    const search = req.query.search as string | undefined;
+    const accessType = req.query.accessType as 'free' | 'premium' | undefined;
+    const tagsParam = req.query.tags as string | undefined;
+    const tagIds = tagsParam ? tagsParam.split(',').map(Number).filter(n => !isNaN(n)) : undefined;
+
+    const characters = await listCharacters({
+      includeInactive: false, // Users only see active characters
+      search,
+      accessType,
+      tagIds
+    });
+
+    // If user is not premium, and they requested all or premium explicitly, we might need to hide premium characters or show them locked.
+    // The previous logic filtered them out IF includePremium was false.
+    // However, usually we want to SHOW them but maybe mark them locked?
+    // The previous logic was: `const filtered = includePremium ? characters : characters.filter((c) => c.access_type === 'free');`
+    // This implies non-premium users DON'T SEE premium characters at all.
+    // I will preserve this behavior for consistency, unless the Roadmap says otherwise.
+    // Roadmap says "Character Catalog". Usually seeing premium chars encourages subscription.
+    // But let's stick to safe "previous behavior" + filters.
+
+    // If user specifically asked for 'premium' but has no sub, they get empty list effectively if we filter strict.
+    // Let's apply the visibility filter:
+    const visibleCharacters = includePremium
+      ? characters
+      : characters.filter(c => c.access_type === 'free');
+
+    res.json({ characters: visibleCharacters.map(characterResponse), includePremium });
   })
 );
 
@@ -50,23 +78,130 @@ router.get(
   })
 );
 
+// ============================================
+// Tags API
+// ============================================
+
+router.get(
+  '/tags',
+  asyncHandler(async (req, res) => {
+    const tags = await getAllTags();
+    res.json({
+      tags: tags.map(t => ({
+        id: t.id,
+        name: t.name,
+        category: t.category,
+      })),
+    });
+  })
+);
+
+// ============================================
+// Profile API
+// ============================================
+
 router.get(
   '/profile',
   telegramAuth,
   asyncHandler(async (req, res) => {
     const subscription = res.locals.subscription as { status: 'none' | 'active' | 'expired'; end_at?: string | null } | undefined;
+    const user = await findUserById(req.auth!.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
     res.json({
-      profile: {
-        telegramUserId: req.auth!.telegramUserId,
-        username: req.auth!.username ?? null,
-        lastCharacterId: req.auth!.lastCharacterId ?? null,
-        subscriptionStatus: subscription?.status ?? 'none',
-        subscriptionEndAt: subscription?.end_at ?? null,
-        isAdmin: req.auth!.isAdmin,
-      },
+      profile: buildUserProfile(user, subscription ?? { status: 'none' }, config.adminTelegramIds),
     });
   })
 );
+
+const profileUpdateSchema = z.object({
+  displayName: z.string().max(100).optional(),
+  gender: z.string().max(50).optional(),
+  language: z.enum(['ru', 'en']).optional(),
+});
+
+router.patch(
+  '/profile',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const parsed = profileUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
+    }
+
+    const user = await updateUserProfile(req.auth!.id, {
+      display_name: parsed.data.displayName,
+      gender: parsed.data.gender,
+      language: parsed.data.language,
+    });
+
+    const subscription = res.locals.subscription as { status: 'none' | 'active' | 'expired'; end_at?: string | null } | undefined;
+
+    res.json({
+      profile: buildUserProfile(user, subscription ?? { status: 'none' }, config.adminTelegramIds),
+    });
+  })
+);
+
+router.post(
+  '/confirm-adult',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const user = await confirmAdult(req.auth!.id);
+    res.json({
+      success: true,
+      isAdultConfirmed: user.is_adult_confirmed,
+    });
+  })
+);
+
+// ============================================
+// Limits API
+// ============================================
+
+router.get(
+  '/limits',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const subscription = res.locals.subscription as { status: string; end_at?: string } | undefined;
+    const hasSubscription = subscription?.status === 'active';
+
+    if (hasSubscription) {
+      res.json({
+        hasSubscription: true,
+        messagesLimit: {
+          total: -1,
+          used: await countUserMessagesToday(req.auth!.id),
+          remaining: -1,
+          resetsAt: null,
+        },
+        subscription: {
+          status: subscription.status,
+          endAt: subscription.end_at,
+        },
+      });
+    } else {
+      const used = await countUserMessagesToday(req.auth!.id);
+      res.json({
+        hasSubscription: false,
+        messagesLimit: {
+          total: config.freeDailyMessageLimit,
+          used,
+          remaining: Math.max(0, config.freeDailyMessageLimit - used),
+          resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+        },
+        subscription: null,
+      });
+    }
+  })
+);
+
+// ============================================
+// Last Character API
+// ============================================
 
 const lastCharacterSchema = z.object({
   characterId: z.number().nullable(),
@@ -96,6 +231,10 @@ router.patch(
   })
 );
 
+// ============================================
+// Subscription API
+// ============================================
+
 const subscriptionSchema = z.object({ amountStars: z.number().min(1).default(199) });
 
 router.post(
@@ -118,6 +257,12 @@ router.post(
   })
 );
 
+// ============================================
+// Legacy Dialogs API - DEPRECATED
+// Use /api/chats/:characterId/messages instead
+// ============================================
+
+// Keeping for backward compatibility, will be removed in next version
 router.get(
   '/dialogs/:characterId',
   telegramAuth,

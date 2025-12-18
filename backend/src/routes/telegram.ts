@@ -10,7 +10,7 @@ import {
   LLMGenerationError,
   PremiumRequiredError,
 } from '../errors.js';
-import { sendTelegramMessage } from '../telegram/client.js';
+import { sendTelegramChatAction, sendTelegramMessage } from '../telegram/client.js';
 import { buildWebAppButton } from '../telegram/helpers.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logger } from '../logger.js';
@@ -24,8 +24,8 @@ interface TelegramMessage {
 
 const router = Router();
 
-const limitKeyboard = buildWebAppButton('Оформить подписку', '/subscription');
-const openAppKeyboard = buildWebAppButton('Открыть мини-приложение');
+const limitKeyboard = () => buildWebAppButton('Оформить подписку', '/subscription');
+const openAppKeyboard = () => buildWebAppButton('Открыть мини-приложение');
 
 router.use((req, _res, next) => {
   logger.info('Telegram webhook hit', {
@@ -57,7 +57,7 @@ const handleStartCommand = async (message: TelegramMessage, payload: string | nu
   await sendTelegramMessage({
     chat_id: message.chat.id,
     text: 'Выбери персонажа в мини-приложении.',
-    reply_markup: openAppKeyboard,
+    reply_markup: openAppKeyboard(),
   });
 };
 
@@ -66,6 +66,8 @@ const handleUserText = async (message: TelegramMessage) => {
     return;
   }
   try {
+    // Показываем typing, чтобы имитировать живой набор перед генерацией.
+    await sendTelegramChatAction(message.chat.id, 'typing');
     const result = await chatSessionService.processMessage({
       telegramUserId: message.from.id,
       username: message.from.username,
@@ -77,7 +79,7 @@ const handleUserText = async (message: TelegramMessage) => {
       await sendTelegramMessage({
         chat_id: message.chat.id,
         text: 'Сначала выберите персонажа в мини-приложении.',
-        reply_markup: openAppKeyboard,
+        reply_markup: openAppKeyboard(),
       });
       return;
     }
@@ -85,7 +87,7 @@ const handleUserText = async (message: TelegramMessage) => {
       await sendTelegramMessage({
         chat_id: message.chat.id,
         text: 'Этот персонаж недоступен. Выберите другого в мини-приложении.',
-        reply_markup: openAppKeyboard,
+        reply_markup: openAppKeyboard(),
       });
       return;
     }
@@ -93,7 +95,7 @@ const handleUserText = async (message: TelegramMessage) => {
       await sendTelegramMessage({
         chat_id: message.chat.id,
         text: 'Это премиум-персонаж. Оформите подписку, чтобы продолжить.',
-        reply_markup: limitKeyboard,
+        reply_markup: limitKeyboard(),
       });
       return;
     }
@@ -101,7 +103,7 @@ const handleUserText = async (message: TelegramMessage) => {
       await sendTelegramMessage({
         chat_id: message.chat.id,
         text: `Лимит ${config.freeDailyMessageLimit} сообщений на сегодня исчерпан. Подпишитесь, чтобы продолжить.`,
-        reply_markup: limitKeyboard,
+        reply_markup: limitKeyboard(),
       });
       return;
     }

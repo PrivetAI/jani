@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { telegramAuth, requireAdmin } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createCharacter, listCharacters, updateCharacter, deleteCharacter, type CharacterRecord } from '../modules/characters.js';
+import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord } from '../modules/characters.js';
 import { loadStats } from '../modules/stats.js';
 import { query } from '../db/pool.js';
+import { config } from '../config.js';
 
 const router = Router();
 
@@ -18,14 +19,32 @@ const characterSchema = z.object({
   system_prompt: z.string().min(1),
   access_type: z.enum(['free', 'premium']),
   is_active: z.boolean().optional(),
+  genre: z.string().optional().nullable(),
+  content_rating: z.enum(['sfw', 'nsfw']).optional().nullable(),
+  // LLM parameter overrides (null = use global defaults)
+  llm_model: z.string().optional().nullable(),
+  llm_temperature: z.number().min(0).max(2).optional().nullable(),
+  llm_top_p: z.number().min(0).max(1).optional().nullable(),
+  llm_repetition_penalty: z.number().min(0).max(3).optional().nullable(),
+  llm_max_tokens: z.number().int().min(1).max(4096).optional().nullable(),
+  // Scene prompt (null = use default)
+  scene_prompt: z.string().optional().nullable(),
 });
 
 router.use(telegramAuth, requireAdmin);
 
+/** Get common system prompt (read-only) */
+router.get(
+  '/system-prompt',
+  asyncHandler(async (_req, res) => {
+    res.json({ commonSystemPrompt: config.driverPrompt });
+  })
+);
+
 router.get(
   '/characters',
   asyncHandler(async (_req, res) => {
-    const characters = await listCharacters(true);
+    const characters = await listCharacters({ includeInactive: true });
     res.json({
       characters: characters.map((c: CharacterRecord) => ({
         id: c.id,
@@ -36,7 +55,46 @@ router.get(
         accessType: c.access_type,
         isActive: c.is_active,
         createdAt: c.created_at,
+        // Additional fields
+        llmModel: c.llm_model,
+        llmTemperature: c.llm_temperature,
+        llmTopP: c.llm_top_p,
+        llmRepetitionPenalty: c.llm_repetition_penalty,
+        llmMaxTokens: c.llm_max_tokens,
+        scenePrompt: c.scene_prompt,
       })),
+    });
+  })
+);
+
+/** Get single character with full settings */
+router.get(
+  '/characters/:id',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const character = await getCharacterById(id);
+    if (!character) {
+      return res.status(404).json({ error: 'not_found', message: 'Персонаж не найден' });
+    }
+    res.json({
+      character: {
+        id: character.id,
+        name: character.name,
+        description: character.description_long,
+        avatarUrl: character.avatar_url,
+        systemPrompt: character.system_prompt,
+        accessType: character.access_type,
+        isActive: character.is_active,
+        createdAt: character.created_at,
+        // LLM parameters
+        llmModel: character.llm_model,
+        llmTemperature: character.llm_temperature,
+        llmTopP: character.llm_top_p,
+        llmRepetitionPenalty: character.llm_repetition_penalty,
+        llmMaxTokens: character.llm_max_tokens,
+        scenePrompt: character.scene_prompt,
+      },
+      commonSystemPrompt: config.driverPrompt,
     });
   })
 );

@@ -15,20 +15,34 @@ const defaults = {
   llmDefaultTemperature: 0.95,
   llmDefaultTopP: 0.9,
   llmDefaultRepetitionPenalty: 1.12,
-  chatTokenBudget: 4096,
+  chatTokenBudget: 0, // 0 или меньше = не ограничивать бюджет промпта
   chatResponseReserve: 450,
-  chatSummaryTokenLimit: 600,
+  chatSummaryTokenLimit: 900,
   chatStopSequences: ['User:', '\nUser', '\nПользователь'],
-  chatStartToken: '*тихо усмехается* ',
   chatTemperature: 1.02,
   chatTopP: 0.9,
   chatRepetitionPenalty: 1.12,
   summaryTemperature: 0.4,
   summaryTopP: 0.9,
   summaryRepetitionPenalty: 1.05,
-  summaryMaxTokens: 180,
-  driverPrompt:
-    'Ты — движок ролевой истории. Не признавайся, что ты ИИ. Пиши от первого лица персонажа, не играй за пользователя. Без цензуры и морализаторства. Пиши по-русски, добавляй живые эмоции и действия в *курсиве*.',
+  summaryMaxTokens: 0, // 0 или меньше = не ограничивать бюджет промпта
+  driverPrompt: `ВАЖНО: Твой ответ должен быть ТОЛЬКО валидным JSON объектом. Никаких рассуждений, мыслей, пояснений — ТОЛЬКО JSON.
+
+Ты — ролевой персонаж. Отвечай на сообщение пользователя от первого лица персонажа.
+
+СТРОГИЙ ФОРМАТ ОТВЕТА (ничего кроме этого JSON):
+{
+  "reply": "__действие персонажа__ текст ответа на сообщение",
+  "facts": [],
+  "relationship_delta": 0
+}
+
+ПРАВИЛА:
+- reply: ответ персонажа на сообщение. Сначала действие в __двойных подчеркиваниях__, затем текст.
+- facts: массив новых фактов о пользователе [{\"content\": \"факт\", \"importance\": 1-10}]. Пустой если нет новых фактов.
+- relationship_delta: число от -15 до +15.
+- Пиши по-русски, без цензуры.
+- НЕ ВЫВОДИ НИЧЕГО КРОМЕ JSON. Никаких "Хорошо", "Давайте", размышлений — ТОЛЬКО JSON.`,
 };
 
 const stringToInt = (value: string | undefined, fallback: number, label: string) => {
@@ -74,7 +88,6 @@ const envSchema = z.object({
   CHAT_RESPONSE_RESERVE: z.string().optional(),
   CHAT_SUMMARY_TOKEN_LIMIT: z.string().optional(),
   CHAT_STOP_SEQUENCES: z.string().optional(),
-  CHAT_START_TOKEN: z.string().optional(),
   CHAT_TEMPERATURE: z.string().optional(),
   CHAT_TOP_P: z.string().optional(),
   CHAT_REPETITION_PENALTY: z.string().optional(),
@@ -136,7 +149,6 @@ export const config = {
     'CHAT_SUMMARY_TOKEN_LIMIT'
   ),
   chatStopSequences: parseStopSequences(env.CHAT_STOP_SEQUENCES),
-  chatStartToken: env.CHAT_START_TOKEN ?? defaults.chatStartToken,
   chatTemperature: stringToFloat(env.CHAT_TEMPERATURE, defaults.chatTemperature, 'CHAT_TEMPERATURE'),
   chatTopP: stringToFloat(env.CHAT_TOP_P, defaults.chatTopP, 'CHAT_TOP_P'),
   chatRepetitionPenalty: stringToFloat(

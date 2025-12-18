@@ -20,6 +20,52 @@ const DEFAULT_OPTIONS: Required<Pick<LLMRequestOptions, 'temperature' | 'topP' |
   repetitionPenalty: config.llmDefaultRepetitionPenalty,
 };
 
+const pickMessageContent = (message: any) => {
+  if (!message) return '';
+  const { content, reasoning_content: reasoningContent, reasoning, reasoning_details: reasoningDetails } = message as any;
+
+  // First, try main content
+  if (typeof content === 'string' && content.trim()) {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => {
+        if (!part) return '';
+        if (typeof part === 'string') return part;
+        if (typeof part.text === 'string') return part.text;
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    if (text) return text;
+  }
+
+  // Fallback to reasoning_content (older format)
+  if (typeof reasoningContent === 'string' && reasoningContent.trim()) {
+    return reasoningContent.trim();
+  }
+
+  // Fallback to reasoning (newer deepseek format)
+  if (typeof reasoning === 'string' && reasoning.trim()) {
+    return reasoning.trim();
+  }
+
+  // Fallback to reasoning_details array
+  if (Array.isArray(reasoningDetails) && reasoningDetails.length > 0) {
+    const text = reasoningDetails
+      .map((d: any) => d?.text || '')
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    if (text) return text;
+  }
+
+  return '';
+};
+
 export class LLMService {
   async generateReply(messages: LLMMessage[], options: LLMRequestOptions = {}): Promise<string> {
     const startedAt = Date.now();
@@ -33,6 +79,15 @@ export class LLMService {
       stop: options.stop?.length ? options.stop : undefined,
     };
 
+    // Log full LLM request
+    logger.llmRequest('Sending to OpenRouter', {
+      model: payload.model,
+      messagesCount: messages.length,
+      messages: messages.map((m, i) => ({ index: i, role: m.role, content: m.content })),
+      temperature: payload.temperature,
+      maxTokens: payload.max_tokens,
+    });
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -44,32 +99,52 @@ export class LLMService {
       ),
     });
 
+    const rawBody = await response.text();
+    const durationMs = Date.now() - startedAt;
+    const baseLog = {
+      durationMs,
+      model: config.openRouterModel,
+      stopCount: payload.stop?.length ?? 0,
+    };
+
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
       logger.error('OpenRouter request failed', {
+        ...baseLog,
         status: response.status,
-        durationMs: Date.now() - startedAt,
-        model: config.openRouterModel,
-        stopCount: payload.stop?.length ?? 0,
-        error: body.slice(0, 1000),
+        error: rawBody.slice(0, 1000),
       });
-      throw new Error(`OpenRouter request failed with status ${response.status}: ${body}`);
+      throw new Error(`OpenRouter request failed with status ${response.status}: ${rawBody}`);
     }
 
-    const data = (await response.json()) as any;
-    const content = data.choices?.[0]?.message?.content;
+    let data: any;
+    try {
+      data = JSON.parse(rawBody);
+    } catch (error) {
+      logger.error('OpenRouter response parse failed', {
+        ...baseLog,
+        error: (error as Error).message,
+        rawBody: rawBody.slice(0, 1000),
+      });
+      throw new Error('Failed to parse OpenRouter response');
+    }
+
+    const choice = data.choices?.[0];
+    const content = pickMessageContent(choice?.message);
     if (!content) {
       logger.error('OpenRouter returned empty response', {
-        model: config.openRouterModel,
-        durationMs: Date.now() - startedAt,
+        ...baseLog,
+        choicesCount: Array.isArray(data.choices) ? data.choices.length : 0,
+        finishReason: choice?.finish_reason ?? null,
+        rawBody: rawBody.slice(0, 1000),
       });
       throw new Error('OpenRouter returned empty response');
     }
-    logger.info('OpenRouter response', {
-      durationMs: Date.now() - startedAt,
-      model: config.openRouterModel,
+    logger.llmResponse('OpenRouter response', {
+      ...baseLog,
       messagesCount: messages.length,
-      stopCount: payload.stop?.length ?? 0,
+      finishReason: choice?.finish_reason ?? null,
+      usage: data.usage ?? null,
+      content: String(content).trim(),
     });
     return String(content).trim();
   }

@@ -10,6 +10,38 @@ export interface SendMessagePayload {
 
 const apiBase = `https://api.telegram.org/bot${config.telegramBotToken}`;
 
+export const sendTelegramChatAction = async (chatId: number, action: 'typing' | 'upload_photo' | 'record_audio' | 'upload_video' | 'record_video_note' | 'upload_document' | 'find_location' | 'record_voice' | 'upload_voice' | 'choose_contact' | 'choose_sticker' = 'typing') => {
+  const url = `${apiBase}/sendChatAction`;
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, action }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      logger.error('Telegram sendChatAction failed', {
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        body: body?.slice(0, 500),
+      });
+      return;
+    }
+    logger.info('Telegram sendChatAction ok', {
+      durationMs: Date.now() - startedAt,
+      action,
+    });
+  } catch (error) {
+    logger.error('Telegram sendChatAction network error', {
+      error: (error as Error).message,
+      durationMs: Date.now() - startedAt,
+      url,
+    });
+  }
+};
+
 export const sendTelegramMessage = async (payload: SendMessagePayload) => {
   const url = `${apiBase}/sendMessage`;
   const startedAt = Date.now();

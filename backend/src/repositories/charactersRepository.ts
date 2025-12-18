@@ -9,6 +9,14 @@ export interface CharacterRecord {
   access_type: 'free' | 'premium';
   is_active: boolean;
   created_at: string;
+  // LLM parameter overrides (null = use global defaults)
+  llm_model: string | null;
+  llm_temperature: number | null;
+  llm_top_p: number | null;
+  llm_repetition_penalty: number | null;
+  llm_max_tokens: number | null;
+  // Scene prompt (null = use default)
+  scene_prompt: string | null;
 }
 
 const mapCharacter = (row: any): CharacterRecord => ({
@@ -20,13 +28,56 @@ const mapCharacter = (row: any): CharacterRecord => ({
   access_type: row.access_type,
   is_active: row.is_active,
   created_at: row.created_at,
+  llm_model: row.llm_model ?? null,
+  llm_temperature: row.llm_temperature ? parseFloat(row.llm_temperature) : null,
+  llm_top_p: row.llm_top_p ? parseFloat(row.llm_top_p) : null,
+  llm_repetition_penalty: row.llm_repetition_penalty ? parseFloat(row.llm_repetition_penalty) : null,
+  llm_max_tokens: row.llm_max_tokens ?? null,
+  scene_prompt: row.scene_prompt ?? null,
 });
 
-export const listCharacters = async (includeInactive = false) => {
-  const sql = includeInactive
-    ? 'SELECT * FROM characters ORDER BY created_at DESC'
-    : 'SELECT * FROM characters WHERE is_active = TRUE ORDER BY created_at DESC';
-  const result = await query<CharacterRecord>(sql);
+export interface CharacterFilters {
+  includeInactive?: boolean;
+  search?: string;
+  accessType?: 'free' | 'premium';
+  tagIds?: number[];
+}
+
+export const listCharacters = async (filters: CharacterFilters = {}) => {
+  let sql = 'SELECT DISTINCT c.* FROM characters c';
+  const params: any[] = [];
+  const conditions: string[] = [];
+
+  // Joins if needed
+  if (filters.tagIds?.length) {
+    sql += ' JOIN character_tags ct ON c.id = ct.character_id';
+    conditions.push(`ct.tag_id = ANY($${params.length + 1})`);
+    params.push(filters.tagIds);
+  }
+
+  // Conditions
+  if (!filters.includeInactive) {
+    conditions.push('c.is_active = TRUE');
+  }
+
+  if (filters.accessType) {
+    conditions.push(`c.access_type = $${params.length + 1}`);
+    params.push(filters.accessType);
+  }
+
+  if (filters.search) {
+    conditions.push(`(c.name ILIKE $${params.length + 1} OR c.description_long ILIKE $${params.length + 1})`);
+    const searchPattern = `%${filters.search}%`;
+    params.push(searchPattern);
+  }
+
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+
+  sql += ' ORDER BY c.created_at DESC';
+
+  const result = await query<CharacterRecord>(sql, params);
   return result.rows.map(mapCharacter);
 };
 
@@ -42,6 +93,7 @@ interface CharacterPayload {
   system_prompt: string;
   access_type: 'free' | 'premium';
   is_active?: boolean;
+  scene_prompt?: string | null;
 }
 
 export const createCharacter = async (payload: CharacterPayload) => {
@@ -73,7 +125,7 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterPayl
 
   const result = await query<CharacterRecord>(
     `UPDATE characters SET name = $1, description_long = $2, avatar_url = $3, system_prompt = $4,
-      access_type = $5, is_active = $6 WHERE id = $7 RETURNING *`,
+      access_type = $5, is_active = $6, scene_prompt = $7 WHERE id = $8 RETURNING *`,
     [
       updated.name,
       updated.description_long,
@@ -81,6 +133,7 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterPayl
       updated.system_prompt,
       updated.access_type,
       updated.is_active,
+      payload.scene_prompt !== undefined ? payload.scene_prompt : existing.scene_prompt,
       id,
     ]
   );

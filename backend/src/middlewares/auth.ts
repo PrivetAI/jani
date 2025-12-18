@@ -51,3 +51,22 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
   }
   return next();
 };
+
+/** Validate Telegram initData for WebSocket auth (no Express context) */
+export const validateTelegramInitData = async (initData: string) => {
+  // Use mock data in dev mode if provided initData matches mock or is empty-ish
+  const dataToValidate = (config.allowDevInitData && config.mockInitData)
+    ? config.mockInitData
+    : initData;
+
+  const parsed = parseInitData(dataToValidate, config.telegramBotToken);
+  const user = await findOrCreateUser(parsed.user);
+
+  return {
+    id: user.id,
+    telegramUserId: user.telegram_user_id,
+    username: user.username ?? undefined,
+    isAdmin: config.adminTelegramIds.includes(String(parsed.user.id)),
+  };
+};
+

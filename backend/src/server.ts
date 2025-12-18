@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
 import { publicRouter } from './routes/public.js';
 import { adminRouter } from './routes/admin.js';
 import { telegramRouter } from './routes/telegram.js';
+import { chatRouter } from './routes/chat.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { createSocketServer } from './socketServer.js';
 
 export const buildServer = () => {
   const app = express();
@@ -16,6 +19,7 @@ export const buildServer = () => {
   });
 
   app.use('/api', publicRouter);
+  app.use('/api/chats', chatRouter);
   app.use('/api/admin', adminRouter);
   app.use('/telegram/webhook', telegramRouter);
 
@@ -34,10 +38,17 @@ export const buildServer = () => {
 
 export const startServer = async () => {
   const app = buildServer();
+  const httpServer = createServer(app);
+
+  // Attach Socket.IO to HTTP server
+  const io = createSocketServer(httpServer);
+  logger.info('Socket.IO attached to HTTP server');
+
   return new Promise<void>((resolve) => {
-    app.listen(config.port, () => {
-      logger.info(`API listening on port ${config.port}`);
+    httpServer.listen(config.port, () => {
+      logger.info(`API + WebSocket listening on port ${config.port}`);
       resolve();
     });
   });
 };
+

@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 type ApiOptions = Omit<RequestInit, 'body'> & {
@@ -6,6 +8,9 @@ type ApiOptions = Omit<RequestInit, 'body'> & {
 };
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const method = options.method ?? 'GET';
+  logger.api(method, path, options.body);
+
   const headers = new Headers(options.headers);
   if (options.body && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
@@ -32,12 +37,17 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     } catch {
       // ignore
     }
+    logger.apiResponse(method, path, response.status, { error: message });
     throw new Error(message);
   }
 
   if (response.status === 204) {
+    logger.apiResponse(method, path, 204);
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const data = await response.json() as T;
+  logger.apiResponse(method, path, response.status, data);
+  return data;
 }
+
