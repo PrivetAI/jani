@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { config } from '../config.js';
-import { findOrCreateUser, updateLastCharacter } from '../modules/users.js';
-import { getCharacterById } from '../modules/characters.js';
+import { findOrCreateUser, updateLastCharacter, getCharacterById } from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
 import {
   CharacterInactiveError,

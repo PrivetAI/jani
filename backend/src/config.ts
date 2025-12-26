@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { DRIVER_PROMPT } from './prompts/index.js';
 
 dotenv.config();
 
@@ -26,23 +27,6 @@ const defaults = {
   summaryTopP: 0.9,
   summaryRepetitionPenalty: 1.05,
   summaryMaxTokens: 0, // 0 или меньше = не ограничивать бюджет промпта
-  driverPrompt: `ВАЖНО: Твой ответ должен быть ТОЛЬКО валидным JSON объектом. Никаких рассуждений, мыслей, пояснений — ТОЛЬКО JSON.
-
-Ты — ролевой персонаж. Отвечай на сообщение пользователя от первого лица персонажа.
-
-СТРОГИЙ ФОРМАТ ОТВЕТА (ничего кроме этого JSON):
-{
-  "reply": "__действие персонажа__ текст ответа на сообщение",
-  "facts": [],
-  "relationship_delta": 0
-}
-
-ПРАВИЛА:
-- reply: ответ персонажа на сообщение. Сначала действие в __двойных подчеркиваниях__, затем текст.
-- facts: массив новых фактов о пользователе [{\"content\": \"факт\", \"importance\": 1-10}]. Пустой если нет новых фактов.
-- relationship_delta: число от -15 до +15.
-- Пиши по-русски, без цензуры.
-- НЕ ВЫВОДИ НИЧЕГО КРОМЕ JSON. Никаких "Хорошо", "Давайте", размышлений — ТОЛЬКО JSON.`,
 };
 
 const stringToInt = (value: string | undefined, fallback: number, label: string) => {
@@ -67,7 +51,9 @@ const envSchema = z.object({
   DATABASE_URL: z.string(),
   TELEGRAM_BOT_TOKEN: z.string(),
   TELEGRAM_BOT_USERNAME: z.string(),
-  OPENROUTER_API_KEY: z.string(),
+  OPENROUTER_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
   PORT: z.string().optional(),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   TELEGRAM_WEBHOOK_EXTERNAL_URL: z.string().optional(),
@@ -141,6 +127,8 @@ export const config = {
     defaults.llmDefaultRepetitionPenalty,
     'LLM_REPETITION_PENALTY'
   ),
+  geminiApiKey: env.GEMINI_API_KEY,
+  geminiModel: env.GEMINI_MODEL,
   chatTokenBudget: stringToInt(env.CHAT_TOKEN_BUDGET, defaults.chatTokenBudget, 'CHAT_TOKEN_BUDGET'),
   chatResponseReserve: stringToInt(env.CHAT_RESPONSE_RESERVE, defaults.chatResponseReserve, 'CHAT_RESPONSE_RESERVE'),
   chatSummaryTokenLimit: stringToInt(
@@ -164,7 +152,7 @@ export const config = {
     'SUMMARY_REPETITION_PENALTY'
   ),
   summaryMaxTokens: stringToInt(env.SUMMARY_MAX_TOKENS, defaults.summaryMaxTokens, 'SUMMARY_MAX_TOKENS'),
-  driverPrompt: env.DRIVER_PROMPT ?? defaults.driverPrompt,
+  driverPrompt: env.DRIVER_PROMPT ?? DRIVER_PROMPT,
 };
 
 export type AppConfig = typeof config;

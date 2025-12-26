@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-jani}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jani_dev_pass}
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U jani" ]
+      test: [ "CMD-SHELL", "pg_isready -U jani -d jani_dev" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,6 +40,9 @@ services:
       TELEGRAM_WEBHOOK_EXTERNAL_URL: ${TELEGRAM_WEBHOOK_EXTERNAL_URL:-}
       NGROK_API_URL: ${NGROK_API_URL:-http://ngrok:4040/api/tunnels}
       WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3-flash-preview}
     ports:
       - "3000:3000"
 

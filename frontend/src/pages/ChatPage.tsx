@@ -5,6 +5,26 @@ import { useUserStore } from '../store/userStore';
 import { MemoryViewer } from '../components/chat/MemoryViewer';
 import { SessionInfoPanel } from '../components/chat/SessionInfoPanel';
 import { formatMessage } from '../utils/textFormatter';
+import { getTypingStatus } from '../utils/gender';
+
+function Avatar({ src, name, isUser }: { src?: string | null; name: string; isUser?: boolean }) {
+    const initial = name?.charAt(0)?.toUpperCase() || '?';
+
+    return (
+        <div className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-medium
+            ${isUser
+                ? 'bg-gradient-to-br from-primary to-indigo-500 text-white'
+                : 'bg-surface-light border border-border text-text-secondary'
+            }`}
+        >
+            {src ? (
+                <img src={src} alt={name} className="w-full h-full rounded-xl object-cover" />
+            ) : (
+                initial
+            )}
+        </div>
+    );
+}
 
 export function ChatPage() {
     const { id } = useParams<{ id: string }>();
@@ -26,9 +46,11 @@ export function ChatPage() {
         disconnectSocket
     } = useChatStore();
 
-    const { initData } = useUserStore();
+    const { initData, profile } = useUserStore();
+    const userName = profile?.displayName || profile?.username || 'Вы';
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showMemory, setShowMemory] = useState(false);
     const [showSession, setShowSession] = useState(false);
 
@@ -59,6 +81,10 @@ export function ChatPage() {
         if (!inputText.trim() || !initData) return;
         const text = inputText;
         setInputText('');
+        // Reset textarea height
+        if (textareaRef.current) {
+            textareaRef.current.style.height = '48px';
+        }
         sendMessage(characterId, text, initData);
         loadLimits(initData);
     };
@@ -129,24 +155,42 @@ export function ChatPage() {
             {showMemory && <MemoryViewer onClose={() => setShowMemory(false)} />}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map(msg => (
-                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] px-4 py-3 rounded-2xl leading-relaxed
-                            ${msg.role === 'user'
-                                ? 'bg-gradient-to-r from-primary/70 to-indigo-500/60 rounded-br-sm'
-                                : 'bg-surface border border-border rounded-bl-sm'
-                            }`}
-                        >
-                            {formatMessage(msg.text)}
-
+                    <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <Avatar
+                            src={msg.role === 'user' ? null : selectedCharacter?.avatarUrl}
+                            name={msg.role === 'user' ? userName : (selectedCharacter?.name || 'AI')}
+                            isUser={msg.role === 'user'}
+                        />
+                        <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                            <span className="text-xs text-text-muted mb-1 px-1">
+                                {msg.role === 'user' ? userName : selectedCharacter?.name}
+                            </span>
+                            <div className={`max-w-[85%] px-4 py-3 rounded-2xl leading-relaxed text-left
+                                ${msg.role === 'user'
+                                    ? 'bg-gradient-to-r from-primary/70 to-indigo-500/60 rounded-br-sm'
+                                    : 'bg-surface border border-border rounded-bl-sm'
+                                }`}
+                            >
+                                {formatMessage(msg.text)}
+                            </div>
                         </div>
                     </div>
                 ))}
                 {isSending && (
-                    <div className="flex justify-start">
-                        <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-surface border border-border animate-pulse-slow">
-                            {isTyping ? '✍️ печатает...' : '...'}
+                    <div className="flex gap-2 flex-row">
+                        <Avatar
+                            src={selectedCharacter?.avatarUrl}
+                            name={selectedCharacter?.name || 'AI'}
+                        />
+                        <div className="flex flex-col items-start">
+                            <span className="text-xs text-text-muted mb-1 px-1">
+                                {selectedCharacter?.name}
+                            </span>
+                            <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-surface border border-border animate-pulse-slow">
+                                {isTyping ? getTypingStatus(selectedCharacter?.grammaticalGender) : '...'}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -156,18 +200,27 @@ export function ChatPage() {
             {/* Input Area */}
             <div className="flex gap-3 p-4 bg-surface/90 backdrop-blur-xl border-t border-border">
                 <textarea
+                    ref={textareaRef}
                     value={inputText}
-                    onChange={e => setInputText(e.target.value)}
+                    onChange={e => {
+                        setInputText(e.target.value);
+                        // Auto-grow textarea
+                        e.target.style.height = 'auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 144) + 'px'; // max 6 lines (~144px)
+                    }}
                     onKeyDown={handleKeyDown}
-                    placeholder="Напишите сообщение..."
+                    placeholder={isSending ? 'Подождите ответа...' : 'Напишите сообщение...'}
                     rows={1}
-                    className="flex-1 px-4 py-3 rounded-2xl bg-surface-light border border-border text-text-primary
-                        placeholder:text-text-muted resize-none focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                    disabled={isSending}
+                    className={`flex-1 px-4 py-3 rounded-2xl bg-surface-light border border-border text-text-primary
+                        placeholder:text-text-muted resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20
+                        ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{ minHeight: '48px' }}
                 />
                 <button
                     onClick={handleSend}
                     disabled={!inputText.trim() || isSending}
-                    className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center
+                    className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center self-end
                         bg-gradient-to-r from-primary to-indigo-500 text-white text-lg
                         disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                 >

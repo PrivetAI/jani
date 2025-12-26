@@ -42,9 +42,20 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE relationship_type AS ENUM ('neutral', 'friend', 'partner', 'colleague', 'mentor');
+    CREATE TYPE relationship_type AS ENUM ('negative', 'stranger', 'neutral', 'friend', 'partner');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Migration: add new values to existing enum if needed
+DO $$ BEGIN
+    ALTER TYPE relationship_type ADD VALUE IF NOT EXISTS 'negative' BEFORE 'neutral';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TYPE relationship_type ADD VALUE IF NOT EXISTS 'stranger' BEFORE 'neutral';
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
@@ -71,19 +82,25 @@ CREATE TABLE IF NOT EXISTS characters (
 -- Characters: new columns for Mini App catalog features
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS genre TEXT;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS content_rating content_rating DEFAULT 'sfw';
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS grammatical_gender TEXT DEFAULT 'female';
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS popularity_score INTEGER DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS messages_count INTEGER DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS unique_users_count INTEGER DEFAULT 0;
 
 -- Characters: LLM parameter overrides (NULL = use global config defaults)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_provider TEXT;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_model TEXT;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_temperature DECIMAL(3,2);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_top_p DECIMAL(3,2);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_repetition_penalty DECIMAL(4,2);
-ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_max_tokens INTEGER;
 
--- Characters: Scene prompt (NULL = use default scene)
-ALTER TABLE characters ADD COLUMN IF NOT EXISTS scene_prompt TEXT;
+-- Characters: Initial relationship values (used when creating new user-character state)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_attraction INTEGER DEFAULT 0;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_trust INTEGER DEFAULT 10;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_affection INTEGER DEFAULT 5;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_dominance INTEGER DEFAULT 0;
+
+
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -138,6 +155,9 @@ CREATE TABLE IF NOT EXISTS dialog_summaries (
     PRIMARY KEY (user_id, character_id)
 );
 
+-- Track how many messages have been summarized for incremental summarization
+ALTER TABLE dialog_summaries ADD COLUMN IF NOT EXISTS summarized_message_count INTEGER DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS payments (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -173,17 +193,23 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
-    relationship relationship_type DEFAULT 'neutral',
-    relationship_score INTEGER DEFAULT 50,
-    mood mood_type DEFAULT 'neutral',
+
     last_message_at TIMESTAMPTZ,
     messages_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, character_id)
 );
 
--- Add relationship_score if missing
-ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS relationship_score INTEGER DEFAULT 50;
+-- Drop legacy columns
+DO $$ BEGIN
+    ALTER TABLE chat_sessions DROP COLUMN IF EXISTS relationship_score;
+    ALTER TABLE chat_sessions DROP COLUMN IF EXISTS relationship;
+    ALTER TABLE chat_sessions DROP COLUMN IF EXISTS mood;
+    ALTER TABLE characters DROP COLUMN IF EXISTS default_relationship_score;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+-- Add user-specified model override
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS llm_model TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_character ON chat_sessions(user_id, character_id);
@@ -203,6 +229,28 @@ CREATE TABLE IF NOT EXISTS character_memories (
 CREATE INDEX IF NOT EXISTS idx_memories_user_character ON character_memories(user_id, character_id);
 CREATE INDEX IF NOT EXISTS idx_memories_importance ON character_memories(importance DESC);
 CREATE INDEX IF NOT EXISTS idx_memories_user_char_importance ON character_memories(user_id, character_id, importance DESC);
+
+-- =====================================================
+-- USER-CHARACTER EMOTIONAL STATE
+-- Multi-dimensional relationship system
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_character_state (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    -- Emotional dimensions: -50 to +50
+    attraction INTEGER DEFAULT 0,      -- влечение
+    trust INTEGER DEFAULT 10,          -- доверие (базовое)
+    affection INTEGER DEFAULT 5,       -- нежность
+    dominance INTEGER DEFAULT 0,       -- -50=пользователь доминирует, +50=персонаж доминирует
+    -- Character mood (JSONB): {"primary": "jealous", "secondary": "aroused", "intensity": 7}
+    mood JSONB DEFAULT '{"primary": "neutral", "intensity": 5}'::jsonb,
+    -- Metadata
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, character_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_character_state ON user_character_state(user_id, character_id);
 
 -- =====================================================
 -- SEED DATA

@@ -2,11 +2,25 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { telegramAuth } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { getCharacterById } from '../modules/characters.js';
+import {
+    getCharacterById,
+    countUserMessagesToday,
+    getDialogHistory,
+    addDialogMessage,
+    getMemories,
+    addMemory,
+    deleteMemory,
+    deleteAllMemories,
+    isMemoryOwner,
+    type MemoryCategory,
+    getOrCreateSession,
+    recordMessage,
+    updateSessionSettings,
+    type DialogRecord,
+    getOrCreateEmotionalState,
+    getMoodLabel,
+} from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
-import { countUserMessagesToday, getDialogHistory as getDialogs, addDialogMessage } from '../modules/dialogs.js';
-import { getMemories, addMemory, deleteMemory, deleteAllMemories, isMemoryOwner, type MemoryCategory } from '../modules/memories.js';
-import { getOrCreateSession, recordMessage } from '../modules/sessions.js';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 
@@ -35,7 +49,7 @@ router.get(
             return res.status(403).json({ error: 'premium_required', message: 'Требуется подписка' });
         }
 
-        const history = await getDialogs(req.auth!.id, characterId, limit + offset);
+        const history = await getDialogHistory(req.auth!.id, characterId, limit + offset);
         const sliced = history.slice(offset);
 
         res.json({
@@ -170,7 +184,7 @@ router.post(
 // Chat Session API (read-only, relationship updated by LLM)
 // ============================================
 
-/** Get session settings */
+/** Get session settings with emotional state */
 router.get(
     '/:characterId/session',
     telegramAuth,
@@ -178,13 +192,24 @@ router.get(
         const characterId = Number(req.params.characterId);
         const session = await getOrCreateSession(req.auth!.id, characterId);
 
+        // Get multi-dimensional emotional state
+        const emotionalState = await getOrCreateEmotionalState(req.auth!.id, characterId);
+
         res.json({
             id: session.id,
             userId: session.user_id,
             characterId: session.character_id,
-            relationship: session.relationship,
-            relationshipScore: session.relationship_score,
-            mood: session.mood,
+
+            // New emotional state
+            emotionalState: {
+                attraction: emotionalState.attraction,
+                trust: emotionalState.trust,
+                affection: emotionalState.affection,
+                dominance: emotionalState.dominance,
+                closeness: emotionalState.closeness,
+                mood: emotionalState.mood,
+                moodLabel: getMoodLabel(emotionalState.mood),
+            },
             lastMessageAt: session.last_message_at,
             messagesCount: session.messages_count,
             createdAt: session.created_at,
@@ -192,7 +217,51 @@ router.get(
     })
 );
 
-// Note: PATCH session removed - relationships now updated dynamically by LLM
+// Note: PATCH session - only for user settings like Model override
+const updateSessionSchema = z.object({
+    llmModel: z.string().nullable().optional(),
+});
+
+router.patch(
+    '/:characterId/session',
+    telegramAuth,
+    asyncHandler(async (req, res) => {
+        const characterId = Number(req.params.characterId);
+        const parsed = updateSessionSchema.safeParse(req.body);
+
+        if (!parsed.success) {
+            return res.status(400).json({ error: 'invalid_input', message: 'Некорректные данные' });
+        }
+
+        const updated = await updateSessionSettings(req.auth!.id, characterId, {
+            llm_model: parsed.data.llmModel
+        });
+
+        // Get emotional state
+        const emotionalState = await getOrCreateEmotionalState(req.auth!.id, characterId);
+
+        res.json({
+            id: updated.id,
+            userId: updated.user_id,
+            characterId: updated.character_id,
+
+            // New emotional state
+            emotionalState: {
+                attraction: emotionalState.attraction,
+                trust: emotionalState.trust,
+                affection: emotionalState.affection,
+                dominance: emotionalState.dominance,
+                closeness: emotionalState.closeness,
+                mood: emotionalState.mood,
+                moodLabel: getMoodLabel(emotionalState.mood),
+            },
+            lastMessageAt: updated.last_message_at,
+            messagesCount: updated.messages_count,
+            createdAt: updated.created_at,
+            llmModel: updated.llm_model,
+        });
+    })
+);
 
 // ============================================
 // Memory API

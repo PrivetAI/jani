@@ -19,12 +19,15 @@
 }
 
 /* Base styles */
+html, body {
+  height: 100%;
+}
+
 body {
   @apply bg-background text-text-primary font-sans antialiased;
   background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15), transparent 35%),
     radial-gradient(circle at 80% 0%, rgba(236, 72, 153, 0.1), transparent 40%),
     var(--color-background);
-  min-height: 100vh;
 }
 
 /* Glassmorphism card base */

@@ -1,14 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { listCharacters, getCharacterById, type CharacterRecord } from '../modules/characters.js';
+import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getAllTags } from '../modules/index.js';
 import { telegramAuth } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createSubscription } from '../modules/subscriptions.js';
-import { recordPayment } from '../modules/payments.js';
-import { getDialogHistory, countUserMessagesToday, type DialogRecord } from '../modules/dialogs.js';
 import { config } from '../config.js';
-import { updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById } from '../modules/users.js';
-import { getAllTags } from '../modules/tags.js';
 
 const router = Router();
 
@@ -19,6 +14,7 @@ const characterResponse = (character: CharacterRecord) => ({
   avatarUrl: character.avatar_url,
   accessType: character.access_type,
   isActive: character.is_active,
+  grammaticalGender: character.grammatical_gender,
 });
 
 router.get(

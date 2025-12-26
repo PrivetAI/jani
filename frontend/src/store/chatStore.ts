@@ -9,6 +9,7 @@ export interface Character {
     description: string;
     avatarUrl: string | null;
     accessType: 'free' | 'premium';
+    grammaticalGender?: 'male' | 'female';
     tags?: string[];
 }
 
@@ -34,13 +35,22 @@ export interface Limits {
     hasSubscription: boolean;
 }
 
+export interface EmotionalState {
+    attraction: number;
+    trust: number;
+    affection: number;
+    dominance: number;
+    closeness: number;
+    mood: { primary: string; secondary?: string; intensity: number };
+    moodLabel: string;
+}
+
 export interface Session {
-    relationship: 'neutral' | 'friend' | 'partner' | 'colleague' | 'mentor';
-    relationshipScore: number;
-    mood: 'neutral' | 'sweet' | 'sarcastic' | 'formal' | 'playful';
+    emotionalState: EmotionalState;
     messagesCount: number;
     lastMessageAt: string | null;
     createdAt: string;
+    llmModel: string | null;
 }
 
 interface ChatState {
@@ -72,6 +82,7 @@ interface ChatState {
     // Session (read-only, updated by LLM)
     loadLimits: (initData: string) => Promise<void>;
     loadSession: (characterId: number, initData: string) => Promise<void>;
+    updateSessionSettings: (characterId: number, settings: { llmModel: string | null }, initData: string) => Promise<void>;
     forgetRecent: (characterId: number, count: number, initData: string) => Promise<void>;
 }
 
@@ -283,6 +294,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
             set({ session: data });
         } catch (err) {
             console.error('Failed to load session:', err);
+        }
+    },
+
+    updateSessionSettings: async (characterId: number, settings: { llmModel: string | null }, initData: string) => {
+        try {
+            const data = await apiRequest<Session>(`/api/chats/${characterId}/session`, {
+                method: 'PATCH',
+                body: settings,
+                initData
+            });
+            set({ session: data });
+        } catch (err) {
+            console.error('Failed to update session:', err);
+            set({ error: (err as Error).message });
         }
     },
 

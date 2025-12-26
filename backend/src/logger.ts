@@ -29,4 +29,11 @@ export const logger = {
     // eslint-disable-next-line no-console
     console.log(`${colors.green}[LLM ОТВЕТ]${colors.reset} ${msg}`, meta ?? '');
   },
+  debug: (msg: string, meta?: Record<string, unknown>) => {
+    // Only log when DEBUG=1 or LOG_LEVEL=debug
+    if (process.env.DEBUG === '1' || process.env.LOG_LEVEL === 'debug') {
+      // eslint-disable-next-line no-console
+      console.log(`${colors.cyan}[DEBUG]${colors.reset} ${msg}`, meta ?? '');
+    }
+  },
 };

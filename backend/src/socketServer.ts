@@ -2,9 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { validateTelegramInitData } from './middlewares/auth.js';
 import { chatSessionService } from './services/chatSessionService.js';
-import { getCharacterById } from './modules/characters.js';
-import { countUserMessagesToday } from './modules/dialogs.js';
-import { recordMessage } from './modules/sessions.js';
+import { getCharacterById, countUserMessagesToday, recordMessage } from './modules/index.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 

@@ -1,8 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { config } from '../config.js';
 import { parseInitData } from '../telegram/verify.js';
-import { findOrCreateUser } from '../modules/users.js';
-import { getSubscriptionStatus } from '../modules/subscriptions.js';
+import { findOrCreateUser, getSubscriptionStatus } from '../modules/index.js';
 
 const HEADER = 'x-telegram-init-data';
 
