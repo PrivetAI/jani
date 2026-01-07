@@ -2,7 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { validateTelegramInitData } from './middlewares/auth.js';
 import { chatSessionService } from './services/chatSessionService.js';
-import { getCharacterById, countUserMessagesToday, recordMessage } from './modules/index.js';
+import { getCharacterById, countUserMessagesToday, recordMessage, getActiveSubscription } from './modules/index.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 
@@ -78,22 +78,29 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                     return;
                 }
 
-                // TODO: Check subscription for premium characters
-                // For now, simplified check
+                // Check subscription for premium characters
+                const subscription = await getActiveSubscription(socket.userId);
+                const hasSubscription = Boolean(subscription);
+                if (character.access_type === 'premium' && !hasSubscription) {
+                    socket.emit('chat:error', { error: 'premium_required', message: 'Требуется подписка для этого персонажа' });
+                    return;
+                }
 
                 // Check daily limit for free users
-                const used = await countUserMessagesToday(socket.userId);
-                if (used >= config.freeDailyMessageLimit) {
-                    socket.emit('chat:error', {
-                        error: 'daily_limit_exceeded',
-                        message: `Дневной лимит ${config.freeDailyMessageLimit} сообщений исчерпан`,
-                        limits: {
-                            remaining: 0,
-                            total: config.freeDailyMessageLimit,
-                            resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                        },
-                    });
-                    return;
+                if (!hasSubscription) {
+                    const used = await countUserMessagesToday(socket.userId);
+                    if (used >= config.freeDailyMessageLimit) {
+                        socket.emit('chat:error', {
+                            error: 'daily_limit_exceeded',
+                            message: `Дневной лимит ${config.freeDailyMessageLimit} сообщений исчерпан`,
+                            limits: {
+                                remaining: 0,
+                                total: config.freeDailyMessageLimit,
+                                resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+                            },
+                        });
+                        return;
+                    }
                 }
 
                 // Join character-specific room

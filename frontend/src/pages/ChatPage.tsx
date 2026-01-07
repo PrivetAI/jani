@@ -178,7 +178,7 @@ export function ChatPage() {
                         </div>
                     </div>
                 ))}
-                {isSending && (
+                {(isSending || isTyping) && (
                     <div className="flex gap-2 flex-row">
                         <Avatar
                             src={selectedCharacter?.avatarUrl}

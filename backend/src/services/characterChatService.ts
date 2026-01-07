@@ -13,11 +13,11 @@ import { llmService, type LLMMessage } from './llmService.js';
 import type { ChatRequest } from './chat/types.js';
 import {
   estimateMessageTokens,
-  buildHighlights,
   buildMemoryBlock,
   trimTextByTokens,
   buildCharacterCard,
   buildUserFacts,
+  buildExistingFactsForPrompt,
   buildUserInfo,
   toLLMHistory,
   buildUserMessage,
@@ -30,7 +30,7 @@ import { SUMMARY_AND_FACTS_PROMPT } from '../prompts/chat.js';
 export type { ChatRequest } from './chat/types.js';
 
 export class CharacterChatService {
-  private readonly conversationWindow = 8; // 4 реплики пользователя + 4 ассистента
+  private readonly conversationWindow = 7; // 7 из истории + 1 новое = 8 в промпте
 
   private buildSystemPrompt(
     character: CharacterRecord,
@@ -93,9 +93,17 @@ export class CharacterChatService {
     messages: LLMMessage[],
     characterName: string,
     existingSummary?: string | null,
-    provider: 'openrouter' | 'gemini' = 'openrouter'
-  ): Promise<{ summary: string | null; facts: Array<{ content: string; category: string; importance: number }> }> {
-    const emptyResult = { summary: null, facts: [] };
+    existingMemories?: Array<{ id: number; content: string }>
+  ): Promise<{
+    summary: string | null;
+    memoryOperations: Array<{
+      action: 'add' | 'update' | 'delete';
+      id?: number;
+      content?: string;
+      importance?: number;
+    }>;
+  }> {
+    const emptyResult = { summary: null, memoryOperations: [] };
 
     if (!messages.length && !existingSummary) {
       return emptyResult;
@@ -107,8 +115,14 @@ export class CharacterChatService {
       })
       .join('\n');
 
+    // Build existing facts for LLM
+    const existingFactsBlock = existingMemories?.length
+      ? `Существующие факты о пользователе:\n${existingMemories.map(m => `[ID:${m.id}] ${m.content}`).join('\n')}`
+      : 'Существующие факты: нет';
+
     const summarySource = [
       existingSummary ? `Summary so far: ${existingSummary}` : null,
+      existingFactsBlock,
       transcript ? `New dialog:\n${transcript}` : null,
     ]
       .filter(Boolean)
@@ -120,16 +134,23 @@ export class CharacterChatService {
         role: 'system',
         content: SUMMARY_AND_FACTS_PROMPT,
       },
-      { role: 'user', content: trimTextByTokens(summarySource, 900) },
+      { role: 'user', content: trimTextByTokens(summarySource, 1200) },
     ];
 
     try {
+      // Fetch global summary settings
+      const { getSettings } = await import('../repositories/appSettingsRepository.js');
+      const summarySettings = await getSettings(['summary_provider', 'summary_model']);
+      const summaryProvider = (summarySettings.summary_provider || 'openrouter') as 'openrouter' | 'gemini' | 'openai';
+      const summaryModel = summarySettings.summary_model || undefined;
+
       const rawResponse = await llmService.generateReply(summaryPrompt, {
         temperature: config.summaryTemperature,
         topP: config.summaryTopP,
         repetitionPenalty: config.summaryRepetitionPenalty,
         maxTokens: config.summaryMaxTokens,
-        provider,
+        provider: summaryProvider,
+        model: summaryModel,
       });
 
 
@@ -143,22 +164,26 @@ export class CharacterChatService {
             ? parsed.summary.trim()
             : null;
 
-          // Parse facts array
-          const facts = Array.isArray(parsed.facts)
-            ? parsed.facts.filter((f: any) =>
-              f.content &&
-              typeof f.content === 'string' &&
-              f.content.length > 3 &&
-              f.content.length < 200 &&
-              ['fact', 'preference', 'emotion', 'relationship'].includes(f.category) &&
-              typeof f.importance === 'number' &&
-              f.importance >= 1 && f.importance <= 10
-            ).slice(0, 3)
+          // Parse memory_operations array
+          const memoryOperations = Array.isArray(parsed.memory_operations)
+            ? parsed.memory_operations.filter((op: any) => {
+              if (!op.action || !['add', 'update', 'delete'].includes(op.action)) return false;
+              if (op.action === 'add') {
+                return op.content && typeof op.content === 'string' && op.content.length > 3 && op.content.length < 300;
+              }
+              if (op.action === 'update') {
+                return typeof op.id === 'number' && op.content && typeof op.content === 'string';
+              }
+              if (op.action === 'delete') {
+                return typeof op.id === 'number';
+              }
+              return false;
+            })
             : [];
 
-          return { summary, facts };
+          return { summary, memoryOperations };
         } catch (e) {
-          logger.warn('Failed to parse summary+facts JSON', { error: (e as Error).message });
+          logger.warn('Failed to parse summary+operations JSON', { error: (e as Error).message });
         }
       }
 
@@ -180,7 +205,7 @@ export class CharacterChatService {
     return trimmed;
   }
 
-  async generateReply(request: ChatRequest): Promise<string> {
+  async generateReply(request: ChatRequest): Promise<{ reply: string; thoughts?: string }> {
     const summaryRecord = await getDialogSummary(request.userId, request.character.id);
     const existingSummary = summaryRecord?.summary_text ?? null;
 
@@ -219,34 +244,48 @@ export class CharacterChatService {
       const messagesToSummarize = historyMessages.slice(lastSummarizedCount, nextSummaryThreshold);
 
       if (messagesToSummarize.length > 0) {
-        const result = await this.summarizeHistory(messagesToSummarize, request.character.name, existingSummary, provider);
+        // Fetch existing memories with IDs for LLM
+        const { getMemories, addMemory, updateMemoryContent, deleteMemory } = await import('../modules/index.js');
+        const existingMemories = await getMemories(request.userId, request.character.id);
+        const memoriesForPrompt = existingMemories.map(m => ({ id: m.id, content: m.content }));
+
+        const result = await this.summarizeHistory(
+          messagesToSummarize,
+          request.character.name,
+          existingSummary,
+          memoriesForPrompt
+        );
         if (result.summary) {
           promptSummary = result.summary;
           await this.updateSummary(request.userId, request.character.id, result.summary, nextSummaryThreshold);
+        }
 
-          // Save facts extracted in the same LLM call (no separate call needed!)
-          if (result.facts.length > 0) {
-            const { addMemory, getMemories } = await import('../modules/index.js');
-            const existingMemories = await getMemories(request.userId, request.character.id);
-            const existingContents = existingMemories.map(m => m.content.toLowerCase());
-
-            let savedCount = 0;
-            for (const fact of result.facts) {
-              const isDuplicate = existingContents.some(existing =>
-                existing.includes(fact.content.toLowerCase()) ||
-                fact.content.toLowerCase().includes(existing)
+        // Process memory operations from LLM
+        for (const op of result.memoryOperations) {
+          try {
+            if (op.action === 'add' && op.content) {
+              await addMemory(
+                request.userId,
+                request.character.id,
+                op.content,
+                op.importance ?? 5
               );
-              if (!isDuplicate) {
-                await addMemory(request.userId, request.character.id, fact.content, fact.category as any, fact.importance);
-              }
+              logger.info('Memory added', { content: op.content });
+            } else if (op.action === 'update' && op.id && op.content) {
+              await updateMemoryContent(op.id, op.content);
+              logger.info('Memory updated', { id: op.id, content: op.content });
+            } else if (op.action === 'delete' && op.id) {
+              await deleteMemory(op.id);
+              logger.info('Memory deleted', { id: op.id });
             }
+          } catch (err) {
+            logger.warn('Memory operation failed', { op, error: (err as Error).message });
           }
         }
       }
     }
 
-    const highlights = buildHighlights(windowMessages, request.character.name, request.username);
-    const memoryBlock = buildMemoryBlock(promptSummary, highlights);
+    const memoryBlock = buildMemoryBlock(promptSummary);
 
     let staticMessages = this.buildStaticMessages(request.character, userInfo, memoryBlock, userFacts, emotionalContext);
     let staticTokens = this.countTokens(staticMessages);
@@ -266,10 +305,10 @@ export class CharacterChatService {
     }
 
     if (discarded.length) {
-      const overflowResult = await this.summarizeHistory(discarded, request.character.name, promptSummary, provider);
+      const overflowResult = await this.summarizeHistory(discarded, request.character.name, promptSummary);
       promptSummary = overflowResult.summary ?? promptSummary;
 
-      staticMessages = this.buildStaticMessages(request.character, userInfo, buildMemoryBlock(promptSummary, highlights), userFacts, emotionalContext);
+      staticMessages = this.buildStaticMessages(request.character, userInfo, buildMemoryBlock(promptSummary), userFacts, emotionalContext);
       staticTokens = this.countTokens(staticMessages);
       if (!unlimitedBudget) {
         ({ kept, discarded } = applyHistoryBudget(
@@ -318,14 +357,7 @@ export class CharacterChatService {
       }
     }
 
-    // Include thoughts in reply if present (for UI display)
-    let replyWithThoughts = finalReply;
-    if (extracted.thoughts) {
-      replyWithThoughts = `${finalReply}\n\n${extracted.thoughts}`;
-    }
-
-
-    return replyWithThoughts;
+    return { reply: finalReply, thoughts: extracted.thoughts };
   }
 }
 

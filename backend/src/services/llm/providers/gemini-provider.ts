@@ -5,7 +5,11 @@ import { LLMMessage, LLMProvider, LLMRequestOptions } from '../types.js';
 export class GeminiProvider implements LLMProvider {
     async generateReply(messages: LLMMessage[], options: LLMRequestOptions = {}): Promise<string> {
         const startedAt = Date.now();
-        const model = options.model || config.geminiModel;
+        const model = options.model;
+
+        if (!model) {
+            throw new Error('Gemini model is not specified');
+        }
 
         if (!config.geminiApiKey) {
             throw new Error('Gemini API Key is missing');

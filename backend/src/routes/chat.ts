@@ -12,13 +12,11 @@ import {
     deleteMemory,
     deleteAllMemories,
     isMemoryOwner,
-    type MemoryCategory,
     getOrCreateSession,
     recordMessage,
     updateSessionSettings,
     type DialogRecord,
     getOrCreateEmotionalState,
-    getMoodLabel,
 } from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
 import { config } from '../config.js';
@@ -208,7 +206,7 @@ router.get(
                 dominance: emotionalState.dominance,
                 closeness: emotionalState.closeness,
                 mood: emotionalState.mood,
-                moodLabel: getMoodLabel(emotionalState.mood),
+                moodLabel: emotionalState.mood.primary,
             },
             lastMessageAt: session.last_message_at,
             messagesCount: session.messages_count,
@@ -253,7 +251,7 @@ router.patch(
                 dominance: emotionalState.dominance,
                 closeness: emotionalState.closeness,
                 mood: emotionalState.mood,
-                moodLabel: getMoodLabel(emotionalState.mood),
+                moodLabel: emotionalState.mood.primary,
             },
             lastMessageAt: updated.last_message_at,
             messagesCount: updated.messages_count,
@@ -278,7 +276,6 @@ router.get(
         res.json({
             memories: memories.map(m => ({
                 id: m.id,
-                type: m.memory_category,
                 content: m.content,
                 importance: m.importance,
                 createdAt: m.created_at,
@@ -291,7 +288,6 @@ router.get(
 /** Add a new memory */
 const addMemorySchema = z.object({
     content: z.string().min(1).max(500),
-    type: z.enum(['fact', 'preference', 'emotion', 'relationship']).default('fact'),
     importance: z.number().min(1).max(10).default(5),
 });
 
@@ -310,13 +306,11 @@ router.post(
             req.auth!.id,
             characterId,
             parsed.data.content,
-            parsed.data.type as MemoryCategory,
             parsed.data.importance
         );
 
         res.status(201).json({
             id: memory.id,
-            type: memory.memory_category,
             content: memory.content,
             importance: memory.importance,
             createdAt: memory.created_at,

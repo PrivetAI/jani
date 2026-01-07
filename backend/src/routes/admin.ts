@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { telegramAuth, requireAdmin } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats } from '../modules/index.js';
+import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats, setCharacterTags, getCharacterTags } from '../modules/index.js';
 import { query } from '../db/pool.js';
 import { config } from '../config.js';
 
@@ -27,11 +27,13 @@ const characterSchema = z.object({
   initial_affection: z.number().min(-50).max(50).optional(),
   initial_dominance: z.number().min(-50).max(50).optional(),
   // LLM parameter overrides (null = use global defaults)
-  llm_provider: z.enum(['openrouter', 'gemini']).optional().nullable(),
+  llm_provider: z.enum(['openrouter', 'gemini', 'openai']).optional().nullable(),
   llm_model: z.string().optional().nullable(),
   llm_temperature: z.number().min(0).max(2).optional().nullable(),
   llm_top_p: z.number().min(0).max(1).optional().nullable(),
   llm_repetition_penalty: z.number().min(0).max(3).optional().nullable(),
+  // Tags
+  tag_ids: z.array(z.number()).optional(),
 });
 
 router.use(telegramAuth, requireAdmin);
@@ -65,6 +67,67 @@ router.get(
   })
 );
 
+/** Get available OpenAI models */
+router.get(
+  '/openai-models',
+  asyncHandler(async (_req, res) => {
+    if (!config.openaiApiKey) {
+      return res.json({ models: [] });
+    }
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          Authorization: `Bearer ${config.openaiApiKey}`,
+        },
+      });
+      if (!response.ok) {
+        return res.json({ models: [] });
+      }
+      const data = await response.json() as { data?: Array<{ id: string }> };
+      // Filter to chat models (gpt-*)
+      const models = (data.data || [])
+        .filter(m => m.id.startsWith('gpt-'))
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(m => ({
+          id: m.id,
+          name: m.id,
+        }));
+      res.json({ models });
+    } catch (err) {
+      res.json({ models: [] });
+    }
+  })
+);
+
+/** Get available OpenRouter models */
+router.get(
+  '/openrouter-models',
+  asyncHandler(async (_req, res) => {
+    if (!config.openRouterApiKey) {
+      return res.json({ models: [] });
+    }
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          Authorization: `Bearer ${config.openRouterApiKey}`,
+        },
+      });
+      if (!response.ok) {
+        return res.json({ models: [] });
+      }
+      const data = await response.json() as { data?: Array<{ id: string; name: string }> };
+      const models = (data.data || [])
+        .map(m => ({
+          id: m.id,
+          name: m.name || m.id,
+        }));
+      res.json({ models });
+    } catch (err) {
+      res.json({ models: [] });
+    }
+  })
+);
+
 /** Get common system prompt (read-only) */
 router.get(
   '/system-prompt',
@@ -73,37 +136,86 @@ router.get(
   })
 );
 
+/** Get global app settings */
+router.get(
+  '/settings',
+  asyncHandler(async (_req, res) => {
+    const { getAllSettings } = await import('../repositories/appSettingsRepository.js');
+    const settings = await getAllSettings();
+    res.json({ settings });
+  })
+);
+
+/** Update global app settings */
+const updateSettingsSchema = z.object({
+  summary_provider: z.enum(['openrouter', 'gemini', 'openai']).optional(),
+  summary_model: z.string().optional(),
+});
+
+router.put(
+  '/settings',
+  asyncHandler(async (req, res) => {
+    const parsed = updateSettingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_input', message: 'Некорректные данные' });
+    }
+
+    const { setSettings, getAllSettings } = await import('../repositories/appSettingsRepository.js');
+    const updates: Record<string, string> = {};
+
+    if (parsed.data.summary_provider !== undefined) {
+      updates.summary_provider = parsed.data.summary_provider;
+    }
+    if (parsed.data.summary_model !== undefined) {
+      updates.summary_model = parsed.data.summary_model;
+    }
+
+    await setSettings(updates);
+    const settings = await getAllSettings();
+    res.json({ settings });
+  })
+);
+
 router.get(
   '/characters',
   asyncHandler(async (_req, res) => {
     const characters = await listCharacters({ includeInactive: true });
-    res.json({
-      characters: characters.map((c: CharacterRecord) => ({
-        id: c.id,
-        name: c.name,
-        description: c.description_long,
-        avatarUrl: c.avatar_url,
-        systemPrompt: c.system_prompt,
-        accessType: c.access_type,
-        isActive: c.is_active,
-        createdAt: c.created_at,
-        // Catalog fields
-        genre: c.genre,
-        contentRating: c.content_rating,
-        grammaticalGender: c.grammatical_gender,
-        // Initial relationship
-        initialAttraction: c.initial_attraction,
-        initialTrust: c.initial_trust,
-        initialAffection: c.initial_affection,
-        initialDominance: c.initial_dominance,
-        // LLM fields
-        llmProvider: c.llm_provider,
-        llmModel: c.llm_model,
-        llmTemperature: c.llm_temperature,
-        llmTopP: c.llm_top_p,
-        llmRepetitionPenalty: c.llm_repetition_penalty,
-      })),
-    });
+
+    // Load tags for each character
+    const charactersWithTags = await Promise.all(
+      characters.map(async (c: CharacterRecord) => {
+        const tags = await getCharacterTags(c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          description: c.description_long,
+          avatarUrl: c.avatar_url,
+          systemPrompt: c.system_prompt,
+          accessType: c.access_type,
+          isActive: c.is_active,
+          createdAt: c.created_at,
+          // Catalog fields
+          genre: c.genre,
+          contentRating: c.content_rating,
+          grammaticalGender: c.grammatical_gender,
+          // Initial relationship
+          initialAttraction: c.initial_attraction,
+          initialTrust: c.initial_trust,
+          initialAffection: c.initial_affection,
+          initialDominance: c.initial_dominance,
+          // LLM fields
+          llmProvider: c.llm_provider,
+          llmModel: c.llm_model,
+          llmTemperature: c.llm_temperature,
+          llmTopP: c.llm_top_p,
+          llmRepetitionPenalty: c.llm_repetition_penalty,
+          // Tags
+          tagIds: tags.map(t => t.id),
+        };
+      })
+    );
+
+    res.json({ characters: charactersWithTags });
   })
 );
 
@@ -167,7 +279,17 @@ router.put(
       return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
     }
     const id = Number(req.params.id);
-    const updated = await updateCharacter(id, parsed.data);
+
+    // Extract tag_ids before updating character
+    const { tag_ids, ...characterData } = parsed.data;
+
+    const updated = await updateCharacter(id, characterData);
+
+    // Update tags if provided
+    if (tag_ids !== undefined) {
+      await setCharacterTags(id, tag_ids);
+    }
+
     res.json({ character: { id: updated.id } });
   })
 );

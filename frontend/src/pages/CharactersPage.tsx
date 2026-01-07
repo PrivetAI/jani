@@ -3,7 +3,12 @@ import { useChatStore } from '../store/chatStore';
 import { useUserStore } from '../store/userStore';
 import { useNavigate } from 'react-router-dom';
 import { SearchBar } from '../components/characters/SearchBar';
-import { CharacterFilters } from '../components/characters/CharacterFilters';
+import { apiRequest } from '../lib/api';
+
+interface Tag {
+    id: number;
+    name: string;
+}
 
 export function CharactersPage() {
     const { characters, loadCharacters, isLoadingCharacters, selectCharacter } = useChatStore();
@@ -12,8 +17,18 @@ export function CharactersPage() {
 
     const [search, setSearch] = useState('');
     const [selectedTags, setSelectedTags] = useState<number[]>([]);
-    const [showFilters, setShowFilters] = useState(false);
+    const [tags, setTags] = useState<Tag[]>([]);
 
+    // Load tags on mount
+    useEffect(() => {
+        if (initData) {
+            apiRequest<{ tags: Tag[] }>('/api/tags', { initData })
+                .then(data => setTags(data.tags))
+                .catch(console.error);
+        }
+    }, [initData]);
+
+    // Load characters when filters change
     useEffect(() => {
         if (initData) {
             loadCharacters(initData, { search, tags: selectedTags });
@@ -26,31 +41,39 @@ export function CharactersPage() {
         navigate(`/chat/${id}`);
     };
 
+    const toggleTag = (id: number) => {
+        setSelectedTags(prev =>
+            prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+        );
+    };
+
     return (
         <div className="min-h-screen p-4 pb-20">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                     Персонажи
                 </h2>
-                <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all
-                        bg-surface-light border border-border-light text-text-secondary
-                        hover:bg-surface hover:text-text-primary"
-                >
-                    {showFilters ? 'Скрыть' : 'Фильтры'}
-                </button>
             </div>
 
             <SearchBar onSearch={setSearch} />
 
-            {showFilters && (
-                <div className="mt-4">
-                    <CharacterFilters
-                        selectedTags={selectedTags}
-                        onChangeTags={setSelectedTags}
-                    />
+            {/* Tags Filter Bar */}
+            {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                    {tags.map(tag => (
+                        <button
+                            key={tag.id}
+                            onClick={() => toggleTag(tag.id)}
+                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all
+                                ${selectedTags.includes(tag.id)
+                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                    : 'bg-surface-light border border-border text-text-secondary hover:border-primary/40 hover:text-text-primary'
+                                }`}
+                        >
+                            {tag.name}
+                        </button>
+                    ))}
                 </div>
             )}
 
@@ -86,10 +109,10 @@ export function CharactersPage() {
                             {/* Info */}
                             <div className="p-3">
                                 <h3 className="font-semibold text-text-primary truncate">{char.name}</h3>
-                                <p className="text-xs text-text-secondary line-clamp-2 mt-1">{char.description}</p>
+                                <p className="text-xs text-text-secondary line-clamp-4 mt-1">{char.description}</p>
                                 {char.tags && char.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
-                                        {char.tags.slice(0, 2).map((t, i) => (
+                                        {char.tags.slice(0, 3).map((t, i) => (
                                             <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/20 text-primary">
                                                 {t}
                                             </span>

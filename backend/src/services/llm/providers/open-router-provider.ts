@@ -52,8 +52,11 @@ export class OpenRouterProvider implements LLMProvider {
     async generateReply(messages: LLMMessage[], options: LLMRequestOptions = {}): Promise<string> {
         const startedAt = Date.now();
 
-        // Use option model if provided, otherwise default from config
-        const model = options.model || config.openRouterModel;
+        const model = options.model;
+
+        if (!model) {
+            throw new Error('OpenRouter model is not specified');
+        }
 
         // If no API key is configured (and we are here), it's a critical error for this provider
         if (!config.openRouterApiKey) {

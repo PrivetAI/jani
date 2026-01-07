@@ -6,13 +6,6 @@ interface MemoryViewerProps {
     onClose: () => void;
 }
 
-const tagColors: Record<string, string> = {
-    fact: 'bg-primary/30 text-primary',
-    preference: 'bg-purple-500/30 text-purple-400',
-    emotion: 'bg-pink-500/30 text-pink-400',
-    relationship: 'bg-success/30 text-success',
-};
-
 export function MemoryViewer({ onClose }: MemoryViewerProps) {
     const { memories, selectedCharacter, deleteMemory, addMemory, isLoadingMemories } = useChatStore();
     const { initData } = useUserStore();
@@ -26,9 +19,7 @@ export function MemoryViewer({ onClose }: MemoryViewerProps) {
 
     const handleDelete = async (id: number) => {
         if (!selectedCharacter || !initData) return;
-        if (confirm('Забыть этот факт?')) {
-            await deleteMemory(selectedCharacter.id, id, initData);
-        }
+        await deleteMemory(selectedCharacter.id, id, initData);
     };
 
     return (
@@ -55,9 +46,6 @@ export function MemoryViewer({ onClose }: MemoryViewerProps) {
 
                     {memories.map(m => (
                         <div key={m.id} className="flex items-start gap-3 p-3 rounded-xl bg-surface-light/50">
-                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-medium flex-shrink-0 ${tagColors[m.type] || 'bg-border text-text-muted'}`}>
-                                {m.type}
-                            </span>
                             <p className="flex-1 text-sm text-text-primary">{m.content}</p>
                             <button
                                 onClick={() => handleDelete(m.id)}

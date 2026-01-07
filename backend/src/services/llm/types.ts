@@ -11,7 +11,7 @@ export interface LLMRequestOptions {
     repetitionPenalty?: number;
     maxTokens?: number;
     stop?: string[];
-    provider?: 'openrouter' | 'gemini';
+    provider?: 'openrouter' | 'gemini' | 'openai';
 }
 
 export interface LLMProvider {

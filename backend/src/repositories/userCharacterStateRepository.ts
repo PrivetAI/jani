@@ -153,33 +153,7 @@ export const updateEmotionalState = async (
     return mapState(result.rows[0]);
 };
 
-/**
- * Get mood label in Russian with correct grammatical gender
- */
-export const getMoodLabel = (mood: CharacterMood, gender: 'male' | 'female' = 'female'): string => {
-    const moodLabels: Record<string, { male: string; female: string }> = {
-        neutral: { male: 'спокойный', female: 'спокойная' },
-        joyful: { male: 'радостный', female: 'радостная' },
-        sad: { male: 'грустный', female: 'грустная' },
-        angry: { male: 'злой', female: 'злая' },
-        aroused: { male: 'возбуждённый', female: 'возбуждённая' },
-        jealous: { male: 'ревнивый', female: 'ревнивая' },
-        vulnerable: { male: 'уязвимый', female: 'уязвимая' },
-        playful: { male: 'игривый', female: 'игривая' },
-        melancholic: { male: 'меланхоличный', female: 'меланхоличная' },
-        tender: { male: 'нежный', female: 'нежная' },
-        passionate: { male: 'страстный', female: 'страстная' },
-        shy: { male: 'смущённый', female: 'смущённая' },
-        curious: { male: 'любопытный', female: 'любопытная' },
-        flirty: { male: 'флиртующий', female: 'флиртующая' },
-    };
 
-    const moodData = moodLabels[mood.primary];
-    const label = moodData ? moodData[gender] : mood.primary;
-    if (mood.intensity >= 8) return `очень ${label}`;
-    if (mood.intensity <= 3) return `слегка ${label}`;
-    return label;
-};
 
 /**
  * Get emotional context string for LLM prompt
@@ -213,9 +187,14 @@ export const buildEmotionalContext = (state: EmotionalState, gender: 'male' | 'f
 
     if (dims.length) parts.push(dims.join(', '));
 
-    // Mood
-    const moodLabel = getMoodLabel(state.mood, gender);
-    parts.push(`Текущее настроение персонажа: ${moodLabel}`);
+    // Mood (free-form from LLM)
+    if (state.mood.primary) {
+        const intensity = state.mood.intensity;
+        let moodText = state.mood.primary;
+        if (intensity >= 8) moodText = `очень ${moodText}`;
+        else if (intensity <= 3) moodText = `слегка ${moodText}`;
+        parts.push(`Текущее настроение персонажа: ${moodText}`);
+    }
 
     return parts.join('. ') + '.';
 };

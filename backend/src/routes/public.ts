@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getAllTags } from '../modules/index.js';
+import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getAllTags, getCharacterTags } from '../modules/index.js';
 import { telegramAuth } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { config } from '../config.js';
 
 const router = Router();
 
-const characterResponse = (character: CharacterRecord) => ({
+const characterResponse = (character: CharacterRecord, tags?: string[]) => ({
   id: character.id,
   name: character.name,
   description: character.description_long,
@@ -15,6 +15,7 @@ const characterResponse = (character: CharacterRecord) => ({
   accessType: character.access_type,
   isActive: character.is_active,
   grammaticalGender: character.grammatical_gender,
+  tags: tags ?? [],
 });
 
 router.get(
@@ -52,7 +53,15 @@ router.get(
       ? characters
       : characters.filter(c => c.access_type === 'free');
 
-    res.json({ characters: visibleCharacters.map(characterResponse), includePremium });
+    // Load tags for each character
+    const charactersWithTags = await Promise.all(
+      visibleCharacters.map(async (char) => {
+        const tags = await getCharacterTags(char.id);
+        return characterResponse(char, tags.map(t => t.name));
+      })
+    );
+
+    res.json({ characters: charactersWithTags, includePremium });
   })
 );
 

@@ -1,34 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
+import type { Character, LLMModel } from '../components/admin/types';
+import { CharacterEditForm } from '../components/admin/CharacterEditForm';
+import { CharacterListItem } from '../components/admin/CharacterListItem';
 
-interface Character {
-    id: number;
-    name: string;
-    description: string;
-    systemPrompt: string;
-    accessType: 'free' | 'premium';
-    isActive: boolean;
-    avatarUrl?: string;
-    // Catalog settings
-    genre?: string | null;
-    contentRating?: 'sfw' | 'nsfw' | null;
-    grammaticalGender?: 'male' | 'female';
-    // Initial relationship
-    initialAttraction?: number;
-    initialTrust?: number;
-    initialAffection?: number;
-    initialDominance?: number;
-    // LLM settings
-    llmProvider?: 'openrouter' | 'gemini' | null;
-    llmModel?: string | null;
-    llmTemperature?: number | null;
-    llmTopP?: number | null;
-    llmRepetitionPenalty?: number | null;
+interface GlobalSettings {
+    summary_provider: string;
+    summary_model: string;
 }
 
-interface GeminiModel {
-    id: string;
+interface Tag {
+    id: number;
     name: string;
 }
 
@@ -39,8 +22,16 @@ export function AdminPage() {
     const [commonPrompt, setCommonPrompt] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<Partial<Character>>({});
-    const [geminiModels, setGeminiModels] = useState<GeminiModel[]>([]);
+    const [providerModels, setProviderModels] = useState<Record<string, LLMModel[]>>({});
     const [loadingModels, setLoadingModels] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+
+    // Global settings
+    const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ summary_provider: 'openrouter', summary_model: '' });
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [summaryModelSearch, setSummaryModelSearch] = useState('');
+    const [isSummaryModelOpen, setIsSummaryModelOpen] = useState(false);
 
     useEffect(() => {
         if (initData && profile?.isAdmin) {
@@ -53,19 +44,37 @@ export function AdminPage() {
             apiRequest('/api/admin/system-prompt', { initData })
                 .then((data: any) => setCommonPrompt(data.commonSystemPrompt))
                 .catch(console.error);
+            apiRequest('/api/admin/settings', { initData })
+                .then((data: any) => setGlobalSettings(data.settings))
+                .catch(console.error);
+            apiRequest('/api/tags', { initData })
+                .then((data: any) => setAvailableTags(data.tags))
+                .catch(console.error);
         }
     }, [initData, profile]);
 
-    // Fetch Gemini models when provider is gemini
+    // Fetch models when provider changes
     useEffect(() => {
-        if (editForm.llmProvider === 'gemini' && initData && geminiModels.length === 0) {
-            setLoadingModels(true);
-            apiRequest('/api/admin/gemini-models', { initData })
-                .then((data: any) => setGeminiModels(data.models || []))
-                .catch(console.error)
-                .finally(() => setLoadingModels(false));
-        }
-    }, [editForm.llmProvider, initData, geminiModels.length]);
+        const provider = editForm.llmProvider;
+        if (!provider || !initData || providerModels[provider]) return;
+
+        const endpoints: Record<string, string> = {
+            gemini: '/api/admin/gemini-models',
+            openai: '/api/admin/openai-models',
+            openrouter: '/api/admin/openrouter-models',
+        };
+
+        const endpoint = endpoints[provider];
+        if (!endpoint) return;
+
+        setLoadingModels(true);
+        apiRequest(endpoint, { initData })
+            .then((data: any) => {
+                setProviderModels(prev => ({ ...prev, [provider]: data.models || [] }));
+            })
+            .catch(console.error)
+            .finally(() => setLoadingModels(false));
+    }, [editForm.llmProvider, initData, providerModels]);
 
     const startEdit = (char: Character) => {
         setEditingId(char.id);
@@ -75,10 +84,22 @@ export function AdminPage() {
     const cancelEdit = () => {
         setEditingId(null);
         setEditForm({});
+        setValidationError(null);
     };
 
     const saveEdit = async () => {
         if (!editingId || !initData) return;
+
+        // Validation
+        if (!editForm.llmProvider) {
+            setValidationError('Выберите провайдера');
+            return;
+        }
+        if (!editForm.llmModel) {
+            setValidationError('Выберите модель');
+            return;
+        }
+        setValidationError(null);
         try {
             await apiRequest(`/api/admin/characters/${editingId}`, {
                 method: 'PUT',
@@ -89,21 +110,19 @@ export function AdminPage() {
                     access_type: editForm.accessType,
                     is_active: editForm.isActive,
                     avatar_url: editForm.avatarUrl || null,
-                    // Catalog settings
                     genre: editForm.genre || null,
                     content_rating: editForm.contentRating || null,
                     grammatical_gender: editForm.grammaticalGender || 'female',
-                    // Initial relationship
                     initial_attraction: editForm.initialAttraction ?? 0,
                     initial_trust: editForm.initialTrust ?? 10,
                     initial_affection: editForm.initialAffection ?? 5,
                     initial_dominance: editForm.initialDominance ?? 0,
-                    // LLM settings (convert empty to null)
                     llm_provider: editForm.llmProvider || null,
                     llm_model: editForm.llmModel || null,
                     llm_temperature: editForm.llmTemperature ?? null,
                     llm_top_p: editForm.llmTopP ?? null,
                     llm_repetition_penalty: editForm.llmRepetitionPenalty ?? null,
+                    tag_ids: editForm.tagIds || [],
                 },
                 initData,
             });
@@ -114,9 +133,6 @@ export function AdminPage() {
         }
     };
 
-    const inputClass = "w-full px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50";
-    const labelClass = "block text-xs text-text-muted mb-1";
-
     if (!profile?.isAdmin) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -124,6 +140,8 @@ export function AdminPage() {
             </div>
         );
     }
+
+    const currentModels = editForm.llmProvider ? providerModels[editForm.llmProvider] || [] : [];
 
     return (
         <div className="min-h-screen p-4 pb-20">
@@ -146,6 +164,119 @@ export function AdminPage() {
                     </div>
                 )}
 
+                {/* Global Summary Settings */}
+                <div className="mb-6 p-4 rounded-xl bg-surface-light border border-border">
+                    <h3 className="text-sm font-semibold mb-3 text-text-secondary">⚙️ Настройки саммаризации</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs text-text-muted mb-1">Провайдер</label>
+                            <select
+                                value={globalSettings.summary_provider || 'openrouter'}
+                                onChange={e => setGlobalSettings(prev => ({ ...prev, summary_provider: e.target.value }))}
+                                className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm"
+                            >
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="gemini">Gemini</option>
+                                <option value="openai">OpenAI</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-text-muted mb-1">Модель</label>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={isSummaryModelOpen ? summaryModelSearch : (
+                                            (providerModels[globalSettings.summary_provider] || []).find(m => m.id === globalSettings.summary_model)?.name ||
+                                            globalSettings.summary_model || ''
+                                        )}
+                                        onChange={e => {
+                                            setSummaryModelSearch(e.target.value);
+                                            if (!isSummaryModelOpen) setIsSummaryModelOpen(true);
+                                        }}
+                                        onFocus={() => setIsSummaryModelOpen(true)}
+                                        onBlur={() => setTimeout(() => setIsSummaryModelOpen(false), 150)}
+                                        placeholder="Поиск модели..."
+                                        className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm"
+                                    />
+                                    {isSummaryModelOpen && (providerModels[globalSettings.summary_provider] || []).length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-lg bg-slate-900 border border-border shadow-lg">
+                                            <button
+                                                type="button"
+                                                onMouseDown={() => {
+                                                    setGlobalSettings(prev => ({ ...prev, summary_model: '' }));
+                                                    setSummaryModelSearch('');
+                                                    setIsSummaryModelOpen(false);
+                                                }}
+                                                className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 ${!globalSettings.summary_model ? 'bg-primary/10 text-primary' : 'text-text-primary'
+                                                    }`}
+                                            >
+                                                Авто
+                                            </button>
+                                            {(providerModels[globalSettings.summary_provider] || [])
+                                                .filter(m => m.name.toLowerCase().includes(summaryModelSearch.toLowerCase()) || m.id.toLowerCase().includes(summaryModelSearch.toLowerCase()))
+                                                .map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        onMouseDown={() => {
+                                                            setGlobalSettings(prev => ({ ...prev, summary_model: m.id }));
+                                                            setSummaryModelSearch('');
+                                                            setIsSummaryModelOpen(false);
+                                                        }}
+                                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 ${globalSettings.summary_model === m.id ? 'bg-primary/10 text-primary' : 'text-text-primary'
+                                                            }`}
+                                                    >
+                                                        {m.name}
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        if (!initData) return;
+                                        const endpoints: Record<string, string> = {
+                                            gemini: '/api/admin/gemini-models',
+                                            openai: '/api/admin/openai-models',
+                                            openrouter: '/api/admin/openrouter-models',
+                                        };
+                                        const endpoint = endpoints[globalSettings.summary_provider];
+                                        if (endpoint) {
+                                            const data = await apiRequest(endpoint, { initData }) as any;
+                                            setProviderModels(prev => ({ ...prev, [globalSettings.summary_provider]: data.models || [] }));
+                                        }
+                                    }}
+                                    className="px-3 py-2 rounded-lg bg-surface border border-border text-text-secondary text-sm hover:bg-primary/20"
+                                >
+                                    🔄
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            if (!initData) return;
+                            setSavingSettings(true);
+                            try {
+                                await apiRequest('/api/admin/settings', {
+                                    method: 'PUT',
+                                    body: globalSettings,
+                                    initData,
+                                });
+                            } catch (err) {
+                                console.error(err);
+                            } finally {
+                                setSavingSettings(false);
+                            }
+                        }}
+                        disabled={savingSettings}
+                        className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50"
+                    >
+                        {savingSettings ? 'Сохранение...' : 'Сохранить настройки'}
+                    </button>
+                </div>
+
                 {/* System Prompt */}
                 <div className="mb-6">
                     <h3 className="text-sm font-semibold mb-2 text-text-secondary">Общий системный промпт</h3>
@@ -160,297 +291,21 @@ export function AdminPage() {
                     {characters.map(char => (
                         <div key={char.id} className="p-4 rounded-xl bg-surface-light border border-border">
                             {editingId === char.id ? (
-                                <div className="max-h-[70vh] overflow-y-auto pr-2 -mr-2">
-                                    <div className="space-y-4">
-                                        {/* Basic Info */}
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className={labelClass}>Имя</label>
-                                                <input
-                                                    value={editForm.name || ''}
-                                                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                                    className={inputClass}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className={labelClass}>Avatar URL</label>
-                                                <input
-                                                    value={editForm.avatarUrl || ''}
-                                                    onChange={e => setEditForm({ ...editForm, avatarUrl: e.target.value })}
-                                                    className={inputClass}
-                                                    placeholder="https://..."
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className={labelClass}>Описание</label>
-                                            <textarea
-                                                value={editForm.description || ''}
-                                                onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                                                rows={2}
-                                                className={inputClass + " resize-none"}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className={labelClass}>Системный промпт</label>
-                                            <textarea
-                                                value={editForm.systemPrompt || ''}
-                                                onChange={e => setEditForm({ ...editForm, systemPrompt: e.target.value })}
-                                                rows={4}
-                                                className={inputClass + " resize-none font-mono"}
-                                            />
-                                        </div>
-
-                                        {/* Access & Status */}
-                                        <div className="flex gap-4 items-center flex-wrap">
-                                            <div>
-                                                <label className={labelClass}>Доступ</label>
-                                                <select
-                                                    value={editForm.accessType || 'free'}
-                                                    onChange={e => setEditForm({ ...editForm, accessType: e.target.value as 'free' | 'premium' })}
-                                                    className={inputClass + " w-32"}
-                                                >
-                                                    <option value="free">Free</option>
-                                                    <option value="premium">Premium</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className={labelClass}>Рейтинг</label>
-                                                <select
-                                                    value={editForm.contentRating || 'sfw'}
-                                                    onChange={e => setEditForm({ ...editForm, contentRating: e.target.value as 'sfw' | 'nsfw' })}
-                                                    className={inputClass + " w-32"}
-                                                >
-                                                    <option value="sfw">SFW</option>
-                                                    <option value="nsfw">NSFW</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className={labelClass}>Род (он/она)</label>
-                                                <select
-                                                    value={editForm.grammaticalGender || 'female'}
-                                                    onChange={e => setEditForm({ ...editForm, grammaticalGender: e.target.value as 'male' | 'female' })}
-                                                    className={inputClass + " w-32"}
-                                                >
-                                                    <option value="female">Она</option>
-                                                    <option value="male">Он</option>
-                                                </select>
-                                            </div>
-                                            <label className="flex items-center gap-2 text-text-secondary cursor-pointer mt-4">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={editForm.isActive ?? true}
-                                                    onChange={e => setEditForm({ ...editForm, isActive: e.target.checked })}
-                                                    className="w-4 h-4 rounded"
-                                                />
-                                                Активен
-                                            </label>
-                                        </div>
-
-                                        {/* Catalog Settings */}
-                                        <div className="border-t border-border pt-4 mt-4">
-                                            <h4 className="text-xs font-semibold text-primary mb-3">📚 Каталог</h4>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className={labelClass}>Жанр</label>
-                                                    <input
-                                                        value={editForm.genre || ''}
-                                                        onChange={e => setEditForm({ ...editForm, genre: e.target.value || null })}
-                                                        className={inputClass}
-                                                        placeholder="romance, fantasy, anime..."
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Initial Relationship */}
-                                        <div className="border-t border-border pt-4 mt-4">
-                                            <h4 className="text-xs font-semibold text-primary mb-3">💕 Начальные отношения (-50 до +50)</h4>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                <div>
-                                                    <label className={labelClass}>Влечение</label>
-                                                    <input
-                                                        type="number"
-                                                        min="-50"
-                                                        max="50"
-                                                        value={editForm.initialAttraction ?? 0}
-                                                        onChange={e => setEditForm({ ...editForm, initialAttraction: parseInt(e.target.value) || 0 })}
-                                                        className={inputClass}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className={labelClass}>Доверие</label>
-                                                    <input
-                                                        type="number"
-                                                        min="-50"
-                                                        max="50"
-                                                        value={editForm.initialTrust ?? 10}
-                                                        onChange={e => setEditForm({ ...editForm, initialTrust: parseInt(e.target.value) || 0 })}
-                                                        className={inputClass}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className={labelClass}>Привязанность</label>
-                                                    <input
-                                                        type="number"
-                                                        min="-50"
-                                                        max="50"
-                                                        value={editForm.initialAffection ?? 5}
-                                                        onChange={e => setEditForm({ ...editForm, initialAffection: parseInt(e.target.value) || 0 })}
-                                                        className={inputClass}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className={labelClass}>Доминирование</label>
-                                                    <input
-                                                        type="number"
-                                                        min="-50"
-                                                        max="50"
-                                                        value={editForm.initialDominance ?? 0}
-                                                        onChange={e => setEditForm({ ...editForm, initialDominance: parseInt(e.target.value) || 0 })}
-                                                        className={inputClass}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-
-                                        {/* LLM Settings */}
-                                        <div className="border-t border-border pt-4 mt-4">
-                                            <h4 className="text-xs font-semibold text-primary mb-3">⚙️ LLM Настройки (пусто = глобальные)</h4>
-
-                                            <div className="mb-3">
-                                                <label className={labelClass}>Provider</label>
-                                                <select
-                                                    value={editForm.llmProvider || ''}
-                                                    onChange={e => setEditForm({ ...editForm, llmProvider: (e.target.value as any) || null })}
-                                                    className={inputClass + " w-full sm:w-1/2"}
-                                                >
-                                                    <option value="">Default (OpenRouter)</option>
-                                                    <option value="openrouter">OpenRouter</option>
-                                                    <option value="gemini">Gemini</option>
-                                                </select>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                <div>
-                                                    <label className={labelClass}>Model</label>
-                                                    {editForm.llmProvider === 'gemini' ? (
-                                                        <select
-                                                            value={editForm.llmModel || ''}
-                                                            onChange={e => setEditForm({ ...editForm, llmModel: e.target.value || null })}
-                                                            className={inputClass}
-                                                            disabled={loadingModels}
-                                                        >
-                                                            <option value="">{loadingModels ? 'Загрузка...' : 'По умолчанию'}</option>
-                                                            {geminiModels.map(m => (
-                                                                <option key={m.id} value={m.id}>{m.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        <input
-                                                            value={editForm.llmModel || ''}
-                                                            onChange={e => setEditForm({ ...editForm, llmModel: e.target.value || null })}
-                                                            className={inputClass}
-                                                            placeholder="auto"
-                                                        />
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <label className={labelClass}>Temperature</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        min="0"
-                                                        max="2"
-                                                        value={editForm.llmTemperature ?? ''}
-                                                        onChange={e => setEditForm({ ...editForm, llmTemperature: e.target.value ? parseFloat(e.target.value) : null })}
-                                                        className={inputClass}
-                                                        placeholder="1.02"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className={labelClass}>Top P</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        min="0"
-                                                        max="1"
-                                                        value={editForm.llmTopP ?? ''}
-                                                        onChange={e => setEditForm({ ...editForm, llmTopP: e.target.value ? parseFloat(e.target.value) : null })}
-                                                        className={inputClass}
-                                                        placeholder="0.9"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className={labelClass}>Rep. Penalty</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="3"
-                                                        value={editForm.llmRepetitionPenalty ?? ''}
-                                                        onChange={e => setEditForm({ ...editForm, llmRepetitionPenalty: e.target.value ? parseFloat(e.target.value) : null })}
-                                                        className={inputClass}
-                                                        placeholder="1.12"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="flex gap-3 pt-2">
-                                            <button
-                                                onClick={saveEdit}
-                                                className="flex-1 py-2.5 rounded-xl font-medium text-white bg-gradient-to-r from-primary to-indigo-500"
-                                            >
-                                                Сохранить
-                                            </button>
-                                            <button
-                                                onClick={cancelEdit}
-                                                className="flex-1 py-2.5 rounded-xl font-medium bg-surface border border-border text-text-secondary hover:text-text-primary"
-                                            >
-                                                Отмена
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <CharacterEditForm
+                                    editForm={editForm}
+                                    setEditForm={setEditForm}
+                                    models={currentModels}
+                                    loadingModels={loadingModels}
+                                    onSave={saveEdit}
+                                    onCancel={cancelEdit}
+                                    validationError={validationError}
+                                    availableTags={availableTags}
+                                />
                             ) : (
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <span className="font-semibold text-text-primary">{char.name}</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${char.accessType === 'premium'
-                                        ? 'bg-purple-500/20 text-purple-400'
-                                        : 'bg-success/20 text-success'
-                                        }`}>
-                                        {char.accessType}
-                                    </span>
-                                    <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs ${char.isActive
-                                        ? 'bg-success/20 text-success'
-                                        : 'bg-danger/20 text-danger'
-                                        }`}>
-                                        {char.isActive ? '✓' : '✗'}
-                                    </span>
-                                    {char.genre && (
-                                        <span className="text-xs text-text-muted">{char.genre}</span>
-                                    )}
-                                    {char.llmProvider && (
-                                        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
-                                            {char.llmProvider}{char.llmModel ? `: ${char.llmModel.slice(0, 20)}` : ''}
-                                        </span>
-                                    )}
-                                    {char.llmTemperature && (
-                                        <span className="text-xs text-text-muted">T:{char.llmTemperature}</span>
-                                    )}
-                                    <button
-                                        onClick={() => startEdit(char)}
-                                        className="ml-auto px-3 py-1.5 rounded-lg text-xs bg-surface border border-border text-text-secondary
-                                            hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
-                                    >
-                                        Редактировать
-                                    </button>
-                                </div>
+                                <CharacterListItem
+                                    character={char}
+                                    onEdit={startEdit}
+                                />
                             )}
                         </div>
                     ))}
@@ -459,3 +314,4 @@ export function AdminPage() {
         </div>
     );
 }
+

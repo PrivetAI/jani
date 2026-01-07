@@ -22,7 +22,6 @@ export interface DialogMessage {
 
 export interface Memory {
     id: number;
-    type: 'fact' | 'preference' | 'emotion' | 'relationship';
     content: string;
     importance: number;
     createdAt: string;
@@ -248,7 +247,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         try {
             const newMem = await apiRequest<Memory>(`/api/chats/${characterId}/memories`, {
                 method: 'POST',
-                body: { content, type: 'fact', importance: 5 },
+                body: { content, importance: 5 },
                 initData
             });
             set(state => ({ memories: [newMem, ...state.memories] }));

@@ -33,10 +33,10 @@ export {
     deleteAllMemories,
     isMemoryOwner,
     updateMemoryImportance,
+    updateMemoryContent,
     countMemories,
     enforceMemoryLimit,
     type MemoryRecord,
-    type MemoryCategory,
 } from '../repositories/memoriesRepository.js';
 
 // Payments
@@ -102,7 +102,6 @@ export {
     getOrCreateEmotionalState,
     updateEmotionalState,
     buildEmotionalContext,
-    getMoodLabel,
     type EmotionalState,
     type EmotionalDelta,
     type CharacterMood,

@@ -6,22 +6,7 @@ interface SessionInfoPanelProps {
     onClose: () => void;
 }
 
-const moodEmojis: Record<string, string> = {
-    neutral: '😐',
-    joyful: '😊',
-    sad: '😢',
-    angry: '😠',
-    aroused: '😏',
-    jealous: '😒',
-    vulnerable: '🥺',
-    playful: '😜',
-    melancholic: '😔',
-    tender: '🥰',
-    passionate: '🔥',
-    shy: '😳',
-    curious: '🤔',
-    flirty: '😘',
-};
+
 
 const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
@@ -87,15 +72,13 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
     const emotionalState = session.emotionalState;
     const closeness = emotionalState.closeness;
     const moodLabel = emotionalState.moodLabel;
-    const moodPrimary = emotionalState.mood.primary;
-    const moodEmoji = moodEmojis[moodPrimary] || '😐';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-2xl bg-surface/95 border border-border overflow-hidden max-h-[85vh] overflow-y-auto">
                 {/* Header */}
                 <header className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface/95">
-                    <h3 className="font-semibold text-lg">💕 Эмоциональное состояние</h3>
+                    <h3 className="font-semibold text-lg">Состояние</h3>
                     <button
                         onClick={onClose}
                         className="px-3 py-1.5 rounded-lg text-sm bg-surface-light border border-border text-text-secondary
@@ -111,7 +94,6 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                     <div className="text-center">
                         <h4 className="text-xl font-bold text-text-primary">{selectedCharacter?.name}</h4>
                         <div className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-light/50 border border-border-light">
-                            <span className="text-2xl">{moodEmoji}</span>
                             <span className="text-sm font-medium capitalize">{moodLabel}</span>
                         </div>
                     </div>
@@ -136,13 +118,13 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                             <h5 className="text-sm font-medium text-text-secondary mb-3">Измерения отношений</h5>
                             <EmotionalBar label="Влечение" value={emotionalState.attraction} emoji="💋" />
                             <EmotionalBar label="Доверие" value={emotionalState.trust} emoji="🤝" />
-                            <EmotionalBar label="Нежность" value={emotionalState.affection} emoji="💝" />
+                            <EmotionalBar label="Привязанность" value={emotionalState.affection} emoji="💝" />
                             <EmotionalBar label="Доминирование" value={emotionalState.dominance} emoji={emotionalState.dominance >= 0 ? '👑' : '🙇'} />
                             <p className="text-[10px] text-text-muted mt-2">
                                 {emotionalState.dominance > 20
                                     ? `${decline(selectedCharacter?.grammaticalGender, 'Он доминирует', 'Она доминирует')}`
                                     : emotionalState.dominance < -20
-                                        ? 'Вы ведёте'
+                                        ? `${decline(selectedCharacter?.grammaticalGender, 'Он подчиняется', 'Она подчиняется')}`
                                         : 'Равные отношения'}
                             </p>
                         </div>

@@ -23,21 +23,9 @@ export const previewMessages = (messages: LLMMessage[], limit = 220) =>
         preview: preview(message.content, limit),
     }));
 
-export const buildHighlights = (messages: LLMMessage[], characterName: string, username?: string) =>
-    messages.map((message) => {
-        const speaker = message.role === 'assistant' ? characterName : username ? `@${username}` : 'User';
-        return `- ${speaker}: ${preview(message.content, 160)}`;
-    });
-
-export const buildMemoryBlock = (summary?: string | null, highlights?: string[]) => {
-    const parts = [];
-    if (summary) {
-        parts.push(`Summary: ${summary}`);
-    }
-    if (highlights?.length) {
-        parts.push(`Recent events:\n${highlights.join('\n')}`);
-    }
-    return parts.length ? `Memory:\n${parts.join('\n\n')}` : null;
+export const buildMemoryBlock = (summary?: string | null) => {
+    if (!summary) return null;
+    return `Memory:\nSummary: ${summary}`;
 };
 
 export const trimTextByTokens = (text: string, maxTokens: number) => {
@@ -64,19 +52,17 @@ export const buildCharacterCard = (character: CharacterRecord) =>
 export const buildUserFacts = (memories: MemoryRecord[]): string | null => {
     if (!memories.length) return null;
 
-    const categoryLabels: Record<string, string> = {
-        fact: 'Факт',
-        preference: 'Предпочтение',
-        emotion: 'Эмоция',
-        relationship: 'Отношения',
-    };
-
-    const facts = memories.map(m => {
-        const label = categoryLabels[m.memory_category] || 'Факт';
-        return `- [${label}] ${m.content}`;
-    });
+    const facts = memories.map(m => `- ${m.content}`);
 
     return `UserFacts (что персонаж уже знает о пользователе):\n${facts.join('\n')}`;
+};
+
+/** Build existing facts block with IDs for LLM to manage (add/update/delete) */
+export const buildExistingFactsForPrompt = (memories: MemoryRecord[]): string => {
+    if (!memories.length) return 'Существующие факты: нет';
+
+    const facts = memories.map(m => `[ID:${m.id}] ${m.content}`);
+    return `Существующие факты о пользователе:\n${facts.join('\n')}`;
 };
 
 /** Build user info block for LLM context */
@@ -184,6 +170,23 @@ export const parseJsonResponse = (rawResponse: string): ExtractedData => {
         }
 
         let jsonStr = jsonMatch[0];
+
+        // Sanitize JSON: fix common LLM mistakes
+
+        // 1. Fix invalid +N (should be just N): {"trust": +1} → {"trust": 1}
+        jsonStr = jsonStr.replace(/:\s*\+(\d+)/g, ': $1');
+
+        // 2. Fix missing commas between object keys: "key1": "val1"\n"key2" → "key1": "val1",\n"key2"
+        // This regex finds: closing quote/brace/number followed by optional whitespace, then opening quote for new key
+        jsonStr = jsonStr.replace(/(["\d}\]])\s*\n\s*"/g, '$1,\n"');
+
+        // 3. Fix missing commas after closing braces: }  "key" → }, "key"
+        jsonStr = jsonStr.replace(/}\s*"/g, '}, "');
+
+        // 4. Fix trailing commas before closing braces (also causes parse errors)
+        jsonStr = jsonStr.replace(/,\s*}/g, '}');
+        jsonStr = jsonStr.replace(/,\s*]/g, ']');
+
         let parsed: LLMResponseJSON | null = null;
         let attempts = 0;
 
@@ -191,6 +194,7 @@ export const parseJsonResponse = (rawResponse: string): ExtractedData => {
             try {
                 parsed = JSON.parse(jsonStr);
             } catch (e) {
+                // Try trimming trailing content after last closing brace
                 const lastBrace = jsonStr.lastIndexOf('}');
                 if (lastBrace > 0) {
                     jsonStr = jsonStr.substring(0, lastBrace + 1);

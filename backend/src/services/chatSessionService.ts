@@ -66,7 +66,7 @@ export class ChatSessionService {
     await updateLastCharacter(user.id, character.id);
 
     try {
-      const reply = await characterChatService.generateReply({
+      const result = await characterChatService.generateReply({
         userId: user.id,
         username: user.username ?? request.username,
         userDisplayName: user.display_name ?? undefined,
@@ -75,11 +75,18 @@ export class ChatSessionService {
         userMessage: request.messageText,
         history,
       });
-      await addDialogMessage(user.id, character.id, 'assistant', reply);
+
+      // Save only clean reply to history (no thoughts)
+      await addDialogMessage(user.id, character.id, 'assistant', result.reply);
 
       // Memory extraction now happens inline in characterChatService (no async call needed)
 
-      return { reply, character, userId: user.id };
+      // Return both reply and thoughts for UI
+      const fullReply = result.thoughts
+        ? `${result.reply}\n\n${result.thoughts}`
+        : result.reply;
+
+      return { reply: fullReply, character, userId: user.id };
     } catch (error) {
       logger.error('ChatSession LLM error', { error: (error as Error).message });
       throw new LLMGenerationError((error as Error).message);

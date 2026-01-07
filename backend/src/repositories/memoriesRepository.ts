@@ -1,12 +1,9 @@
 import { query } from '../db/pool.js';
 
-export type MemoryCategory = 'fact' | 'preference' | 'emotion' | 'relationship';
-
 export interface MemoryRecord {
     id: number;
     user_id: number;
     character_id: number;
-    memory_category: MemoryCategory;
     content: string;
     importance: number;
     created_at: string;
@@ -17,7 +14,6 @@ const mapMemory = (row: any): MemoryRecord => ({
     id: row.id,
     user_id: row.user_id,
     character_id: row.character_id,
-    memory_category: row.memory_category,
     content: row.content,
     importance: row.importance,
     created_at: row.created_at,
@@ -59,14 +55,13 @@ export const addMemory = async (
     userId: number,
     characterId: number,
     content: string,
-    category: MemoryCategory = 'fact',
     importance = 5
 ): Promise<MemoryRecord> => {
     const result = await query<MemoryRecord>(
-        `INSERT INTO character_memories (user_id, character_id, memory_category, content, importance)
-     VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO character_memories (user_id, character_id, content, importance)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-        [userId, characterId, category, content, importance]
+        [userId, characterId, content, importance]
     );
     return mapMemory(result.rows[0]);
 };
@@ -79,6 +74,17 @@ export const updateMemoryImportance = async (
     await query(
         `UPDATE character_memories SET importance = $1, updated_at = NOW() WHERE id = $2`,
         [importance, memoryId]
+    );
+};
+
+/** Update memory content (for fact mutations) */
+export const updateMemoryContent = async (
+    memoryId: number,
+    content: string
+): Promise<void> => {
+    await query(
+        `UPDATE character_memories SET content = $1, updated_at = NOW() WHERE id = $2`,
+        [content, memoryId]
     );
 };
 

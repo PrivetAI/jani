@@ -6,7 +6,6 @@ dotenv.config();
 
 const defaults = {
   port: 3000,
-  openRouterModel: 'openrouter/auto',
   freeDailyMessageLimit: 50,
   subscriptionDurationDays: 30,
   webAppUrl: 'http://localhost:4173',
@@ -53,7 +52,7 @@ const envSchema = z.object({
   TELEGRAM_BOT_USERNAME: z.string(),
   OPENROUTER_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
   PORT: z.string().optional(),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   TELEGRAM_WEBHOOK_EXTERNAL_URL: z.string().optional(),
@@ -62,7 +61,6 @@ const envSchema = z.object({
   ADMIN_TELEGRAM_IDS: z.string().optional(),
   AUTH_ALLOW_DEV_INIT_DATA: z.enum(['true', 'false']).optional(),
   MOCK_TELEGRAM_INIT_DATA: z.string().optional(),
-  OPENROUTER_MODEL: z.string().optional(),
   FREE_DAILY_MESSAGE_LIMIT: z.string().optional(),
   SUBSCRIPTION_DURATION_DAYS: z.string().optional(),
   WEBAPP_URL: z.string().optional(),
@@ -111,7 +109,6 @@ export const config = {
     env.AUTH_ALLOW_DEV_INIT_DATA !== undefined ? env.AUTH_ALLOW_DEV_INIT_DATA === 'true' : defaults.allowDevInitData,
   mockInitData: env.MOCK_TELEGRAM_INIT_DATA ?? defaults.mockInitData,
   openRouterApiKey: env.OPENROUTER_API_KEY,
-  openRouterModel: env.OPENROUTER_MODEL ?? defaults.openRouterModel,
   freeDailyMessageLimit: stringToInt(env.FREE_DAILY_MESSAGE_LIMIT, defaults.freeDailyMessageLimit, 'FREE_DAILY_MESSAGE_LIMIT'),
   subscriptionDurationDays: stringToInt(
     env.SUBSCRIPTION_DURATION_DAYS,
@@ -128,7 +125,7 @@ export const config = {
     'LLM_REPETITION_PENALTY'
   ),
   geminiApiKey: env.GEMINI_API_KEY,
-  geminiModel: env.GEMINI_MODEL,
+  openaiApiKey: env.OPENAI_API_KEY,
   chatTokenBudget: stringToInt(env.CHAT_TOKEN_BUDGET, defaults.chatTokenBudget, 'CHAT_TOKEN_BUDGET'),
   chatResponseReserve: stringToInt(env.CHAT_RESPONSE_RESERVE, defaults.chatResponseReserve, 'CHAT_RESPONSE_RESERVE'),
   chatSummaryTokenLimit: stringToInt(
