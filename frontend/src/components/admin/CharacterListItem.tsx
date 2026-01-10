@@ -1,4 +1,5 @@
 import type { Character } from './types';
+import { getImageUrl } from '../../lib/imageUrl';
 
 interface CharacterListItemProps {
     character: Character;
@@ -8,6 +9,13 @@ interface CharacterListItemProps {
 export function CharacterListItem({ character, onEdit }: CharacterListItemProps) {
     return (
         <div className="flex items-center gap-3 flex-wrap">
+            <div className="h-10 w-10 rounded-full overflow-hidden bg-surface-light border border-border shrink-0">
+                <img
+                    src={getImageUrl(character.avatarUrl)}
+                    alt={character.name}
+                    className="w-full h-full object-cover"
+                />
+            </div>
             <span className="font-semibold text-text-primary">{character.name}</span>
             <span className={`px-2 py-0.5 rounded-full text-xs ${character.accessType === 'premium'
                 ? 'bg-purple-500/20 text-purple-400'
@@ -21,6 +29,16 @@ export function CharacterListItem({ character, onEdit }: CharacterListItemProps)
                 }`}>
                 {character.isActive ? '✓' : '✗'}
             </span>
+            {character.createdBy && (
+                <span className="text-xs text-text-muted">
+                    👤 {character.createdBy.name}
+                </span>
+            )}
+            {(character.likesCount ?? 0) > 0 && (
+                <span className="text-xs text-text-muted">
+                    👍 {character.likesCount}
+                </span>
+            )}
             {character.genre && (
                 <span className="text-xs text-text-muted">{character.genre}</span>
             )}

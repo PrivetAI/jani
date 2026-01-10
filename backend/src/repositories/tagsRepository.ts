@@ -3,31 +3,22 @@ import { query } from '../db/pool.js';
 export interface TagRecord {
     id: number;
     name: string;
-    category: string;
     created_at: string;
 }
 
 const mapTag = (row: any): TagRecord => ({
     id: row.id,
     name: row.name,
-    category: row.category,
     created_at: row.created_at,
 });
 
 /** Get all tags */
 export const getAllTags = async (): Promise<TagRecord[]> => {
-    const result = await query<TagRecord>('SELECT * FROM tags ORDER BY category, name');
+    const result = await query<TagRecord>('SELECT * FROM tags ORDER BY name');
     return result.rows.map(mapTag);
 };
 
-/** Get tags by category */
-export const getTagsByCategory = async (category: string): Promise<TagRecord[]> => {
-    const result = await query<TagRecord>(
-        'SELECT * FROM tags WHERE category = $1 ORDER BY name',
-        [category]
-    );
-    return result.rows.map(mapTag);
-};
+
 
 /** Get tag by ID */
 export const getTagById = async (id: number): Promise<TagRecord | null> => {
@@ -45,13 +36,10 @@ export const getTagByName = async (name: string): Promise<TagRecord | null> => {
 };
 
 /** Create a new tag */
-export const createTag = async (
-    name: string,
-    category: string
-): Promise<TagRecord> => {
+export const createTag = async (name: string): Promise<TagRecord> => {
     const result = await query<TagRecord>(
-        'INSERT INTO tags (name, category) VALUES ($1, $2) RETURNING *',
-        [name.toLowerCase(), category]
+        'INSERT INTO tags (name) VALUES ($1) RETURNING *',
+        [name.toLowerCase()]
     );
     return mapTag(result.rows[0]);
 };
@@ -68,7 +56,7 @@ export const getCharacterTags = async (characterId: number): Promise<TagRecord[]
         `SELECT t.* FROM tags t
      INNER JOIN character_tags ct ON t.id = ct.tag_id
      WHERE ct.character_id = $1
-     ORDER BY t.category, t.name`,
+     ORDER BY t.name`,
         [characterId]
     );
     return result.rows.map(mapTag);

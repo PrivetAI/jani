@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import type { LLMModel, Character } from './types';
+import { apiRequest } from '../../lib/api';
+import { useUserStore } from '../../store/userStore';
+import { getImageUrl } from '../../lib/imageUrl';
 
 interface Tag {
     id: number;
@@ -34,6 +37,31 @@ export function CharacterEditForm({
 
     const [modelSearch, setModelSearch] = useState('');
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const { initData } = useUserStore();
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !initData) return;
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const { url } = await apiRequest<{ url: string }>('/api/admin/upload', {
+                method: 'POST',
+                body: formData,
+                initData
+            });
+            setEditForm({ ...editForm, avatarUrl: url });
+        } catch (error) {
+            console.error('Upload failed', error);
+            alert('Upload failed');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const filteredModels = models.filter(m =>
         m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
@@ -62,13 +90,41 @@ export function CharacterEditForm({
                         />
                     </div>
                     <div>
-                        <label className={labelClass}>Avatar URL</label>
-                        <input
-                            value={editForm.avatarUrl || ''}
-                            onChange={e => setEditForm({ ...editForm, avatarUrl: e.target.value })}
-                            className={inputClass}
-                            placeholder="https://..."
-                        />
+                        <label className={labelClass}>Avatar</label>
+                        <div className="flex items-center gap-3">
+                            {editForm.avatarUrl && (
+                                <img
+                                    src={getImageUrl(editForm.avatarUrl)}
+                                    alt="Avatar"
+                                    className="w-10 h-10 rounded-full object-cover border border-border"
+                                />
+                            )}
+                            <div className="flex-1 flex gap-2">
+                                <label className={`
+                                    flex items-center justify-center px-4 py-2 rounded-lg cursor-pointer text-sm font-medium
+                                    transition-colors
+                                    ${isUploading
+                                        ? 'bg-surface border border-border text-text-muted cursor-wait'
+                                        : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                    }
+                                `}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileUpload}
+                                        disabled={isUploading}
+                                        className="hidden"
+                                    />
+                                    {isUploading ? '...' : (editForm.avatarUrl ? 'Обновить' : 'Загрузить')}
+                                </label>
+                                <input
+                                    value={editForm.avatarUrl || ''}
+                                    onChange={e => setEditForm({ ...editForm, avatarUrl: e.target.value })}
+                                    className={inputClass}
+                                    placeholder="https://..."
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -105,17 +161,7 @@ export function CharacterEditForm({
                             <option value="premium">Premium</option>
                         </select>
                     </div>
-                    <div>
-                        <label className={labelClass}>Рейтинг</label>
-                        <select
-                            value={editForm.contentRating || 'sfw'}
-                            onChange={e => setEditForm({ ...editForm, contentRating: e.target.value as 'sfw' | 'nsfw' })}
-                            className={inputClass + " w-32"}
-                        >
-                            <option value="sfw">SFW</option>
-                            <option value="nsfw">NSFW</option>
-                        </select>
-                    </div>
+
                     <div>
                         <label className={labelClass}>Род (он/она)</label>
                         <select

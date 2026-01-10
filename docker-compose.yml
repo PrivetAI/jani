@@ -32,6 +32,7 @@ services:
       WEBAPP_URL: ${WEBAPP_URL:-http://localhost:4173}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-replace-me}
       FREE_DAILY_MESSAGE_LIMIT: ${FREE_DAILY_MESSAGE_LIMIT:-50}
+      ENABLE_MESSAGE_LIMIT: ${ENABLE_MESSAGE_LIMIT:-true}
       SUBSCRIPTION_DURATION_DAYS: ${SUBSCRIPTION_DURATION_DAYS:-30}
       AUTH_ALLOW_DEV_INIT_DATA: ${AUTH_ALLOW_DEV_INIT_DATA:-true}
       MOCK_TELEGRAM_INIT_DATA: ${MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A123456%2C%22username%22%3A%22admin_user%22%7D&auth_date=1700000000&hash=dummy}
@@ -40,6 +41,8 @@ services:
       NGROK_API_URL: ${NGROK_API_URL:-http://ngrok:4040/api/tunnels}
       WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+    volumes:
+      - uploads:/app/uploads
     ports:
       - "3000:3000"
 
@@ -80,3 +83,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

@@ -5,14 +5,17 @@ export function ProfilePage() {
     const { profile, updateProfile, isLoading } = useUserStore();
     const [form, setForm] = useState({
         displayName: '',
+        nickname: '',
         gender: 'prefer-not-to-say',
         language: 'ru'
     });
+    const [nicknameError, setNicknameError] = useState<string | null>(null);
 
     useEffect(() => {
         if (profile) {
             setForm({
                 displayName: profile.displayName || '',
+                nickname: profile.nickname || '',
                 gender: profile.gender || 'prefer-not-to-say',
                 language: profile.language || 'ru'
             });
@@ -20,8 +23,17 @@ export function ProfilePage() {
     }, [profile]);
 
     const handleSave = async () => {
-        await updateProfile(form);
-        alert('Профиль обновлен!');
+        setNicknameError(null);
+        try {
+            await updateProfile(form);
+            alert('Профиль обновлен!');
+        } catch (err: any) {
+            if (err.message?.includes('никнейм')) {
+                setNicknameError(err.message);
+            } else {
+                alert('Ошибка сохранения');
+            }
+        }
     };
 
     if (!profile) {
@@ -46,8 +58,8 @@ export function ProfilePage() {
                         <span className="text-text-primary">{profile.telegramUserId}</span>
                     </p>
                     <p className="text-sm">
-                        <span className="text-text-muted">Username:</span>{' '}
-                        <span className="text-text-primary">{profile.username || '—'}</span>
+                        <span className="text-text-muted">Никнейм:</span>{' '}
+                        <span className="text-text-primary">{profile.nickname || '—'}</span>
                     </p>
                     <p className="text-sm">
                         <span className="text-text-muted">Подписка:</span>{' '}
@@ -71,6 +83,27 @@ export function ProfilePage() {
                             className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border text-text-primary
                                 placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm text-text-secondary mb-2">Никнейм (уникальное имя)</label>
+                        <input
+                            type="text"
+                            value={form.nickname}
+                            onChange={e => {
+                                setNicknameError(null);
+                                setForm({ ...form, nickname: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') });
+                            }}
+                            placeholder="username123"
+                            maxLength={30}
+                            className={`w-full px-4 py-3 rounded-xl bg-surface-light border text-text-primary
+                                placeholder:text-text-muted focus:outline-none focus:ring-2
+                                ${nicknameError ? 'border-danger focus:border-danger focus:ring-danger/20' : 'border-border focus:border-primary/50 focus:ring-primary/20'}`}
+                        />
+                        {nicknameError && (
+                            <p className="mt-1 text-sm text-danger">{nicknameError}</p>
+                        )}
+                        <p className="mt-1 text-xs text-text-muted">Только латинские буквы, цифры и _</p>
                     </div>
 
                     <div>

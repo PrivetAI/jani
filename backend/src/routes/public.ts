@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getAllTags, getCharacterTags } from '../modules/index.js';
+import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getAllTags, getCharacterTags, setRating, getUserRating, getCharacterRatings, getCharactersLikesCount, getUserSessions } from '../modules/index.js';
 import { telegramAuth } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { config } from '../config.js';
+import { query } from '../db/pool.js';
 
 const router = Router();
 
@@ -38,30 +39,30 @@ router.get(
       tagIds
     });
 
-    // If user is not premium, and they requested all or premium explicitly, we might need to hide premium characters or show them locked.
-    // The previous logic filtered them out IF includePremium was false.
-    // However, usually we want to SHOW them but maybe mark them locked?
-    // The previous logic was: `const filtered = includePremium ? characters : characters.filter((c) => c.access_type === 'free');`
-    // This implies non-premium users DON'T SEE premium characters at all.
-    // I will preserve this behavior for consistency, unless the Roadmap says otherwise.
-    // Roadmap says "Character Catalog". Usually seeing premium chars encourages subscription.
-    // But let's stick to safe "previous behavior" + filters.
-
-    // If user specifically asked for 'premium' but has no sub, they get empty list effectively if we filter strict.
-    // Let's apply the visibility filter:
+    // Apply the visibility filter
     const visibleCharacters = includePremium
       ? characters
       : characters.filter(c => c.access_type === 'free');
+
+    // Get user's sessions to determine "my characters" (sorted by last_message_at DESC)
+    const userSessions = await getUserSessions(req.auth!.id);
+    const myCharacterIds = userSessions.map(s => s.character_id);
+
+    // Get likes counts for all characters
+    const likesMap = await getCharactersLikesCount(visibleCharacters.map(c => c.id));
 
     // Load tags for each character
     const charactersWithTags = await Promise.all(
       visibleCharacters.map(async (char) => {
         const tags = await getCharacterTags(char.id);
-        return characterResponse(char, tags.map(t => t.name));
+        return {
+          ...characterResponse(char, tags.map(t => t.name)),
+          likesCount: likesMap.get(char.id) || 0,
+        };
       })
     );
 
-    res.json({ characters: charactersWithTags, includePremium });
+    res.json({ characters: charactersWithTags, includePremium, myCharacterIds });
   })
 );
 
@@ -79,7 +80,70 @@ router.get(
     if (character.access_type === 'premium' && !includePremium) {
       return res.status(403).json({ message: 'Требуется подписка' });
     }
-    res.json({ character: characterResponse(character) });
+
+    // Get tags, ratings, and user's current rating
+    const tags = await getCharacterTags(id);
+    const ratings = await getCharacterRatings(id);
+    const userRating = await getUserRating(req.auth!.id, id);
+
+    // Get author info
+    let author: { id: number; nickname: string | null; username: string | null } | null = null;
+    if (character.created_by) {
+      const authorResult = await query<{ id: number; nickname: string | null; username: string | null }>(
+        'SELECT id, nickname, username FROM users WHERE id = $1',
+        [character.created_by]
+      );
+      if (authorResult.rows.length) {
+        author = authorResult.rows[0];
+      }
+    }
+
+    res.json({
+      character: {
+        ...characterResponse(character, tags.map(t => t.name)),
+        likesCount: ratings.likes,
+        dislikesCount: ratings.dislikes,
+        userRating,
+        createdBy: author ? {
+          id: author.id,
+          name: author.nickname || 'Admin',
+        } : { id: 0, name: 'Admin' },
+      },
+    });
+  })
+);
+
+// ============================================
+// Character Rating API
+// ============================================
+
+const ratingSchema = z.object({
+  rating: z.union([z.literal(1), z.literal(-1), z.null()]),
+});
+
+router.post(
+  '/characters/:id/rate',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const character = await getCharacterById(id);
+    if (!character || !character.is_active) {
+      return res.status(404).json({ message: 'Персонаж не найден' });
+    }
+
+    const parsed = ratingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
+    }
+
+    await setRating(req.auth!.id, id, parsed.data.rating);
+    const ratings = await getCharacterRatings(id);
+
+    res.json({
+      userRating: parsed.data.rating,
+      likesCount: ratings.likes,
+      dislikesCount: ratings.dislikes,
+    });
   })
 );
 
@@ -95,7 +159,6 @@ router.get(
       tags: tags.map(t => ({
         id: t.id,
         name: t.name,
-        category: t.category,
       })),
     });
   })
@@ -124,6 +187,7 @@ router.get(
 
 const profileUpdateSchema = z.object({
   displayName: z.string().max(100).optional(),
+  nickname: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Только латинские буквы, цифры и _').optional().nullable(),
   gender: z.string().max(50).optional(),
   language: z.enum(['ru', 'en']).optional(),
 });
@@ -137,8 +201,20 @@ router.patch(
       return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
     }
 
+    // Check nickname uniqueness if provided
+    if (parsed.data.nickname) {
+      const existing = await query<{ id: number }>(
+        'SELECT id FROM users WHERE nickname = $1 AND id != $2',
+        [parsed.data.nickname, req.auth!.id]
+      );
+      if (existing.rows.length) {
+        return res.status(400).json({ message: 'Этот никнейм уже занят' });
+      }
+    }
+
     const user = await updateUserProfile(req.auth!.id, {
       display_name: parsed.data.displayName,
+      nickname: parsed.data.nickname,
       gender: parsed.data.gender,
       language: parsed.data.language,
     });
@@ -177,12 +253,12 @@ router.get(
     if (hasSubscription) {
       res.json({
         hasSubscription: true,
-        messagesLimit: {
+        messagesLimit: config.enableMessageLimit ? {
           total: -1,
           used: await countUserMessagesToday(req.auth!.id),
           remaining: -1,
           resetsAt: null,
-        },
+        } : null,
         subscription: {
           status: subscription.status,
           endAt: subscription.end_at,
@@ -192,12 +268,12 @@ router.get(
       const used = await countUserMessagesToday(req.auth!.id);
       res.json({
         hasSubscription: false,
-        messagesLimit: {
+        messagesLimit: config.enableMessageLimit ? {
           total: config.freeDailyMessageLimit,
           used,
           remaining: Math.max(0, config.freeDailyMessageLimit - used),
           resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-        },
+        } : null,
         subscription: null,
       });
     }

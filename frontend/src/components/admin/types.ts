@@ -7,7 +7,6 @@ export interface Character {
     isActive: boolean;
     avatarUrl?: string;
     genre?: string | null;
-    contentRating?: 'sfw' | 'nsfw' | null;
     grammaticalGender?: 'male' | 'female';
     initialAttraction?: number;
     initialTrust?: number;
@@ -19,6 +18,8 @@ export interface Character {
     llmTopP?: number | null;
     llmRepetitionPenalty?: number | null;
     tagIds?: number[];
+    createdBy?: { id: number; name: string } | null;
+    likesCount?: number;
 }
 
 export interface LLMModel {

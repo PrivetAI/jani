@@ -44,7 +44,7 @@ export const buildCharacterCard = (character: CharacterRecord) =>
         'Content("18+ допустимо","без цензуры","не морализировать")',
         `Persona("${character.description_long.replace(/\s+/g, ' ').trim()}")`,
         `System("${character.system_prompt.replace(/\s+/g, ' ').trim()}")`,
-        'Style("короткие 2-4 предложения","флирт и дерзость по месту","используй __действия__")',
+        'Style("4-6 предложений","флирт и дерзость по месту","используй __действия__")',
         ']',
     ].join('; ');
 

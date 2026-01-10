@@ -1,6 +1,6 @@
 # API Specification: Mini App Chat
 
-Спецификация новых и изменённых API endpoints для функционала чата в Mini App.
+Спецификация API endpoints для Mini App чата с AI-персонажами.
 
 ---
 
@@ -9,7 +9,7 @@
 Все запросы к API должны содержать Telegram WebApp `initData` в заголовке:
 
 ```http
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 ```
 
 Backend валидирует `initData` и извлекает `telegram_user_id`.
@@ -18,73 +18,116 @@ Backend валидирует `initData` и извлекает `telegram_user_id`
 
 ## 👤 User Profile API
 
-### Обновление профиля
+### Получение профиля
 
 ```http
-PATCH /api/users/profile
-Content-Type: application/json
-Authorization: tma <initDataString>
-
-{
-  "display_name": "Алексей",
-  "gender": "male",
-  "language": "ru"
-}
+GET /api/profile
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
 ```json
 {
   "id": 123,
-  "telegram_user_id": 456789,
+  "telegramUserId": 456789,
   "username": "alex_user",
-  "display_name": "Алексей",
+  "displayName": "Алексей",
+  "nickname": "alexdev",
   "gender": "male",
   "language": "ru",
-  "is_adult_confirmed": true,
-  "created_at": "2025-01-01T00:00:00Z"
+  "isAdultConfirmed": true,
+  "subscription": {
+    "status": "active",
+    "endAt": "2025-02-01T00:00:00Z"
+  },
+  "limits": {
+    "remaining": 27,
+    "total": 50,
+    "resetsAt": "2025-01-02T00:00:00Z"
+  }
+}
+```
+
+### Обновление профиля
+
+```http
+PATCH /api/profile
+Content-Type: application/json
+x-telegram-init-data: <initDataString>
+
+{
+  "display_name": "Алексей",
+  "nickname": "alexdev",
+  "gender": "male",
+  "language": "ru"
+}
+```
+
+**Validation:**
+- `nickname`: 3-30 символов, только латинские буквы, цифры и `_`, уникальный
+
+**Response:**
+```json
+{
+  "id": 123,
+  "telegramUserId": 456789,
+  "username": "alex_user",
+  "displayName": "Алексей",
+  "nickname": "alexdev",
+  "gender": "male",
+  "language": "ru",
+  "isAdultConfirmed": true,
+  "createdAt": "2025-01-01T00:00:00Z"
 }
 ```
 
 ### Подтверждение возраста 18+
 
 ```http
-POST /api/users/confirm-adult
-Content-Type: application/json
-Authorization: tma <initDataString>
-
-{
-  "confirmed": true
-}
+POST /api/profile/confirm-adult
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
 ```json
 {
   "success": true,
-  "is_adult_confirmed": true
+  "isAdultConfirmed": true
+}
+```
+
+### Обновление последнего персонажа
+
+```http
+PATCH /api/profile/last-character
+Content-Type: application/json
+x-telegram-init-data: <initDataString>
+
+{
+  "characterId": 1
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true
 }
 ```
 
 ---
 
-## 🎭 Characters API (расширенный)
+## 🎭 Characters API
 
-### Список персонажей с фильтрами
+### Список персонажей
 
 ```http
-GET /api/characters?genre=romance&rating=sfw&sort=popular&tags=anime,fantasy
-Authorization: tma <initDataString>
+GET /api/characters?tags=anime,fantasy
+x-telegram-init-data: <initDataString>
 ```
 
 **Query Parameters:**
-- `genre` - жанр (romance, anime, fantasy, mentor)
-- `rating` - контент (sfw, nsfw)
-- `access_type` - тип доступа (free, premium)
-- `tags` - теги через запятую
-- `sort` - сортировка (popular, new, recommended)
-- `limit` - количество (default: 50)
-- `offset` - смещение для пагинации
+- `tags` - теги через запятую (кросс-фильтрация)
 
 **Response:**
 ```json
@@ -93,33 +136,81 @@ Authorization: tma <initDataString>
     {
       "id": 1,
       "name": "Кира",
-      "description_long": "Милая девушка из аниме...",
-      "avatar_url": "/characters/kira.jpg",
-      "access_type": "free",
+      "description": "Милая девушка из аниме...",
+      "avatarUrl": "/uploads/avatar-123.jpg",
+      "accessType": "free",
       "genre": "anime",
-      "content_rating": "sfw",
+      "grammaticalGender": "female",
       "tags": ["anime", "romance", "friendly"],
-      "popularity_score": 1250,
-      "messages_count": 5000,
-      "is_active": true
+      "likesCount": 42
     }
   ],
-  "total": 42,
-  "limit": 50,
-  "offset": 0
+  "includePremium": false
 }
 ```
 
-### Поиск персонажей
+### Детали персонажа
 
 ```http
-GET /api/characters/search?q=аниме+девушка
-Authorization: tma <initDataString>
+GET /api/characters/:id
+x-telegram-init-data: <initDataString>
 ```
 
-**Response:** аналогично списку персонажей
+**Response:**
+```json
+{
+  "character": {
+    "id": 1,
+    "name": "Кира",
+    "description": "Милая девушка из аниме...",
+    "avatarUrl": "/uploads/avatar-123.jpg",
+    "accessType": "free",
+    "genre": "anime",
+    "grammaticalGender": "female",
+    "tags": ["anime", "romance"],
+    "likesCount": 42,
+    "dislikesCount": 3,
+    "userRating": 1,
+    "createdBy": {
+      "id": 1,
+      "name": "Admin"
+    }
+  }
+}
+```
 
-### Список тегов
+### Оценка персонажа
+
+```http
+POST /api/characters/:id/rating
+Content-Type: application/json
+x-telegram-init-data: <initDataString>
+
+{
+  "rating": 1
+}
+```
+
+**Values:**
+- `1` - лайк
+- `-1` - дизлайк
+- `null` - убрать оценку
+
+**Response:**
+```json
+{
+  "success": true,
+  "likesCount": 43,
+  "dislikesCount": 3,
+  "userRating": 1
+}
+```
+
+---
+
+## 🏷️ Tags API
+
+### Список всех тегов
 
 ```http
 GET /api/tags
@@ -131,37 +222,25 @@ GET /api/tags
   "tags": [
     {
       "id": 1,
-      "name": "anime",
-      "category": "genre",
-      "usage_count": 25
+      "name": "anime"
     },
     {
       "id": 2,
-      "name": "romance",
-      "category": "theme",
-      "usage_count": 40
+      "name": "romance"
     }
   ]
 }
 ```
 
-### Теги по категории
-
-```http
-GET /api/tags/genre
-```
-
-**Response:** список тегов для указанной категории
-
 ---
 
-## 💬 Chat API (новый)
+## 💬 Chat API
 
 ### Получение истории сообщений
 
 ```http
 GET /api/chats/:characterId/messages?limit=50&offset=0
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
@@ -170,26 +249,21 @@ Authorization: tma <initDataString>
   "messages": [
     {
       "id": 123,
-      "character_id": 1,
+      "characterId": 1,
       "role": "user",
-      "message_text": "Привет! Как дела?",
-      "created_at": "2025-01-01T12:00:00Z",
-      "tokens_used": null,
-      "model_used": null
+      "text": "Привет! Как дела?",
+      "createdAt": "2025-01-01T12:00:00Z"
     },
     {
       "id": 124,
-      "character_id": 1,
+      "characterId": 1,
       "role": "assistant",
-      "message_text": "Привет! Всё отлично, спасибо!",
-      "created_at": "2025-01-01T12:00:05Z",
-      "tokens_used": 25,
-      "model_used": "gpt-3.5-turbo",
-      "is_regenerated": false
+      "text": "Привет! Всё отлично, спасибо!",
+      "createdAt": "2025-01-01T12:00:05Z"
     }
   ],
   "total": 142,
-  "has_more": true
+  "hasMore": true
 }
 ```
 
@@ -198,7 +272,7 @@ Authorization: tma <initDataString>
 ```http
 POST /api/chats/:characterId/messages
 Content-Type: application/json
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 
 {
   "message": "Привет! Как дела?"
@@ -208,94 +282,35 @@ Authorization: tma <initDataString>
 **Response:**
 ```json
 {
-  "user_message": {
+  "userMessage": {
     "id": 125,
     "role": "user",
-    "message_text": "Привет! Как дела?",
-    "created_at": "2025-01-01T12:05:00Z"
+    "text": "Привет! Как дела?",
+    "createdAt": "2025-01-01T12:05:00Z"
   },
-  "assistant_message": {
+  "assistantMessage": {
     "id": 126,
     "role": "assistant",
-    "message_text": "Привет! Отлично, а у тебя?",
-    "created_at": "2025-01-01T12:05:03Z",
-    "tokens_used": 28,
-    "model_used": "gpt-3.5-turbo"
+    "text": "Привет! Отлично, а у тебя?",
+    "createdAt": "2025-01-01T12:05:03Z"
   },
   "limits": {
     "remaining": 48,
     "total": 50,
-    "resets_at": "2025-01-02T00:00:00Z"
+    "resetsAt": "2025-01-02T00:00:00Z"
   }
 }
 ```
 
-**Errors:**
-```json
-// Лимит исчерпан
-{
-  "error": "daily_limit_exceeded",
-  "message": "Дневной лимит 50 сообщений исчерпан",
-  "limits": {
-    "remaining": 0,
-    "total": 50,
-    "resets_at": "2025-01-02T00:00:00Z"
-  }
-}
-
-// Нет доступа к премиум персонажу
-{
-  "error": "premium_required",
-  "message": "Для доступа к этому персонажу нужна подписка"
-}
-```
-
-### Регенерация последнего ответа
+### Забыть недавние сообщения
 
 ```http
-POST /api/chats/:characterId/regenerate
-Authorization: tma <initDataString>
-```
-
-**Response:**
-```json
-{
-  "message": {
-    "id": 127,
-    "role": "assistant",
-    "message_text": "Привет! У меня всё замечательно!",
-    "created_at": "2025-01-01T12:06:00Z",
-    "is_regenerated": true
-  }
-}
-```
-
-### Удаление сообщения
-
-```http
-DELETE /api/chats/:characterId/messages/:messageId
-Authorization: tma <initDataString>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "deleted_count": 1
-}
-```
-
-### Новая сцена (soft reset)
-
-Удаляет последние сообщения, сохраняя долговременную память.
-
-```http
-POST /api/chats/:characterId/new-scene
+POST /api/chats/:characterId/forget-recent
 Content-Type: application/json
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 
 {
-  "messages_to_keep": 0
+  "count": 10
 }
 ```
 
@@ -303,26 +318,7 @@ Authorization: tma <initDataString>
 ```json
 {
   "success": true,
-  "deleted_messages_count": 15,
-  "memories_preserved": 8
-}
-```
-
-### Полный сброс чата
-
-Удаляет всю историю и память для персонажа.
-
-```http
-POST /api/chats/:characterId/reset
-Authorization: tma <initDataString>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "deleted_messages_count": 142,
-  "deleted_memories_count": 8
+  "deletedMessagesCount": 10
 }
 ```
 
@@ -334,20 +330,29 @@ Authorization: tma <initDataString>
 
 ```http
 GET /api/chats/:characterId/session
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
 ```json
 {
   "id": 42,
-  "user_id": 123,
-  "character_id": 1,
-  "relationship_type": "friend",
-  "mood_preference": "sweet",
-  "last_message_at": "2025-01-01T12:00:00Z",
-  "messages_count": 142,
-  "created_at": "2024-12-01T10:00:00Z"
+  "userId": 123,
+  "characterId": 1,
+  "lastMessageAt": "2025-01-01T12:00:00Z",
+  "messagesCount": 142,
+  "createdAt": "2024-12-01T10:00:00Z",
+  "llmModel": null,
+  "state": {
+    "attraction": 15,
+    "trust": 20,
+    "affection": 18,
+    "dominance": -5,
+    "mood": {
+      "primary": "playful",
+      "intensity": 7
+    }
+  }
 }
 ```
 
@@ -356,17 +361,12 @@ Authorization: tma <initDataString>
 ```http
 PATCH /api/chats/:characterId/session
 Content-Type: application/json
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 
 {
-  "relationship_type": "partner",
-  "mood_preference": "playful"
+  "llmModel": "gpt-4"
 }
 ```
-
-**Allowed values:**
-- `relationship_type`: neutral, friend, partner, colleague, mentor
-- `mood_preference`: neutral, sweet, sarcastic, formal, playful
 
 **Response:** обновлённая сессия
 
@@ -378,7 +378,7 @@ Authorization: tma <initDataString>
 
 ```http
 GET /api/chats/:characterId/memories
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
@@ -387,46 +387,31 @@ Authorization: tma <initDataString>
   "memories": [
     {
       "id": 1,
-      "memory_type": "fact",
       "content": "Работает программистом",
       "importance": 8,
-      "created_at": "2025-01-01T10:00:00Z"
+      "createdAt": "2025-01-01T10:00:00Z"
     },
     {
       "id": 2,
-      "memory_type": "preference",
       "content": "Предпочитает формальный стиль общения",
       "importance": 6,
-      "created_at": "2025-01-01T11:00:00Z"
-    },
-    {
-      "id": 3,
-      "memory_type": "emotion",
-      "content": "Часто грустит по понедельникам",
-      "importance": 5,
-      "created_at": "2025-01-01T12:00:00Z"
+      "createdAt": "2025-01-01T11:00:00Z"
     }
   ],
   "total": 8
 }
 ```
 
-**Memory types:**
-- `fact` - объективный факт о пользователе
-- `preference` - предпочтение пользователя
-- `emotion` - эмоциональное состояние
-- `relationship` - характер отношений
 
 ### Добавление факта
 
 ```http
 POST /api/chats/:characterId/memories
 Content-Type: application/json
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 
 {
   "content": "Увлекается аниме и мангой",
-  "memory_type": "preference",
   "importance": 7
 }
 ```
@@ -435,25 +420,24 @@ Authorization: tma <initDataString>
 ```json
 {
   "id": 9,
-  "memory_type": "preference",
   "content": "Увлекается аниме и мангой",
   "importance": 7,
-  "created_at": "2025-01-01T13:00:00Z"
+  "createdAt": "2025-01-01T13:00:00Z"
 }
 ```
 
-### Удаление конкретного факта
+### Удаление факта
 
 ```http
 DELETE /api/chats/:characterId/memories/:memoryId
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
 ```json
 {
   "success": true,
-  "deleted_id": 9
+  "deletedId": 9
 }
 ```
 
@@ -461,36 +445,14 @@ Authorization: tma <initDataString>
 
 ```http
 DELETE /api/chats/:characterId/memories
-Authorization: tma <initDataString>
+x-telegram-init-data: <initDataString>
 ```
 
 **Response:**
 ```json
 {
   "success": true,
-  "deleted_count": 8
-}
-```
-
-### Забыть недавние сообщения
-
-Удаляет последние N сообщений из истории.
-
-```http
-POST /api/chats/:characterId/forget-recent
-Content-Type: application/json
-Authorization: tma <initDataString>
-
-{
-  "count": 10
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "deleted_messages_count": 10
+  "deletedCount": 8
 }
 ```
 
@@ -501,121 +463,210 @@ Authorization: tma <initDataString>
 ### Проверка лимитов
 
 ```http
-GET /api/users/limits
-Authorization: tma <initDataString>
+GET /api/limits
+x-telegram-init-data: <initDataString>
 ```
 
-**Response:**
+**Response (free user):**
 ```json
 {
-  "has_subscription": false,
-  "messages_limit": {
+  "hasSubscription": false,
+  "messagesLimit": {
     "total": 50,
     "used": 23,
     "remaining": 27,
-    "resets_at": "2025-01-02T00:00:00Z"
+    "resetsAt": "2025-01-02T00:00:00Z"
   },
   "subscription": null
 }
 ```
 
-**With subscription:**
+**Response (premium):**
 ```json
 {
-  "has_subscription": true,
-  "messages_limit": {
+  "hasSubscription": true,
+  "messagesLimit": {
     "total": -1,
     "used": 142,
     "remaining": -1,
-    "resets_at": null
+    "resetsAt": null
   },
   "subscription": {
     "status": "active",
-    "start_at": "2025-01-01T00:00:00Z",
-    "end_at": "2025-01-31T23:59:59Z"
+    "startAt": "2025-01-01T00:00:00Z",
+    "endAt": "2025-01-31T23:59:59Z"
   }
 }
 ```
 
 ---
 
-## 🔌 WebSocket API
+## 🔌 WebSocket API (Socket.IO)
 
 ### Подключение
 
-```
-WS /api/ws/chat/:characterId
-Query params: ?initData=<tmaInitDataString>
-```
-
-### События от сервера
-
-#### message.new
-Новое сообщение добавлено в чат.
-
-```json
-{
-  "event": "message.new",
-  "data": {
-    "id": 128,
-    "role": "assistant",
-    "message_text": "Привет!",
-    "created_at": "2025-01-01T13:00:00Z"
-  }
-}
-```
-
-#### message.typing
-Персонаж печатает ответ.
-
-```json
-{
-  "event": "message.typing",
-  "data": {
-    "character_id": 1,
-    "is_typing": true
-  }
-}
-```
-
-#### message.complete
-Генерация ответа завершена.
-
-```json
-{
-  "event": "message.complete",
-  "data": {
-    "message_id": 128,
-    "tokens_used": 35
-  }
-}
-```
-
-#### error
-Произошла ошибка.
-
-```json
-{
-  "event": "error",
-  "data": {
-    "code": "daily_limit_exceeded",
-    "message": "Дневной лимит исчерпан"
-  }
-}
+```javascript
+const socket = io('http://localhost:3000', {
+  auth: {
+    initData: window.Telegram.WebApp.initData
+  },
+  transports: ['websocket', 'polling']
+});
 ```
 
 ### События от клиента
 
-#### send_message
-Отправка сообщения.
+#### chat:send
+Отправка сообщения персонажу.
 
+```javascript
+socket.emit('chat:send', {
+  characterId: 1,
+  message: "Привет! Как дела?"
+});
+```
+
+### События от сервера
+
+#### chat:typing
+Персонаж печатает ответ.
+
+```javascript
+socket.on('chat:typing', (data) => {
+  // data: { characterId: 1 }
+  showTypingIndicator();
+});
+```
+
+#### chat:message
+Ответ персонажа получен.
+
+```javascript
+socket.on('chat:message', (data) => {
+  // data: {
+  //   characterId: 1,
+  //   userMessage: { role: 'user', text: '...', createdAt: '...' },
+  //   assistantMessage: { role: 'assistant', text: '...', createdAt: '...' },
+  //   limits: { remaining: 47, total: 50, resetsAt: '...' }
+  // }
+  appendMessages(data);
+  updateLimits(data.limits);
+});
+```
+
+#### chat:error
+Произошла ошибка.
+
+```javascript
+socket.on('chat:error', (data) => {
+  // data: { error: 'daily_limit_exceeded', message: '...', limits?: {...} }
+  showError(data.message);
+});
+```
+
+---
+
+## 🔧 Admin API
+
+Все admin endpoints требуют `telegramAuth` + `requireAdmin` middleware.
+
+### Загрузка файлов
+
+```http
+POST /api/admin/upload
+Content-Type: multipart/form-data
+x-telegram-init-data: <initDataString>
+
+file: <image file>
+```
+
+**Response:**
 ```json
 {
-  "event": "send_message",
-  "data": {
-    "message": "Привет! Как дела?"
-  }
+  "url": "/uploads/avatar-1234567890.jpg"
 }
+```
+
+### Список загруженных файлов
+
+```http
+GET /api/admin/uploads
+```
+
+**Response:**
+```json
+{
+  "files": [
+    {
+      "filename": "avatar-123.jpg",
+      "url": "/uploads/avatar-123.jpg",
+      "size": 102400,
+      "createdAt": "2025-01-01T12:00:00Z"
+    }
+  ],
+  "usedFiles": ["avatar-123.jpg"]
+}
+```
+
+### Удаление неиспользуемых файлов
+
+```http
+DELETE /api/admin/uploads/unused
+```
+
+### Глобальные настройки
+
+```http
+GET /api/admin/settings
+```
+
+```http
+PUT /api/admin/settings
+Content-Type: application/json
+
+{
+  "summary_provider": "openrouter",
+  "summary_model": "anthropic/claude-3-haiku"
+}
+```
+
+### Доступные модели
+
+```http
+GET /api/admin/gemini-models
+GET /api/admin/openai-models
+GET /api/admin/openrouter-models
+```
+
+### CRUD персонажей
+
+```http
+GET /api/admin/characters
+POST /api/admin/characters
+GET /api/admin/characters/:id
+PUT /api/admin/characters/:id
+PATCH /api/admin/characters/:id/status
+DELETE /api/admin/characters/:id
+```
+
+### Управление тегами
+
+```http
+GET /api/admin/tags
+POST /api/admin/tags
+DELETE /api/admin/tags/:id
+```
+
+### Статистика
+
+```http
+GET /api/admin/stats?period=day
+```
+
+### Пользователи
+
+```http
+GET /api/admin/users
 ```
 
 ---
@@ -634,99 +685,11 @@ Query params: ?initData=<tmaInitDataString>
 
 ---
 
-## 🧪 Примеры использования
-
-### Типичный флоу чата
-
-```typescript
-// 1. Получить историю сообщений
-const history = await fetch('/api/chats/1/messages?limit=20', {
-  headers: { Authorization: `tma ${window.Telegram.WebApp.initData}` }
-});
-
-// 2. Открыть WebSocket соединение
-const ws = new WebSocket(
-  `wss://api.example.com/api/ws/chat/1?initData=${window.Telegram.WebApp.initData}`
-);
-
-ws.onmessage = (event) => {
-  const { event: eventType, data } = JSON.parse(event.data);
-  
-  if (eventType === 'message.new') {
-    appendMessage(data);
-  } else if (eventType === 'message.typing') {
-    showTypingIndicator(data.is_typing);
-  }
-};
-
-// 3. Отправить сообщение
-ws.send(JSON.stringify({
-  event: 'send_message',
-  data: { message: 'Привет!' }
-}));
-
-// 4. Проверить лимиты
-const limits = await fetch('/api/users/limits', {
-  headers: { Authorization: `tma ${window.Telegram.WebApp.initData}` }
-});
-```
-
-### Управление памятью
-
-```typescript
-// Получить все факты
-const memories = await fetch('/api/chats/1/memories', {
-  headers: { Authorization: `tma ${initData}` }
-});
-
-// Удалить конкретный факт
-await fetch('/api/chats/1/memories/5', {
-  method: 'DELETE',
-  headers: { Authorization: `tma ${initData}` }
-});
-
-// Забыть всё
-await fetch('/api/chats/1/memories', {
-  method: 'DELETE',
-  headers: { Authorization: `tma ${initData}` }
-});
-
-// Забыть последние 5 сообщений
-await fetch('/api/chats/1/forget-recent', {
-  method: 'POST',
-  headers: { 
-    Authorization: `tma ${initData}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({ count: 5 })
-});
-```
-
-### Изменение настроек сессии
-
-```typescript
-// Поменять отношения на "партнёр" и настроение на "игривый"
-await fetch('/api/chats/1/session', {
-  method: 'PATCH',
-  headers: {
-    Authorization: `tma ${initData}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    relationship_type: 'partner',
-    mood_preference: 'playful'
-  })
-});
-```
-
----
-
 ## 🔐 Rate Limits
 
 | Endpoint | Лимит | Окно |
 |----------|-------|------|
 | `POST /api/chats/:id/messages` | 10 req | 1 мин |
-| `POST /api/chats/:id/regenerate` | 5 req | 1 мин |
 | `GET /api/characters*` | 60 req | 1 мин |
 | `GET /api/chats/:id/messages` | 30 req | 1 мин |
 | WebSocket messages | 30 msg | 1 мин |
@@ -739,33 +702,3 @@ await fetch('/api/chats/1/session', {
   "retry_after": 45
 }
 ```
-
----
-
-## 📚 Дополнительная информация
-
-### Формирование контекста LLM
-
-Backend автоматически формирует контекст для LLM из:
-1. Системного промпта персонажа
-2. Профиля пользователя (имя, пол, язык)
-3. Долговременной памяти (важные факты)
-4. Настроек сессии (отношения, настроение)
-5. Последних 8 сообщений диалога
-
-### Кэширование
-
-Следующие данные кэшируются:
-- Данные персонажей (5 мин)
-- Лимиты пользователей (1 мин)
-- Системные промпты (бессрочно)
-- Теги (10 мин)
-
-### Версионирование API
-
-API версионируется через заголовок:
-```http
-API-Version: 1.0
-```
-
-При breaking changes версия увеличится до 2.0.

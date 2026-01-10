@@ -1,0 +1,77 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    depends_on:
+      - backend
+      - frontend
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      TELEGRAM_WEBHOOK_EXTERNAL_URL: https://${DOMAIN}/telegram/webhook
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
+      WEBAPP_URL: https://${DOMAIN}
+      WEBAPP_PUBLIC_URL: https://${DOMAIN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      FREE_DAILY_MESSAGE_LIMIT: ${FREE_DAILY_MESSAGE_LIMIT:-50}
+      ENABLE_MESSAGE_LIMIT: ${ENABLE_MESSAGE_LIMIT:-true}
+      SUBSCRIPTION_DURATION_DAYS: ${SUBSCRIPTION_DURATION_DAYS:-30}
+      AUTH_ALLOW_DEV_INIT_DATA: "false"
+    volumes:
+      - uploads:/app/uploads
+    expose:
+      - "3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    expose:
+      - "4173"
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

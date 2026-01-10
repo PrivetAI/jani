@@ -35,6 +35,6 @@ export const verbs = {
 /**
  * Status text with gender declension
  */
-export function getTypingStatus(gender?: GrammaticalGender): string {
-    return `✍️ ${verbs.typing(gender)}...`;
+export function getTypingStatus(_gender?: GrammaticalGender): string {
+    return '...';
 }

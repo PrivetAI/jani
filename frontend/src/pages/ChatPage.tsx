@@ -6,6 +6,7 @@ import { MemoryViewer } from '../components/chat/MemoryViewer';
 import { SessionInfoPanel } from '../components/chat/SessionInfoPanel';
 import { formatMessage } from '../utils/textFormatter';
 import { getTypingStatus } from '../utils/gender';
+import { getImageUrl } from '../lib/imageUrl';
 
 function Avatar({ src, name, isUser }: { src?: string | null; name: string; isUser?: boolean }) {
     const initial = name?.charAt(0)?.toUpperCase() || '?';
@@ -18,7 +19,7 @@ function Avatar({ src, name, isUser }: { src?: string | null; name: string; isUs
             }`}
         >
             {src ? (
-                <img src={src} alt={name} className="w-full h-full rounded-xl object-cover" />
+                <img src={getImageUrl(src)} alt={name} className="w-full h-full rounded-xl object-cover" />
             ) : (
                 initial
             )}
@@ -42,12 +43,13 @@ export function ChatPage() {
         isLoadingMessages,
         isSending,
         isTyping,
+        error,
         initSocket,
         disconnectSocket
     } = useChatStore();
 
     const { initData, profile } = useUserStore();
-    const userName = profile?.displayName || profile?.username || 'Вы';
+    const userName = profile?.displayName || profile?.nickname || 'Вы';
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -163,11 +165,11 @@ export function ChatPage() {
                             name={msg.role === 'user' ? userName : (selectedCharacter?.name || 'AI')}
                             isUser={msg.role === 'user'}
                         />
-                        <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                            <span className="text-xs text-text-muted mb-1 px-1">
+                        <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                            <span className="text-xs text-text-muted mb-1 px-4">
                                 {msg.role === 'user' ? userName : selectedCharacter?.name}
                             </span>
-                            <div className={`max-w-[85%] px-4 py-3 rounded-2xl leading-relaxed text-left
+                            <div className={`px-4 py-3 rounded-2xl leading-relaxed text-left overflow-wrap-anywhere
                                 ${msg.role === 'user'
                                     ? 'bg-gradient-to-r from-primary/70 to-indigo-500/60 rounded-br-sm'
                                     : 'bg-surface border border-border rounded-bl-sm'
@@ -191,6 +193,13 @@ export function ChatPage() {
                             <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-surface border border-border animate-pulse-slow">
                                 {isTyping ? getTypingStatus(selectedCharacter?.grammaticalGender) : '...'}
                             </div>
+                        </div>
+                    </div>
+                )}
+                {error && !isSending && !isTyping && (
+                    <div className="flex justify-center py-2">
+                        <div className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
+                            ⚠️ {error}
                         </div>
                     </div>
                 )}

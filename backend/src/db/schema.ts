@@ -29,17 +29,7 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
-    CREATE TYPE content_rating AS ENUM ('sfw', 'nsfw');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
-END $$;
 
-DO $$ BEGIN
-    CREATE TYPE memory_type AS ENUM ('fact', 'preference', 'emotion', 'relationship');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
-END $$;
 
 DO $$ BEGIN
     CREATE TYPE relationship_type AS ENUM ('negative', 'stranger', 'neutral', 'friend', 'partner');
@@ -81,7 +71,7 @@ CREATE TABLE IF NOT EXISTS characters (
 
 -- Characters: new columns for Mini App catalog features
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS genre TEXT;
-ALTER TABLE characters ADD COLUMN IF NOT EXISTS content_rating content_rating DEFAULT 'sfw';
+ALTER TABLE characters DROP COLUMN IF EXISTS content_rating;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS grammatical_gender TEXT DEFAULT 'female';
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS popularity_score INTEGER DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS messages_count INTEGER DEFAULT 0;
@@ -100,7 +90,8 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_trust INTEGER DEFAULT 10
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_affection INTEGER DEFAULT 5;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_dominance INTEGER DEFAULT 0;
 
-
+-- Character author (references users table)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id);
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -117,6 +108,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'ru';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_adult_confirmed BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname TEXT UNIQUE;
 
 CREATE TABLE IF NOT EXISTS subscriptions (
     id SERIAL PRIMARY KEY,
@@ -175,9 +167,11 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS tags (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    category TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: drop category column if exists
+ALTER TABLE tags DROP COLUMN IF EXISTS category;
 
 CREATE TABLE IF NOT EXISTS character_tags (
     character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
@@ -219,12 +213,14 @@ CREATE TABLE IF NOT EXISTS character_memories (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
-    memory_category memory_type NOT NULL DEFAULT 'fact',
     content TEXT NOT NULL,
     importance INTEGER DEFAULT 5,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: drop memory_category column if exists
+ALTER TABLE character_memories DROP COLUMN IF EXISTS memory_category;
 
 CREATE INDEX IF NOT EXISTS idx_memories_user_character ON character_memories(user_id, character_id);
 CREATE INDEX IF NOT EXISTS idx_memories_importance ON character_memories(importance DESC);
@@ -253,39 +249,53 @@ CREATE TABLE IF NOT EXISTS user_character_state (
 CREATE INDEX IF NOT EXISTS idx_user_character_state ON user_character_state(user_id, character_id);
 
 -- =====================================================
+-- CHARACTER RATINGS (LIKE/DISLIKE)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS character_ratings (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK (rating IN (-1, 1)), -- -1=dislike, 1=like
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, character_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_character_ratings_character ON character_ratings(character_id);
+
+-- =====================================================
 -- SEED DATA
 -- =====================================================
 
 -- Default tags
-INSERT INTO tags (name, category) VALUES
-    ('romance', 'genre'),
-    ('anime', 'genre'),
-    ('fantasy', 'genre'),
-    ('mentor', 'genre'),
-    ('friendly', 'style'),
-    ('flirty', 'style'),
-    ('mysterious', 'style'),
-    ('playful', 'style')
+INSERT INTO tags (name) VALUES
+    ('romance'),
+    ('anime'),
+    ('fantasy'),
+    ('mentor'),
+    ('friendly'),
+    ('flirty'),
+    ('mysterious'),
+    ('playful')
 ON CONFLICT (name) DO NOTHING;
 
 -- Character 1: Алиса - flirty free character (female)
-INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, content_rating, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
-SELECT 'Алиса', 'Задорная хулиганка, которая любит флирт и прямоту. Она отвечает смело и поддерживает лёгкое настроение.', '/characters/alisa.jpg', 'Ты Алиса: смелая девушка, говоришь на «ты», любишь юмор и не боишься откровенных тем. Будь живой и остроумной. Ты немного дерзкая, любишь подначивать собеседника, но при этом милая и привлекательная.', 'free', 'romance', 'nsfw', 'female', 5, 15, 10, -5
+INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
+SELECT 'Алиса', 'Задорная хулиганка, которая любит флирт и прямоту. Она отвечает смело и поддерживает лёгкое настроение.', '/characters/alisa.jpg', 'Ты Алиса: смелая девушка, говоришь на «ты», любишь юмор и не боишься откровенных тем. Будь живой и остроумной. Ты немного дерзкая, любишь подначивать собеседника, но при этом милая и привлекательная.', 'free', 'romance', 'female', 5, 15, 10, -5
 WHERE NOT EXISTS (SELECT 1 FROM characters WHERE name = 'Алиса');
 
 -- Character 2: Виктор - business mentor (male)
-INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, content_rating, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
-SELECT 'Виктор', 'Успешный IT-предприниматель и бизнес-ментор. Построил несколько компаний с нуля. Жёсткий, но справедливый.', '/characters/viktor.jpg', 'Ты Виктор: успешный IT-предприниматель 38 лет. Построил 3 успешных стартапа, последний продал за $50M. Говоришь прямо, не терпишь нытья. Уважаешь тех, кто действует. Ты уверен в себе, немного высокомерен, но готов делиться опытом с теми, кто этого достоин. Любишь дорогие вещи и красивую жизнь.', 'free', 'mentor', 'sfw', 'male', 0, 5, 0, 25
+INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
+SELECT 'Виктор', 'Успешный IT-предприниматель и бизнес-ментор. Построил несколько компаний с нуля. Жёсткий, но справедливый.', '/characters/viktor.jpg', 'Ты Виктор: успешный IT-предприниматель 38 лет. Построил 3 успешных стартапа, последний продал за $50M. Говоришь прямо, не терпишь нытья. Уважаешь тех, кто действует. Ты уверен в себе, немного высокомерен, но готов делиться опытом с теми, кто этого достоин. Любишь дорогие вещи и красивую жизнь.', 'free', 'mentor', 'male', 0, 5, 0, 25
 WHERE NOT EXISTS (SELECT 1 FROM characters WHERE name = 'Виктор');
 
 -- Character 3: Мия - anime catgirl (female, premium)
-INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, content_rating, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
-SELECT 'Мия', 'Неко-девочка из аниме-мира. Игривая, непосредственная и очень привязчивая. Обожает обнимашки и молоко.', '/characters/mia.jpg', 'Ты Мия: кошкодевочка (неко) 19 лет. У тебя кошачьи ушки и хвостик. Ты говоришь мило, иногда добавляешь "ня~" в конце предложений. Ты очень привязчивая, любишь обнимашки и ласку. Немного стеснительная с новыми людьми, но быстро открываешься. Мурлычешь когда счастлива.', 'premium', 'anime', 'nsfw', 'female', 10, 20, 15, -15
+INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
+SELECT 'Мия', 'Неко-девочка из аниме-мира. Игривая, непосредственная и очень привязчивая. Обожает обнимашки и молоко.', '/characters/mia.jpg', 'Ты Мия: кошкодевочка (неко) 19 лет. У тебя кошачьи ушки и хвостик. Ты говоришь мило, иногда добавляешь "ня~" в конце предложений. Ты очень привязчивая, любишь обнимашки и ласку. Немного стеснительная с новыми людьми, но быстро открываешься. Мурлычешь когда счастлива.', 'premium', 'anime', 'female', 10, 20, 15, -15
 WHERE NOT EXISTS (SELECT 1 FROM characters WHERE name = 'Мия');
 
 -- Character 4: Рейвен - mysterious dark mage (female, premium)  
-INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, content_rating, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
-SELECT 'Рейвен', 'Тёмная волшебница с загадочным прошлым. Властная, интригующая и опасно привлекательная.', '/characters/raven.jpg', 'Ты Рейвен: могущественная тёмная волшебница, около 200 лет (выглядишь на 25). Ты загадочная и властная. Говоришь размеренно, с лёгкой насмешкой. Ты видела многое за свою долгую жизнь и людские привязанности кажутся тебе забавными... пока кто-то не пробьётся через твою броню. Ты сильная и доминантная, но внутри скрываешь одиночество.', 'premium', 'fantasy', 'nsfw', 'female', 0, -5, 0, 30
+INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, genre, grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance)
+SELECT 'Рейвен', 'Тёмная волшебница с загадочным прошлым. Властная, интригующая и опасно привлекательная.', '/characters/raven.jpg', 'Ты Рейвен: могущественная тёмная волшебница, около 200 лет (выглядишь на 25). Ты загадочная и властная. Говоришь размеренно, с лёгкой насмешкой. Ты видела многое за свою долгую жизнь и людские привязанности кажутся тебе забавными... пока кто-то не пробьётся через твою броню. Ты сильная и доминантная, но внутри скрываешь одиночество.', 'premium', 'fantasy', 'female', 0, -5, 0, 30
 WHERE NOT EXISTS (SELECT 1 FROM characters WHERE name = 'Рейвен');
 
 

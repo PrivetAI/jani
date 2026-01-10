@@ -69,7 +69,6 @@ export {
 // Tags
 export {
     getAllTags,
-    getTagsByCategory,
     getTagById,
     getTagByName,
     createTag,
@@ -107,3 +106,10 @@ export {
     type CharacterMood,
 } from '../repositories/userCharacterStateRepository.js';
 
+// Ratings
+export {
+    setRating,
+    getUserRating,
+    getCharacterRatings,
+    getCharactersLikesCount,
+} from '../repositories/ratingsRepository.js';

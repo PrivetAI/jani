@@ -5,6 +5,7 @@ import { logger } from '../lib/logger';
 export interface Profile {
     telegramUserId: number;
     username: string | null;
+    nickname?: string | null;
     conversationStarted: boolean;
     lastCharacterId: number | null;
     subscriptionStatus: 'none' | 'active' | 'expired';

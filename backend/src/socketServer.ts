@@ -5,6 +5,7 @@ import { chatSessionService } from './services/chatSessionService.js';
 import { getCharacterById, countUserMessagesToday, recordMessage, getActiveSubscription } from './modules/index.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { notifyAdminError } from './services/telegramNotifier.js';
 
 interface AuthenticatedSocket extends Socket {
     userId: number;
@@ -87,7 +88,7 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                 }
 
                 // Check daily limit for free users
-                if (!hasSubscription) {
+                if (!hasSubscription && config.enableMessageLimit) {
                     const used = await countUserMessagesToday(socket.userId);
                     if (used >= config.freeDailyMessageLimit) {
                         socket.emit('chat:error', {
@@ -138,17 +139,30 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                         text: result.reply,
                         createdAt: new Date().toISOString(),
                     },
-                    limits: {
+                    limits: config.enableMessageLimit ? {
                         remaining: Math.max(0, config.freeDailyMessageLimit - usedNow),
                         total: config.freeDailyMessageLimit,
                         resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                    },
+                    } : null,
                 });
 
                 logger.info('Chat message sent', { userId: socket.userId, characterId, replyLength: result.reply.length });
             } catch (error: any) {
                 logger.error('Chat processing error', { userId: socket.userId, characterId, error: error.message });
-                socket.emit('chat:error', { error: 'llm_error', message: error.message });
+
+                // Notify admin with detailed error log
+                notifyAdminError({
+                    userId: socket.userId,
+                    telegramUserId: socket.telegramUserId,
+                    characterId,
+                    userMessage: message,
+                    error,
+                }).catch(err => {
+                    logger.error('Failed to notify admin', { error: err.message });
+                });
+
+                // Show simple error to user
+                socket.emit('chat:error', { error: 'llm_error', message: 'Произошла ошибка' });
             }
         });
 

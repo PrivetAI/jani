@@ -1,0 +1,26 @@
+{$DOMAIN} {
+    # API routes
+    handle /api/* {
+        reverse_proxy backend:3000
+    }
+
+    # Telegram webhook
+    handle /telegram/* {
+        reverse_proxy backend:3000
+    }
+
+    # WebSocket
+    handle /socket.io/* {
+        reverse_proxy backend:3000
+    }
+
+    # Uploaded files
+    handle /uploads/* {
+        reverse_proxy backend:3000
+    }
+
+    # Frontend (default)
+    handle {
+        reverse_proxy frontend:4173
+    }
+}

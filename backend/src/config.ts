@@ -7,6 +7,7 @@ dotenv.config();
 const defaults = {
   port: 3000,
   freeDailyMessageLimit: 50,
+  enableMessageLimit: true,
   subscriptionDurationDays: 30,
   webAppUrl: 'http://localhost:4173',
   adminTelegramIds: [] as string[],
@@ -62,6 +63,7 @@ const envSchema = z.object({
   AUTH_ALLOW_DEV_INIT_DATA: z.enum(['true', 'false']).optional(),
   MOCK_TELEGRAM_INIT_DATA: z.string().optional(),
   FREE_DAILY_MESSAGE_LIMIT: z.string().optional(),
+  ENABLE_MESSAGE_LIMIT: z.enum(['true', 'false']).optional(),
   SUBSCRIPTION_DURATION_DAYS: z.string().optional(),
   WEBAPP_URL: z.string().optional(),
   WEBAPP_PUBLIC_URL: z.string().optional(),
@@ -110,6 +112,8 @@ export const config = {
   mockInitData: env.MOCK_TELEGRAM_INIT_DATA ?? defaults.mockInitData,
   openRouterApiKey: env.OPENROUTER_API_KEY,
   freeDailyMessageLimit: stringToInt(env.FREE_DAILY_MESSAGE_LIMIT, defaults.freeDailyMessageLimit, 'FREE_DAILY_MESSAGE_LIMIT'),
+  enableMessageLimit:
+    env.ENABLE_MESSAGE_LIMIT !== undefined ? env.ENABLE_MESSAGE_LIMIT === 'true' : defaults.enableMessageLimit,
   subscriptionDurationDays: stringToInt(
     env.SUBSCRIPTION_DURATION_DAYS,
     defaults.subscriptionDurationDays,

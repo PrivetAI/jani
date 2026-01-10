@@ -54,7 +54,7 @@ export class ChatSessionService {
       throw new PremiumRequiredError(character.id);
     }
 
-    if (!hasSubscription) {
+    if (!hasSubscription && config.enableMessageLimit) {
       const used = await countUserMessagesToday(user.id);
       if (used >= config.freeDailyMessageLimit) {
         throw new LimitReachedError(used, config.freeDailyMessageLimit);

@@ -5,6 +5,7 @@ export interface UserRecord {
   id: number;
   telegram_user_id: number;
   username: string | null;
+  nickname: string | null;
   last_character_id: number | null;
   display_name: string | null;
   gender: string | null;
@@ -18,6 +19,7 @@ const mapUser = (row: any): UserRecord => ({
   id: row.id,
   telegram_user_id: Number(row.telegram_user_id),
   username: row.username,
+  nickname: row.nickname ?? null,
   last_character_id: row.last_character_id,
   display_name: row.display_name,
   gender: row.gender,
@@ -67,6 +69,7 @@ export const updateLastCharacter = async (userId: number, characterId: number | 
 /** Update user profile settings */
 export interface ProfileUpdate {
   display_name?: string | null;
+  nickname?: string | null;
   gender?: string | null;
   language?: string;
 }
@@ -82,6 +85,10 @@ export const updateUserProfile = async (
   if (updates.display_name !== undefined) {
     setClause.push(`display_name = $${paramIndex++}`);
     values.push(updates.display_name);
+  }
+  if (updates.nickname !== undefined) {
+    setClause.push(`nickname = $${paramIndex++}`);
+    values.push(updates.nickname);
   }
   if (updates.gender !== undefined) {
     setClause.push(`gender = $${paramIndex++}`);
@@ -126,6 +133,7 @@ export interface UserProfile {
   id: number;
   telegramUserId: number;
   username?: string | null;
+  nickname?: string | null;
   displayName?: string | null;
   gender?: string | null;
   language: string;
@@ -144,6 +152,7 @@ export const buildUserProfile = (
   id: user.id,
   telegramUserId: user.telegram_user_id,
   username: user.username,
+  nickname: user.nickname,
   displayName: user.display_name,
   gender: user.gender,
   language: user.language,

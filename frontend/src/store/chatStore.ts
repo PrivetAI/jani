@@ -11,6 +11,7 @@ export interface Character {
     accessType: 'free' | 'premium';
     grammaticalGender?: 'male' | 'female';
     tags?: string[];
+    likesCount?: number;
 }
 
 export interface DialogMessage {
@@ -54,6 +55,7 @@ export interface Session {
 
 interface ChatState {
     characters: Character[];
+    myCharacterIds: number[];
     selectedCharacter: Character | null;
     messages: DialogMessage[];
     memories: Memory[];
@@ -87,6 +89,7 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => ({
     characters: [],
+    myCharacterIds: [],
     selectedCharacter: null,
     messages: [],
     memories: [],
@@ -162,8 +165,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (filters?.accessType && filters.accessType !== 'all') params.append('accessType', filters.accessType);
             if (filters?.tags?.length) params.append('tags', filters.tags.join(','));
 
-            const data = await apiRequest<{ characters: Character[] }>(`/api/characters?${params.toString()}`, { initData });
-            set({ characters: data.characters, isLoadingCharacters: false });
+            const data = await apiRequest<{ characters: Character[]; myCharacterIds: number[] }>(`/api/characters?${params.toString()}`, { initData });
+            set({ characters: data.characters, myCharacterIds: data.myCharacterIds || [], isLoadingCharacters: false });
         } catch (err) {
             set({ error: (err as Error).message, isLoadingCharacters: false });
         }

@@ -92,7 +92,7 @@ router.post(
         }
 
         // Check message limit for free users
-        if (!hasSubscription) {
+        if (!hasSubscription && config.enableMessageLimit) {
             const used = await countUserMessagesToday(req.auth!.id);
             if (used >= config.freeDailyMessageLimit) {
                 return res.status(429).json({
@@ -132,7 +132,7 @@ router.post(
                     text: result.reply,
                     createdAt: new Date().toISOString(),
                 },
-                limits: hasSubscription ? null : {
+                limits: (hasSubscription || !config.enableMessageLimit) ? null : {
                     remaining: Math.max(0, config.freeDailyMessageLimit - usedNow),
                     total: config.freeDailyMessageLimit,
                     resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),

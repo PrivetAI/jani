@@ -9,9 +9,9 @@ export interface CharacterRecord {
   access_type: 'free' | 'premium';
   is_active: boolean;
   created_at: string;
+  created_by: number | null;
   // Catalog fields
   genre: string | null;
-  content_rating: 'sfw' | 'nsfw' | null;
   grammatical_gender: 'male' | 'female';
   // Initial relationship values
   initial_attraction: number;
@@ -35,8 +35,8 @@ const mapCharacter = (row: any): CharacterRecord => ({
   access_type: row.access_type,
   is_active: row.is_active,
   created_at: row.created_at,
+  created_by: row.created_by ?? null,
   genre: row.genre ?? null,
-  content_rating: row.content_rating ?? null,
   grammatical_gender: row.grammatical_gender ?? 'female',
   initial_attraction: row.initial_attraction ?? 0,
   initial_trust: row.initial_trust ?? 10,
@@ -61,11 +61,16 @@ export const listCharacters = async (filters: CharacterFilters = {}) => {
   const params: any[] = [];
   const conditions: string[] = [];
 
-  // Joins if needed
+  // AND logic: show only characters that have ALL selected tags
   if (filters.tagIds?.length) {
-    sql += ' JOIN character_tags ct ON c.id = ct.character_id';
-    conditions.push(`ct.tag_id = ANY($${params.length + 1})`);
+    conditions.push(`c.id IN (
+      SELECT character_id FROM character_tags 
+      WHERE tag_id = ANY($${params.length + 1})
+      GROUP BY character_id 
+      HAVING COUNT(DISTINCT tag_id) = $${params.length + 2}
+    )`);
     params.push(filters.tagIds);
+    params.push(filters.tagIds.length);
   }
 
   // Conditions
@@ -106,14 +111,15 @@ interface CharacterPayload {
   system_prompt: string;
   access_type: 'free' | 'premium';
   is_active?: boolean;
+  created_by?: number | null;
   llm_provider?: string | null;
   llm_model?: string | null;
 }
 
 export const createCharacter = async (payload: CharacterPayload) => {
   const result = await query<CharacterRecord>(
-    `INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, is_active, llm_provider, llm_model)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    `INSERT INTO characters (name, description_long, avatar_url, system_prompt, access_type, is_active, created_by, llm_provider, llm_model)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
     [
       payload.name,
       payload.description_long,
@@ -121,6 +127,7 @@ export const createCharacter = async (payload: CharacterPayload) => {
       payload.system_prompt,
       payload.access_type,
       payload.is_active ?? true,
+      payload.created_by ?? null,
       payload.llm_provider ?? null,
       payload.llm_model ?? null
     ]
@@ -141,11 +148,11 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterReco
 
   const result = await query<CharacterRecord>(
     `UPDATE characters SET name = $1, description_long = $2, avatar_url = $3, system_prompt = $4,
-      access_type = $5, is_active = $6, genre = $7, content_rating = $8, grammatical_gender = $9,
-      initial_attraction = $10, initial_trust = $11, initial_affection = $12, initial_dominance = $13,
-      llm_provider = $14, llm_model = $15,
-      llm_temperature = $16, llm_top_p = $17, llm_repetition_penalty = $18
-      WHERE id = $19 RETURNING *`,
+      access_type = $5, is_active = $6, genre = $7, grammatical_gender = $8,
+      initial_attraction = $9, initial_trust = $10, initial_affection = $11, initial_dominance = $12,
+      llm_provider = $13, llm_model = $14,
+      llm_temperature = $15, llm_top_p = $16, llm_repetition_penalty = $17
+      WHERE id = $18 RETURNING *`,
     [
       updated.name,
       updated.description_long,
@@ -154,7 +161,6 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterReco
       updated.access_type,
       updated.is_active,
       updated.genre,
-      updated.content_rating,
       updated.grammatical_gender,
       updated.initial_attraction,
       updated.initial_trust,

@@ -15,6 +15,13 @@ interface Tag {
     name: string;
 }
 
+interface UploadedFile {
+    filename: string;
+    url: string;
+    size: number;
+    createdAt: string;
+}
+
 export function AdminPage() {
     const { profile, initData } = useUserStore();
     const [stats, setStats] = useState<any>(null);
@@ -26,12 +33,23 @@ export function AdminPage() {
     const [loadingModels, setLoadingModels] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+    const [isCreating, setIsCreating] = useState(false);
 
     // Global settings
     const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ summary_provider: 'openrouter', summary_model: '' });
     const [savingSettings, setSavingSettings] = useState(false);
     const [summaryModelSearch, setSummaryModelSearch] = useState('');
     const [isSummaryModelOpen, setIsSummaryModelOpen] = useState(false);
+
+    // Uploads management
+    const [uploads, setUploads] = useState<UploadedFile[]>([]);
+    const [usedUploads, setUsedUploads] = useState<string[]>([]);
+    const [deletingUnused, setDeletingUnused] = useState(false);
+
+    // Tag management
+    const [newTagName, setNewTagName] = useState('');
+    const [creatingTag, setCreatingTag] = useState(false);
+    const [deletingTagId, setDeletingTagId] = useState<number | null>(null);
 
     useEffect(() => {
         if (initData && profile?.isAdmin) {
@@ -49,6 +67,12 @@ export function AdminPage() {
                 .catch(console.error);
             apiRequest('/api/tags', { initData })
                 .then((data: any) => setAvailableTags(data.tags))
+                .catch(console.error);
+            apiRequest('/api/admin/uploads', { initData })
+                .then((data: any) => {
+                    setUploads(data.files || []);
+                    setUsedUploads(data.usedFiles || []);
+                })
                 .catch(console.error);
         }
     }, [initData, profile]);
@@ -83,8 +107,26 @@ export function AdminPage() {
 
     const cancelEdit = () => {
         setEditingId(null);
+        setIsCreating(false);
         setEditForm({});
         setValidationError(null);
+    };
+
+    const startCreate = () => {
+        setIsCreating(true);
+        setEditingId(null);
+        setEditForm({
+            name: '',
+            description: '',
+            systemPrompt: '',
+            accessType: 'free',
+            isActive: true,
+            grammaticalGender: 'female',
+            initialAttraction: 0,
+            initialTrust: 10,
+            initialAffection: 5,
+            initialDominance: 0,
+        });
     };
 
     const saveEdit = async () => {
@@ -111,7 +153,7 @@ export function AdminPage() {
                     is_active: editForm.isActive,
                     avatar_url: editForm.avatarUrl || null,
                     genre: editForm.genre || null,
-                    content_rating: editForm.contentRating || null,
+
                     grammatical_gender: editForm.grammaticalGender || 'female',
                     initial_attraction: editForm.initialAttraction ?? 0,
                     initial_trust: editForm.initialTrust ?? 10,
@@ -130,6 +172,118 @@ export function AdminPage() {
             cancelEdit();
         } catch (err) {
             alert('Ошибка сохранения');
+        }
+    };
+
+    const createCharacter = async () => {
+        if (!initData) return;
+
+        // Validation
+        if (!editForm.llmProvider) {
+            setValidationError('Выберите провайдера');
+            return;
+        }
+        if (!editForm.llmModel) {
+            setValidationError('Выберите модель');
+            return;
+        }
+        if (!editForm.name) {
+            setValidationError('Введите имя персонажа');
+            return;
+        }
+        if (!editForm.description) {
+            setValidationError('Введите описание');
+            return;
+        }
+        if (!editForm.systemPrompt) {
+            setValidationError('Введите системный промпт');
+            return;
+        }
+        setValidationError(null);
+
+        try {
+            await apiRequest<{ character: { id: number } }>('/api/admin/characters', {
+                method: 'POST',
+                body: {
+                    name: editForm.name,
+                    description_long: editForm.description,
+                    system_prompt: editForm.systemPrompt,
+                    access_type: editForm.accessType,
+                    is_active: editForm.isActive,
+                    avatar_url: editForm.avatarUrl || null,
+                    genre: editForm.genre || null,
+                    grammatical_gender: editForm.grammaticalGender || 'female',
+                    initial_attraction: editForm.initialAttraction ?? 0,
+                    initial_trust: editForm.initialTrust ?? 10,
+                    initial_affection: editForm.initialAffection ?? 5,
+                    initial_dominance: editForm.initialDominance ?? 0,
+                    llm_provider: editForm.llmProvider || null,
+                    llm_model: editForm.llmModel || null,
+                    llm_temperature: editForm.llmTemperature ?? null,
+                    llm_top_p: editForm.llmTopP ?? null,
+                    llm_repetition_penalty: editForm.llmRepetitionPenalty ?? null,
+                    tag_ids: editForm.tagIds || [],
+                },
+                initData,
+            });
+
+            // Reload characters to get the new one with all fields
+            const data = await apiRequest<{ characters: Character[] }>('/api/admin/characters', { initData });
+            setCharacters(data.characters);
+            cancelEdit();
+        } catch (err) {
+            alert('Ошибка создания');
+        }
+    };
+
+    const deleteUnusedUploads = async () => {
+        if (!initData) return;
+        setDeletingUnused(true);
+        try {
+            const result = await apiRequest<{ deleted: string[] }>('/api/admin/uploads/unused', {
+                method: 'DELETE',
+                initData,
+            });
+            setUploads(prev => prev.filter(f => !result.deleted.includes(f.filename)));
+            alert(`Удалено файлов: ${result.deleted.length}`);
+        } catch (err) {
+            alert('Ошибка удаления');
+        } finally {
+            setDeletingUnused(false);
+        }
+    };
+
+    const createNewTag = async () => {
+        if (!initData || !newTagName.trim()) return;
+        setCreatingTag(true);
+        try {
+            const result = await apiRequest<{ tag: Tag }>('/api/admin/tags', {
+                method: 'POST',
+                body: { name: newTagName.trim() },
+                initData,
+            });
+            setAvailableTags(prev => [...prev, result.tag]);
+            setNewTagName('');
+        } catch (err) {
+            alert('Ошибка создания тега');
+        } finally {
+            setCreatingTag(false);
+        }
+    };
+
+    const deleteTagById = async (id: number) => {
+        if (!initData) return;
+        setDeletingTagId(id);
+        try {
+            await apiRequest(`/api/admin/tags/${id}`, {
+                method: 'DELETE',
+                initData,
+            });
+            setAvailableTags(prev => prev.filter(t => t.id !== id));
+        } catch (err) {
+            alert('Ошибка удаления тега');
+        } finally {
+            setDeletingTagId(null);
         }
     };
 
@@ -277,6 +431,52 @@ export function AdminPage() {
                     </button>
                 </div>
 
+                {/* Tag Management */}
+                <div className="mb-6 p-4 rounded-xl bg-surface-light border border-border">
+                    <h3 className="text-sm font-semibold mb-3 text-text-secondary">🏷️ Управление тегами ({availableTags.length})</h3>
+
+                    {/* Create new tag */}
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            value={newTagName}
+                            onChange={e => setNewTagName(e.target.value)}
+                            placeholder="Название тега..."
+                            className="flex-1 px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm"
+                        />
+                        <button
+                            onClick={createNewTag}
+                            disabled={creatingTag || !newTagName.trim()}
+                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50"
+                        >
+                            {creatingTag ? '...' : '+ Добавить'}
+                        </button>
+                    </div>
+
+                    {/* Tags list */}
+                    <div className="flex flex-wrap gap-2">
+                        {availableTags.map(tag => (
+                            <div
+                                key={tag.id}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border"
+                            >
+                                <span className="text-sm text-text-primary">{tag.name}</span>
+                                <button
+                                    onClick={() => deleteTagById(tag.id)}
+                                    disabled={deletingTagId === tag.id}
+                                    className="text-danger hover:text-danger/80 text-sm disabled:opacity-50"
+                                    title="Удалить тег"
+                                >
+                                    {deletingTagId === tag.id ? '...' : '×'}
+                                </button>
+                            </div>
+                        ))}
+                        {availableTags.length === 0 && (
+                            <p className="text-text-muted text-sm">Нет тегов</p>
+                        )}
+                    </div>
+                </div>
+
                 {/* System Prompt */}
                 <div className="mb-6">
                     <h3 className="text-sm font-semibold mb-2 text-text-secondary">Общий системный промпт</h3>
@@ -286,7 +486,34 @@ export function AdminPage() {
                 </div>
 
                 {/* Characters */}
-                <h3 className="text-sm font-semibold mb-3 text-text-secondary">Персонажи ({characters.length})</h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-text-secondary">Персонажи ({characters.length})</h3>
+                    <button
+                        onClick={startCreate}
+                        className="px-3 py-1.5 rounded-lg text-xs bg-gradient-to-r from-primary to-indigo-500 text-white
+                            hover:shadow-lg hover:shadow-primary/20 transition-all"
+                    >
+                        + Создать
+                    </button>
+                </div>
+
+                {/* Create Form */}
+                {isCreating && (
+                    <div className="p-4 rounded-xl bg-surface-light border border-primary/30 mb-3">
+                        <h4 className="text-sm font-semibold text-primary mb-3">Новый персонаж</h4>
+                        <CharacterEditForm
+                            editForm={editForm}
+                            setEditForm={setEditForm}
+                            models={currentModels}
+                            loadingModels={loadingModels}
+                            onSave={createCharacter}
+                            onCancel={cancelEdit}
+                            validationError={validationError}
+                            availableTags={availableTags}
+                        />
+                    </div>
+                )}
+
                 <div className="space-y-3">
                     {characters.map(char => (
                         <div key={char.id} className="p-4 rounded-xl bg-surface-light border border-border">
@@ -310,8 +537,47 @@ export function AdminPage() {
                         </div>
                     ))}
                 </div>
+
+                {/* Uploads Management */}
+                <div className="mt-8 mb-6 p-4 rounded-xl bg-surface-light border border-border">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-text-secondary">📁 Загруженные файлы ({uploads.length})</h3>
+                        <button
+                            onClick={deleteUnusedUploads}
+                            disabled={deletingUnused}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-danger/10 text-danger hover:bg-danger/20 transition-colors disabled:opacity-50"
+                        >
+                            {deletingUnused ? 'Удаление...' : `🗑 Удалить неиспользуемые (${uploads.filter(f => !usedUploads.includes(f.filename)).length})`}
+                        </button>
+                    </div>
+                    {uploads.length === 0 ? (
+                        <p className="text-text-muted text-sm">Нет загруженных файлов</p>
+                    ) : (
+                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                            {uploads.map(file => {
+                                const isUsed = usedUploads.includes(file.filename);
+                                return (
+                                    <div
+                                        key={file.filename}
+                                        className={`relative group aspect-square rounded-lg overflow-hidden border ${isUsed ? 'border-success/50' : 'border-danger/50'}`}
+                                        title={`${file.filename}\n${(file.size / 1024).toFixed(1)} KB\n${isUsed ? 'Используется' : 'Не используется'}`}
+                                    >
+                                        <img
+                                            src={file.url}
+                                            alt={file.filename}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className={`absolute inset-0 ${isUsed ? 'bg-success/10' : 'bg-danger/10'}`} />
+                                        {!isUsed && (
+                                            <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-danger animate-pulse" />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
-
