@@ -24,7 +24,7 @@ interface TelegramMessage {
 const router = Router();
 
 const limitKeyboard = () => buildWebAppButton('Оформить подписку', '/subscription');
-const openAppKeyboard = () => buildWebAppButton('Открыть мини-приложение');
+const openAppKeyboard = () => buildWebAppButton('Открыть приложение');
 
 router.use((req, _res, next) => {
   logger.info('Telegram webhook hit', {
@@ -55,7 +55,7 @@ const handleStartCommand = async (message: TelegramMessage, payload: string | nu
 
   await sendTelegramMessage({
     chat_id: message.chat.id,
-    text: 'Выбери персонажа в мини-приложении.',
+    text: 'Добро пожаловать в Role Chill Bot!',
     reply_markup: openAppKeyboard(),
   });
 };
