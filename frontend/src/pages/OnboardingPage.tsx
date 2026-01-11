@@ -3,12 +3,28 @@ import { useUserStore } from '../store/userStore';
 import { useNavigate } from 'react-router-dom';
 
 export function OnboardingPage() {
+    const [step, setStep] = useState(1);
+    const [name, setName] = useState('');
+    const [nickname, setNickname] = useState('');
+    const [gender, setGender] = useState<'male' | 'female' | ''>('');
     const [checked, setChecked] = useState(false);
-    const { confirmAdult, isLoading } = useUserStore();
+    const { confirmAdult, updateProfile, isLoading } = useUserStore();
     const navigate = useNavigate();
+
+    const handleNext = () => {
+        if (step === 1 && name.trim() && gender) {
+            setStep(2);
+        }
+    };
 
     const handleConfirm = async () => {
         if (!checked) return;
+
+        await updateProfile({
+            displayName: name.trim(),
+            nickname: nickname.trim() || name.trim(),
+            gender
+        });
         await confirmAdult();
         navigate('/characters');
     };
@@ -17,44 +33,138 @@ export function OnboardingPage() {
         <div className="min-h-screen flex items-center justify-center p-4">
             <div className="glass-card max-w-md w-full">
                 <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                    Добро пожаловать в Jani
+                    Добро пожаловать в Role Chill
                 </h2>
-                <p className="text-text-secondary mb-6 leading-relaxed">
-                    Здесь ты можешь общаться с AI-персонажами на любые темы.
-                    Мы создаем пространство для свободного общения без ограничений.
-                </p>
 
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
-                    <h3 className="text-amber-400 font-semibold mb-2 flex items-center gap-2">
-                        <span>⚠️</span> Важно
-                    </h3>
-                    <p className="text-amber-200/80 text-sm">
-                        Контент может содержать материалы для взрослых (18+).
-                    </p>
-                </div>
+                {step === 1 && (
+                    <>
+                        <p className="text-text-secondary mb-6">
+                            Расскажи немного о себе
+                        </p>
 
-                <label className="flex items-start gap-3 cursor-pointer mb-6 group">
-                    <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={e => setChecked(e.target.checked)}
-                        className="mt-1 w-5 h-5 rounded border-2 border-border-light bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer"
-                    />
-                    <span className="text-text-secondary text-sm group-hover:text-text-primary transition-colors">
-                        Мне исполнилось 18 лет, и я принимаю условия использования.
-                    </span>
-                </label>
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-2">
+                                    Твоё имя *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    placeholder="Как тебя зовут?"
+                                    className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border 
+                                        text-text-primary placeholder:text-text-muted
+                                        focus:outline-none focus:border-primary transition-colors"
+                                />
+                            </div>
 
-                <button
-                    onClick={handleConfirm}
-                    disabled={!checked || isLoading}
-                    className="w-full py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200
-                        bg-gradient-to-r from-primary to-indigo-500
-                        hover:from-primary/90 hover:to-indigo-500/90 hover:shadow-lg hover:shadow-primary/20
-                        disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
-                >
-                    {isLoading ? 'Загрузка...' : 'Начать'}
-                </button>
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-2">
+                                    Юзернейм (для отображения)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={nickname}
+                                    onChange={e => setNickname(e.target.value)}
+                                    placeholder="@username (опционально)"
+                                    className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border 
+                                        text-text-primary placeholder:text-text-muted
+                                        focus:outline-none focus:border-primary transition-colors"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-2">
+                                    Твой пол *
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setGender('male')}
+                                        className={`py-3 px-4 rounded-xl border transition-all ${gender === 'male'
+                                                ? 'bg-primary/20 border-primary text-primary'
+                                                : 'bg-surface-light border-border text-text-secondary hover:border-primary/50'
+                                            }`}
+                                    >
+                                        👨 Мужской
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGender('female')}
+                                        className={`py-3 px-4 rounded-xl border transition-all ${gender === 'female'
+                                                ? 'bg-accent/20 border-accent text-accent'
+                                                : 'bg-surface-light border-border text-text-secondary hover:border-accent/50'
+                                            }`}
+                                    >
+                                        👩 Женский
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleNext}
+                            disabled={!name.trim() || !gender}
+                            className="w-full py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200
+                                bg-gradient-to-r from-primary to-indigo-500
+                                hover:from-primary/90 hover:to-indigo-500/90 hover:shadow-lg hover:shadow-primary/20
+                                disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Далее
+                        </button>
+                    </>
+                )}
+
+                {step === 2 && (
+                    <>
+                        <p className="text-text-secondary mb-6 leading-relaxed">
+                            Здесь ты можешь общаться с AI-персонажами на любые темы.
+                            Мы создаем пространство для свободного общения без ограничений.
+                        </p>
+
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+                            <h3 className="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                                <span>⚠️</span> Важно
+                            </h3>
+                            <p className="text-amber-200/80 text-sm">
+                                Контент может содержать материалы для взрослых (18+).
+                            </p>
+                        </div>
+
+                        <label className="flex items-start gap-3 cursor-pointer mb-6 group">
+                            <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e => setChecked(e.target.checked)}
+                                className="mt-1 w-5 h-5 rounded border-2 border-border-light bg-transparent 
+                                    checked:bg-primary checked:border-primary transition-colors cursor-pointer"
+                            />
+                            <span className="text-text-secondary text-sm group-hover:text-text-primary transition-colors">
+                                Мне исполнилось 18 лет, и я принимаю условия использования.
+                            </span>
+                        </label>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setStep(1)}
+                                className="py-3 px-6 rounded-xl font-semibold text-text-secondary 
+                                    bg-surface-light border border-border hover:bg-surface transition-colors"
+                            >
+                                Назад
+                            </button>
+                            <button
+                                onClick={handleConfirm}
+                                disabled={!checked || isLoading}
+                                className="flex-1 py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200
+                                    bg-gradient-to-r from-primary to-indigo-500
+                                    hover:from-primary/90 hover:to-indigo-500/90 hover:shadow-lg hover:shadow-primary/20
+                                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                            >
+                                {isLoading ? 'Загрузка...' : 'Начать'}
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

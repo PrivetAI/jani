@@ -74,7 +74,7 @@ export function ProfilePage() {
                 {/* Form */}
                 <div className="space-y-5">
                     <div>
-                        <label className="block text-sm text-text-secondary mb-2">Как к тебе обращаться?</label>
+                        <label className="block text-sm text-text-secondary mb-2">Как к тебе обращаться(ботам)?</label>
                         <input
                             type="text"
                             value={form.displayName}

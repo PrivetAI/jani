@@ -48,7 +48,8 @@ body {
 /* Bottom Navigation */
 .bottom-nav {
   @apply fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center
-    h-16 bg-surface/95 backdrop-blur-xl border-t border-border;
+    h-16 border-t border-border;
+  background-color: #0f172a;
 }
 
 .bottom-nav a {
@@ -97,4 +98,14 @@ select option {
   background-color: #1e293b;
   color: #f1f5f9;
   padding: 0.5rem;
+}
+
+/* Input styling for proper text input */
+input[type="text"],
+input[type="email"],
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-appearance: none;
+  ime-mode: active;
 }
