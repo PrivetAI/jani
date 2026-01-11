@@ -207,7 +207,7 @@ export function ChatPage() {
             </div>
 
             {/* Input Area */}
-            <div className="flex gap-3 p-4 bg-surface/90 backdrop-blur-xl border-t border-border">
+            <div className="flex gap-3 px-4 pt-4 pb-5 bg-surface/90 backdrop-blur-xl border-t border-border">
                 <textarea
                     ref={textareaRef}
                     inputMode="text"
