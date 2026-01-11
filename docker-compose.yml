@@ -41,6 +41,7 @@ services:
       NGROK_API_URL: ${NGROK_API_URL:-http://ngrok:4040/api/tunnels}
       WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - uploads:/app/uploads
     ports:

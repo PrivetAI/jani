@@ -32,6 +32,7 @@ Fill in:
 - `TELEGRAM_WEBHOOK_SECRET` — random string
 - `ADMIN_TELEGRAM_IDS` — your Telegram ID
 - `GEMINI_API_KEY` — API key for LLM
+- `BACKUP_CHAT_ID` — Telegram ID for backup delivery
 
 ### 4. Point Domain to Server
 
@@ -101,4 +102,10 @@ docker-compose -f docker-compose.prod.yml up -d --build
 
 # Check SSL certificate
 curl -vI https://your-domain.com
+
+# Manual backup
+docker-compose -f docker-compose.prod.yml exec backup /backup.sh
+
+# View backup logs
+docker-compose -f docker-compose.prod.yml logs backup
 ```

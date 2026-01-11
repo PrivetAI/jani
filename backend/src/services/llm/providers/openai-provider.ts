@@ -15,6 +15,9 @@ export class OpenAIProvider implements LLMProvider {
             throw new Error('OpenAI API Key is missing');
         }
 
+        // GPT-5 models don't support 'stop' parameter
+        const supportsStop = !model.startsWith('gpt-5');
+
         const payload = {
             model,
             messages: messages.map(m => ({
@@ -24,7 +27,7 @@ export class OpenAIProvider implements LLMProvider {
             temperature: options.temperature ?? config.llmDefaultTemperature,
             top_p: options.topP ?? config.llmDefaultTopP,
             max_tokens: options.maxTokens || undefined,
-            stop: options.stop?.length ? options.stop : undefined,
+            stop: supportsStop && options.stop?.length ? options.stop : undefined,
         };
 
         // Log full LLM request
