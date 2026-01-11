@@ -29,3 +29,5 @@ export async function withTransaction<T>(cb: (client: PoolClient) => Promise<T>)
     client.release();
   }
 }
+
+export const endPool = () => pool.end();

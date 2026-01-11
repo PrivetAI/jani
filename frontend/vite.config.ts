@@ -6,6 +6,11 @@ const proxyTarget = process.env.VITE_PROXY_TARGET ?? 'http://localhost:3000';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+    allowedHosts: true,
+  },
   server: {
     host: '0.0.0.0',
     port: Number(process.env.VITE_DEV_SERVER_PORT ?? 4173),
