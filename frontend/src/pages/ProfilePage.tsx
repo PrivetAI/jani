@@ -77,6 +77,10 @@ export function ProfilePage() {
                         <label className="block text-sm text-text-secondary mb-2">Как к тебе обращаться(ботам)?</label>
                         <input
                             type="text"
+                            inputMode="text"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
                             value={form.displayName}
                             onChange={e => setForm({ ...form, displayName: e.target.value })}
                             placeholder="Твое имя"
@@ -89,6 +93,10 @@ export function ProfilePage() {
                         <label className="block text-sm text-text-secondary mb-2">Никнейм (уникальное имя)</label>
                         <input
                             type="text"
+                            inputMode="text"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
                             value={form.nickname}
                             onChange={e => {
                                 setNicknameError(null);

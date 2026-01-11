@@ -210,6 +210,11 @@ export function ChatPage() {
             <div className="flex gap-3 p-4 bg-surface/90 backdrop-blur-xl border-t border-border">
                 <textarea
                     ref={textareaRef}
+                    inputMode="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="send"
                     value={inputText}
                     onChange={e => {
                         setInputText(e.target.value);

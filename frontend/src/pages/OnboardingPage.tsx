@@ -49,6 +49,10 @@ export function OnboardingPage() {
                                 </label>
                                 <input
                                     type="text"
+                                    inputMode="text"
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     value={name}
                                     onChange={e => setName(e.target.value)}
                                     placeholder="Как тебя зовут?"
@@ -64,6 +68,10 @@ export function OnboardingPage() {
                                 </label>
                                 <input
                                     type="text"
+                                    inputMode="text"
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     value={nickname}
                                     onChange={e => setNickname(e.target.value)}
                                     placeholder="@username (опционально)"
@@ -82,8 +90,8 @@ export function OnboardingPage() {
                                         type="button"
                                         onClick={() => setGender('male')}
                                         className={`py-3 px-4 rounded-xl border transition-all ${gender === 'male'
-                                                ? 'bg-primary/20 border-primary text-primary'
-                                                : 'bg-surface-light border-border text-text-secondary hover:border-primary/50'
+                                            ? 'bg-primary/20 border-primary text-primary'
+                                            : 'bg-surface-light border-border text-text-secondary hover:border-primary/50'
                                             }`}
                                     >
                                         👨 Мужской
@@ -92,8 +100,8 @@ export function OnboardingPage() {
                                         type="button"
                                         onClick={() => setGender('female')}
                                         className={`py-3 px-4 rounded-xl border transition-all ${gender === 'female'
-                                                ? 'bg-accent/20 border-accent text-accent'
-                                                : 'bg-surface-light border-border text-text-secondary hover:border-accent/50'
+                                            ? 'bg-accent/20 border-accent text-accent'
+                                            : 'bg-surface-light border-border text-text-secondary hover:border-accent/50'
                                             }`}
                                     >
                                         👩 Женский
