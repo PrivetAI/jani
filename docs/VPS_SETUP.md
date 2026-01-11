@@ -13,7 +13,7 @@ sudo usermod -aG docker $USER
 ### 2. Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/jani.git ~/jani
+git clone https://github.com/PrivetAI/jani.git ~/jani
 cd ~/jani
 ```
 
@@ -50,6 +50,55 @@ docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
 Caddy will automatically obtain SSL certificate.
+
+---
+
+## Caddy Configuration
+
+Caddy — reverse proxy с автоматическим SSL от Let's Encrypt.
+
+### Как работает
+
+Файл `Caddyfile` в корне проекта определяет маршрутизацию:
+
+| Путь | Направляется в |
+|------|----------------|
+| `/api/*` | Backend (порт 3000) |
+| `/telegram/*` | Backend (webhook) |
+| `/socket.io/*` | Backend (WebSocket) |
+| `/uploads/*` | Backend (файлы) |
+| Всё остальное | Frontend (порт 4173) |
+
+### SSL сертификат
+
+Caddy автоматически:
+- Получает сертификат при первом запуске
+- Обновляет его до истечения
+- Редиректит HTTP → HTTPS
+
+### Проверка работы Caddy
+
+```bash
+# Логи Caddy
+docker-compose -f docker-compose.prod.yml logs caddy
+
+# Проверить SSL
+curl -vI https://your-domain.com
+
+# Проверить что сертификат получен
+docker-compose -f docker-compose.prod.yml exec caddy caddy list-certificates
+```
+
+### Troubleshooting
+
+**Сертификат не получен:**
+- Проверьте что домен указывает на IP сервера: `dig your-domain.com`
+- Порты 80 и 443 должны быть открыты
+- Подождите DNS propagation (до 30 мин)
+
+**502 Bad Gateway:**
+- Backend не запущен: `docker-compose -f docker-compose.prod.yml logs backend`
+- Проверьте healthcheck postgres
 
 ---
 
@@ -109,3 +158,4 @@ docker-compose -f docker-compose.prod.yml exec backup /backup.sh
 # View backup logs
 docker-compose -f docker-compose.prod.yml logs backup
 ```
+
