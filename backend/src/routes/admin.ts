@@ -213,8 +213,9 @@ router.get(
       return res.json({ models: [] });
     }
     try {
+      const baseUrl = config.geminiProxyUrl || 'https://generativelanguage.googleapis.com';
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${config.geminiApiKey}`
+        `${baseUrl}/v1beta/models?key=${config.geminiApiKey}`
       );
       if (!response.ok) {
         return res.json({ models: [] });

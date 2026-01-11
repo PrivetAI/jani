@@ -82,6 +82,7 @@ const envSchema = z.object({
   SUMMARY_REPETITION_PENALTY: z.string().optional(),
   SUMMARY_MAX_TOKENS: z.string().optional(),
   DRIVER_PROMPT: z.string().optional(),
+  GEMINI_PROXY_URL: z.string().optional(),
 });
 
 const env = envSchema.parse(process.env);
@@ -129,6 +130,7 @@ export const config = {
     'LLM_REPETITION_PENALTY'
   ),
   geminiApiKey: env.GEMINI_API_KEY,
+  geminiProxyUrl: env.GEMINI_PROXY_URL, // Cloudflare Workers proxy URL for geo-blocked regions
   openaiApiKey: env.OPENAI_API_KEY,
   chatTokenBudget: stringToInt(env.CHAT_TOKEN_BUDGET, defaults.chatTokenBudget, 'CHAT_TOKEN_BUDGET'),
   chatResponseReserve: stringToInt(env.CHAT_RESPONSE_RESERVE, defaults.chatResponseReserve, 'CHAT_RESPONSE_RESERVE'),

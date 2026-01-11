@@ -63,7 +63,9 @@ export class GeminiProvider implements LLMProvider {
             messages: messages.map(m => ({ role: m.role, content: m.content })),
         });
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey}`;
+        // Use proxy URL if configured (for geo-blocked regions like Russia)
+        const baseUrl = config.geminiProxyUrl || 'https://generativelanguage.googleapis.com';
+        const url = `${baseUrl}/v1beta/models/${model}:generateContent?key=${config.geminiApiKey}`;
 
         const response = await fetch(url, {
             method: 'POST',
