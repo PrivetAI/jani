@@ -61,11 +61,11 @@ async function runSeed() {
                 access_type, genre, grammatical_gender,
                 initial_attraction, initial_trust, initial_affection, initial_dominance,
                 is_active, llm_provider, llm_model
-            ) VALUES ($1, $2, $3, $4, 'free', $6, $7, $8, $9, $10, $11, true, 'gemini', 'gemini-3-flash-preview')
+            ) VALUES ($1, $2, $3, $4, 'free', $5, $6, $7, $8, $9, $10, true, 'gemini', 'gemini-3-flash-preview')
             RETURNING id`,
             [
                 char.name, char.description_long, char.avatar_url, char.system_prompt,
-                char.access_type, char.genre, char.grammatical_gender,
+                char.genre, char.grammatical_gender,
                 char.initial_attraction, char.initial_trust, char.initial_affection, char.initial_dominance
             ]
         );
