@@ -28,6 +28,7 @@ body {
   background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15), transparent 35%),
     radial-gradient(circle at 80% 0%, rgba(236, 72, 153, 0.1), transparent 40%),
     var(--color-background);
+  background-attachment: fixed;
 }
 
 /* Glassmorphism card base */
@@ -48,7 +49,9 @@ body {
 /* Bottom Navigation */
 .bottom-nav {
   @apply fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center
-    h-16 border-t border-border;
+    border-t border-border;
+  height: 72px; /* 64px + 8px extra */
+  padding-bottom: 8px;
   background-color: #0f172a;
 }
 

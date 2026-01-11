@@ -103,7 +103,7 @@ export function CharacterPage() {
 
             {/* Hero Section */}
             <div className="relative">
-                <div className="aspect-[4/5] max-h-[60vh] overflow-hidden">
+                <div className="aspect-[4/4] max-h-[48vh] overflow-hidden">
                     <img
                         src={getImageUrl(character.avatarUrl)}
                         alt={character.name}
@@ -145,8 +145,7 @@ export function CharacterPage() {
                 )}
 
                 {/* Description */}
-                <p className="text-text-secondary leading-relaxed mb-6 text-[15px] italic"
-                    style={{ fontFamily: "'Merriweather', Georgia, serif" }}>
+                <p className="text-text-secondary leading-relaxed mb-6">
                     {character.description}
                 </p>
 
