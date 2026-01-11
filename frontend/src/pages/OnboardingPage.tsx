@@ -5,8 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export function OnboardingPage() {
     const [step, setStep] = useState(1);
     const [name, setName] = useState('');
-    const [nickname, setNickname] = useState('');
-    const [gender, setGender] = useState<'male' | 'female' | ''>('');
+    const [gender, setGender] = useState<'male' | 'female' | 'non-binary' | ''>('');
     const [checked, setChecked] = useState(false);
     const { confirmAdult, updateProfile, isLoading } = useUserStore();
     const navigate = useNavigate();
@@ -22,7 +21,7 @@ export function OnboardingPage() {
 
         await updateProfile({
             displayName: name.trim(),
-            nickname: nickname.trim() || name.trim(),
+            nickname: name.trim(),
             gender
         });
         await confirmAdult();
@@ -45,7 +44,7 @@ export function OnboardingPage() {
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="block text-sm text-text-secondary mb-2">
-                                    Твоё имя *
+                                    Как к тебе обращаться? *
                                 </label>
                                 <input
                                     type="text"
@@ -55,41 +54,23 @@ export function OnboardingPage() {
                                     spellCheck={false}
                                     value={name}
                                     onChange={e => setName(e.target.value)}
-                                    placeholder="Как тебя зовут?"
+                                    placeholder="Как к тебе обращаться?"
                                     className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border 
                                         text-text-primary placeholder:text-text-muted
                                         focus:outline-none focus:border-primary transition-colors"
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm text-text-secondary mb-2">
-                                    Юзернейм (для отображения)
-                                </label>
-                                <input
-                                    type="text"
-                                    inputMode="text"
-                                    autoComplete="off"
-                                    autoCorrect="off"
-                                    spellCheck={false}
-                                    value={nickname}
-                                    onChange={e => setNickname(e.target.value)}
-                                    placeholder="@username (опционально)"
-                                    className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border 
-                                        text-text-primary placeholder:text-text-muted
-                                        focus:outline-none focus:border-primary transition-colors"
-                                />
-                            </div>
 
                             <div>
                                 <label className="block text-sm text-text-secondary mb-2">
                                     Твой пол *
                                 </label>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setGender('male')}
-                                        className={`py-3 px-4 rounded-xl border transition-all ${gender === 'male'
+                                        className={`py-3 px-2 rounded-xl border transition-all text-sm ${gender === 'male'
                                             ? 'bg-primary/20 border-primary text-primary'
                                             : 'bg-surface-light border-border text-text-secondary hover:border-primary/50'
                                             }`}
@@ -99,12 +80,22 @@ export function OnboardingPage() {
                                     <button
                                         type="button"
                                         onClick={() => setGender('female')}
-                                        className={`py-3 px-4 rounded-xl border transition-all ${gender === 'female'
+                                        className={`py-3 px-2 rounded-xl border transition-all text-sm ${gender === 'female'
                                             ? 'bg-accent/20 border-accent text-accent'
                                             : 'bg-surface-light border-border text-text-secondary hover:border-accent/50'
                                             }`}
                                     >
                                         👩 Женский
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGender('non-binary')}
+                                        className={`py-3 px-2 rounded-xl border transition-all text-sm ${gender === 'non-binary'
+                                            ? 'bg-purple-500/20 border-purple-500 text-purple-400'
+                                            : 'bg-surface-light border-border text-text-secondary hover:border-purple-500/50'
+                                            }`}
+                                    >
+                                        ⚧️ Другое
                                     </button>
                                 </div>
                             </div>
