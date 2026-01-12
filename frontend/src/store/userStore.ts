@@ -57,7 +57,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     },
 
     updateProfile: async (data: Partial<Profile>) => {
-        const { initData, profile } = get();
+        const { initData } = get();
         if (!initData) return;
 
         set({ isLoading: true });
@@ -68,13 +68,13 @@ export const useUserStore = create<UserState>((set, get) => ({
             // but we want a general update.
             // Based on ARCHITECTURE_CHANGES.md: PATCH /api/users/profile
 
-            await apiRequest('/api/profile', {
+            const response = await apiRequest<{ profile: Profile }>('/api/profile', {
                 method: 'PATCH',
                 body: data,
                 initData,
             });
 
-            set({ profile: profile ? { ...profile, ...data } : null, isLoading: false });
+            set({ profile: response.profile, isLoading: false });
         } catch (err) {
             set({ error: (err as Error).message, isLoading: false });
         }

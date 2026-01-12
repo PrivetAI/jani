@@ -21,7 +21,6 @@ export function OnboardingPage() {
 
         await updateProfile({
             displayName: name.trim(),
-            nickname: name.trim(),
             gender
         });
         await confirmAdult();

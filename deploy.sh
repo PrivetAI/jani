@@ -25,13 +25,13 @@ COMMANDS="cd $VPS_PATH && git pull"
 
 case $SERVICE in
     frontend)
-        COMMANDS="$COMMANDS && docker compose -f docker-compose.prod.yml build --no-cache frontend && docker compose -f docker-compose.prod.yml up -d frontend"
+        COMMANDS="$COMMANDS && docker compose --env-file .env.prod -f docker-compose.prod.yml build --no-cache frontend && docker compose --env-file .env.prod -f docker-compose.prod.yml up -d frontend"
         ;;
     backend)
-        COMMANDS="$COMMANDS && docker compose -f docker-compose.prod.yml build --no-cache backend && docker compose -f docker-compose.prod.yml up -d backend"
+        COMMANDS="$COMMANDS && docker compose --env-file .env.prod -f docker-compose.prod.yml build --no-cache backend && docker compose --env-file .env.prod -f docker-compose.prod.yml up -d backend"
         ;;
     all)
-        COMMANDS="$COMMANDS && docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up -d"
+        COMMANDS="$COMMANDS && docker compose --env-file .env.prod -f docker-compose.prod.yml build --no-cache && docker compose --env-file .env.prod -f docker-compose.prod.yml up -d"
         ;;
     *)
         echo "Usage: ./deploy.sh [frontend|backend|all]"
@@ -41,10 +41,13 @@ esac
 
 # Use sshpass for non-interactive password auth
 if command -v sshpass &> /dev/null; then
+    echo "📦 Copying .env.prod to server..."
+    sshpass -p "$VPS_PASS" scp -o StrictHostKeyChecking=no .env.prod "$VPS_USER@$VPS_HOST:$VPS_PATH/.env.prod"
     sshpass -p "$VPS_PASS" ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" "$COMMANDS"
 else
     echo "⚠️  sshpass not installed. Install with: sudo apt install sshpass"
     echo "Falling back to interactive SSH..."
+    scp -o StrictHostKeyChecking=no .env.prod "$VPS_USER@$VPS_HOST:$VPS_PATH/.env.prod"
     ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" "$COMMANDS"
 fi
 
