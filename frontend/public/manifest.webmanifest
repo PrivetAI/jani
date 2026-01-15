@@ -1,6 +1,6 @@
 {
-  "name": "Jani Mini App",
-  "short_name": "Jani",
+  "name": "inny — ролеплей чат с ИИ",
+  "short_name": "inny",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f5f5f5",

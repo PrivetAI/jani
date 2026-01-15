@@ -31,7 +31,7 @@ export function OnboardingPage() {
         <div className="min-h-screen flex items-center justify-center p-4">
             <div className="glass-card max-w-md w-full">
                 <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                    Добро пожаловать в Role Chill
+                    Добро пожаловать в inny
                 </h2>
 
                 {step === 1 && (

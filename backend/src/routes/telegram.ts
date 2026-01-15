@@ -55,7 +55,11 @@ const handleStartCommand = async (message: TelegramMessage, payload: string | nu
 
   await sendTelegramMessage({
     chat_id: message.chat.id,
-    text: 'Добро пожаловать в Role Chill Bot!',
+    text: `Открой приложение ниже, чтобы выбрать персонажа и начать переписку.
+
+Также вступай в наше сообщество (https://t.me/+GdEl83m8Bn8wNGNi). Мы разрабатываем персонажей по запросам. Быстро реагируем на ошибки и раздаем промокоды.
+
+Написать свой отзыв команде разработке: @Olegceocash`,
     reply_markup: openAppKeyboard(),
   });
 };

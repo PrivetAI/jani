@@ -27,7 +27,7 @@ export default function App() {
   }, [profile, location.pathname]);
 
   if (!loaded || isLoading) {
-    return <div className="loader">Загрузка Role Chill...</div>;
+    return <div className="loader">Загрузка inny...</div>;
   }
 
   if (!initData) {
