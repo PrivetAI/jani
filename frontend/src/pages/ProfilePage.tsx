@@ -146,7 +146,7 @@ export function ProfilePage() {
                 <button
                     onClick={handleSave}
                     disabled={isLoading}
-                    className="w-full mt-8 py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200
+                    className="w-full mt-8 mb-8 py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200
                         bg-gradient-to-r from-primary to-indigo-500
                         hover:from-primary/90 hover:to-indigo-500/90 hover:shadow-lg hover:shadow-primary/20
                         disabled:opacity-50 disabled:cursor-not-allowed"
