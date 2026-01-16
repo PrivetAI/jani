@@ -45,7 +45,7 @@ export function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen p-4">
+        <div className="min-h-screen p-4 pb-24">
             <div className="glass-card max-w-lg mx-auto">
                 <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                     Настройки профиля
