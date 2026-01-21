@@ -8,6 +8,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats, setCharacterTags, getCharacterTags, getCharacterTagsBatch, getAllTags, createTag, deleteTag } from '../modules/index.js';
 import { query } from '../db/pool.js';
 import { config } from '../config.js';
+import { logger } from '../logger.js';
 
 const router = Router();
 
@@ -477,11 +478,19 @@ router.delete(
   '/characters/:id/reject',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+    // Get character info before deleting for logging
+    const charResult = await query<{ id: number; name: string }>('SELECT id, name FROM characters WHERE id = $1 AND is_approved = FALSE', [id]);
+    if (!charResult.rows.length) {
+      logger.warn('Admin: reject character failed - not found or already approved', { characterId: id, adminId: req.auth?.id });
+      return res.status(404).json({ message: 'Персонаж не найден или уже одобрен' });
+    }
+    const character = charResult.rows[0];
     // Only delete unapproved characters
     const result = await query('DELETE FROM characters WHERE id = $1 AND is_approved = FALSE RETURNING id', [id]);
     if (!result.rowCount) {
       return res.status(404).json({ message: 'Персонаж не найден или уже одобрен' });
     }
+    logger.info('Admin: character rejected', { characterId: id, characterName: character.name, adminId: req.auth?.id });
     res.status(204).send();
   })
 );
@@ -580,8 +589,21 @@ router.delete(
   '/characters/:id',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    await deleteCharacter(id);
-    res.status(204).send();
+    // Get character info before deleting for logging
+    const character = await getCharacterById(id);
+    if (!character) {
+      logger.warn('Admin: delete character failed - not found', { characterId: id, adminId: req.auth?.id });
+      return res.status(404).json({ message: 'Персонаж не найден' });
+    }
+    logger.info('Admin: deleting character', { characterId: id, characterName: character.name, adminId: req.auth?.id });
+    try {
+      await deleteCharacter(id);
+      logger.info('Admin: character deleted successfully', { characterId: id, characterName: character.name, adminId: req.auth?.id });
+      res.status(204).send();
+    } catch (error) {
+      logger.error('Admin: delete character failed', { characterId: id, characterName: character.name, adminId: req.auth?.id, error: (error as Error).message });
+      throw error;
+    }
   })
 );
 
@@ -805,10 +827,27 @@ router.delete(
   '/allowed-models/:id',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+    // Get model info before deleting for logging
+    const modelResult = await query<{ id: number; provider: string; model_id: string; display_name: string }>(
+      'SELECT id, provider, model_id, display_name FROM allowed_models WHERE id = $1',
+      [id]
+    );
+    if (!modelResult.rows.length) {
+      logger.warn('Admin: delete allowed model failed - not found', { modelRecordId: id, adminId: req.auth?.id });
+      return res.status(404).json({ message: 'Модель не найдена' });
+    }
+    const model = modelResult.rows[0];
     const result = await query('DELETE FROM allowed_models WHERE id = $1 RETURNING id', [id]);
     if (!result.rowCount) {
       return res.status(404).json({ message: 'Модель не найдена' });
     }
+    logger.info('Admin: allowed model deleted', {
+      modelRecordId: id,
+      provider: model.provider,
+      modelId: model.model_id,
+      displayName: model.display_name,
+      adminId: req.auth?.id
+    });
     res.status(204).send();
   })
 );
