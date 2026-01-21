@@ -182,6 +182,7 @@ const characterSchema = z.object({
   avatar_url: z
     .string()
     .optional()
+    .nullable()
     .or(z.literal('').transform(() => undefined)),
   system_prompt: z.string().min(1),
   access_type: z.enum(['free', 'premium']),

@@ -354,6 +354,16 @@ export function AdminPage() {
         }
     };
 
+    const deleteCharacterById = async (char: Character) => {
+        if (!initData || !confirm(`Удалить персонажа "${char.name}"? Это действие нельзя отменить.`)) return;
+        try {
+            await apiRequest(`/api/admin/characters/${char.id}`, { method: 'DELETE', initData });
+            setCharacters(prev => prev.filter(c => c.id !== char.id));
+        } catch (err) {
+            alert('Ошибка удаления');
+        }
+    };
+
     if (!profile?.isAdmin) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -870,6 +880,7 @@ export function AdminPage() {
                                 <CharacterListItem
                                     character={char}
                                     onEdit={startEdit}
+                                    onDelete={deleteCharacterById}
                                 />
                             )}
                         </div>

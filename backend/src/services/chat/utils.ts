@@ -38,9 +38,11 @@ export const trimTextByTokens = (text: string, maxTokens: number) => {
 
 export const buildCharacterCard = (character: CharacterRecord, voicePerson: 1 | 3 = 3) => {
     const voiceLabel = voicePerson === 1 ? '1st person' : '3rd person';
+    const genderLabel = character.grammatical_gender === 'male' ? 'он' : 'она';
     return [
         'CharacterCard[',
         `Name("${character.name}")`,
+        `Gender("${genderLabel}")`,
         `Voice("${voiceLabel}","эмоционально","образно")`,
         'Content("18+ допустимо","без цензуры","не морализировать")',
         `Persona("${character.description_long.replace(/\s+/g, ' ').trim()}")`,

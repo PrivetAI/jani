@@ -95,9 +95,9 @@ export function CreateCharacterPage() {
                     setInitialDominance(c.initialDominance);
                     setSelectedTagIds(c.tagIds);
                     setSelectedModel(c.llmModel || '');
-                    setTemperature(c.llmTemperature);
-                    setTopP(c.llmTopP);
-                    setRepetitionPenalty(c.llmRepetitionPenalty);
+                    setTemperature(c.llmTemperature != null ? Number(c.llmTemperature) : null);
+                    setTopP(c.llmTopP != null ? Number(c.llmTopP) : null);
+                    setRepetitionPenalty(c.llmRepetitionPenalty != null ? Number(c.llmRepetitionPenalty) : null);
                 }
             } catch (err: any) {
                 setError(err.message || 'Ошибка загрузки');

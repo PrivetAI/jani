@@ -4,9 +4,10 @@ import { getImageUrl } from '../../lib/imageUrl';
 interface CharacterListItemProps {
     character: Character;
     onEdit: (character: Character) => void;
+    onDelete: (character: Character) => void;
 }
 
-export function CharacterListItem({ character, onEdit }: CharacterListItemProps) {
+export function CharacterListItem({ character, onEdit, onDelete }: CharacterListItemProps) {
     return (
         <div className="flex items-center gap-3 flex-wrap">
             <div className="h-10 w-10 rounded-full overflow-hidden bg-surface-light border border-border shrink-0">
@@ -50,13 +51,23 @@ export function CharacterListItem({ character, onEdit }: CharacterListItemProps)
             {character.llmTemperature && (
                 <span className="text-xs text-text-muted">T:{character.llmTemperature}</span>
             )}
-            <button
-                onClick={() => onEdit(character)}
-                className="ml-auto px-3 py-1.5 rounded-lg text-xs bg-surface border border-border text-text-secondary
-                    hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors cursor-pointer"
-            >
-                Редактировать
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+                <button
+                    onClick={() => onEdit(character)}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-surface border border-border text-text-secondary
+                        hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors cursor-pointer"
+                >
+                    Редактировать
+                </button>
+                <button
+                    onClick={() => onDelete(character)}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-danger/10 border border-danger/30 text-danger
+                        hover:bg-danger/20 transition-colors cursor-pointer"
+                    title="Удалить персонажа"
+                >
+                    🗑
+                </button>
+            </div>
         </div>
     );
 }
