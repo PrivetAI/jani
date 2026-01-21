@@ -8,6 +8,8 @@ export interface ChatSessionRecord {
     messages_count: number;
     created_at: string;
     llm_model: string | null;
+    llm_temperature: number | null;
+    llm_top_p: number | null;
 }
 
 const mapSession = (row: any): ChatSessionRecord => ({
@@ -18,6 +20,8 @@ const mapSession = (row: any): ChatSessionRecord => ({
     messages_count: row.messages_count,
     created_at: row.created_at,
     llm_model: row.llm_model ?? null,
+    llm_temperature: row.llm_temperature != null ? parseFloat(row.llm_temperature) : null,
+    llm_top_p: row.llm_top_p != null ? parseFloat(row.llm_top_p) : null,
 });
 
 /** Get or create a chat session for user-character pair */
@@ -68,11 +72,15 @@ export const getSession = async (
     return result.rows.length ? mapSession(result.rows[0]) : null;
 };
 
-/** Update session settings (only llm_model currently) */
+/** Update session LLM settings */
 export const updateSessionSettings = async (
     userId: number,
     characterId: number,
-    settings: { llm_model?: string | null }
+    settings: {
+        llm_model?: string | null;
+        llm_temperature?: number | null;
+        llm_top_p?: number | null;
+    }
 ): Promise<ChatSessionRecord> => {
     const session = await getOrCreateSession(userId, characterId);
 
@@ -83,6 +91,16 @@ export const updateSessionSettings = async (
     if (settings.llm_model !== undefined) {
         updates.push(`llm_model = $${paramIndex++}`);
         values.push(settings.llm_model);
+    }
+
+    if (settings.llm_temperature !== undefined) {
+        updates.push(`llm_temperature = $${paramIndex++}`);
+        values.push(settings.llm_temperature);
+    }
+
+    if (settings.llm_top_p !== undefined) {
+        updates.push(`llm_top_p = $${paramIndex++}`);
+        values.push(settings.llm_top_p);
     }
 
     if (updates.length === 0) {

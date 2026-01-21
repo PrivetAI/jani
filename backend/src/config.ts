@@ -83,6 +83,7 @@ const envSchema = z.object({
   SUMMARY_MAX_TOKENS: z.string().optional(),
   DRIVER_PROMPT: z.string().optional(),
   GEMINI_PROXY_URL: z.string().optional(),
+  BACKUP_CHAT_ID: z.string().optional(),
 });
 
 const env = envSchema.parse(process.env);
@@ -156,6 +157,7 @@ export const config = {
   ),
   summaryMaxTokens: stringToInt(env.SUMMARY_MAX_TOKENS, defaults.summaryMaxTokens, 'SUMMARY_MAX_TOKENS'),
   driverPrompt: env.DRIVER_PROMPT ?? DRIVER_PROMPT,
+  backupChatId: env.BACKUP_CHAT_ID,
 };
 
 export type AppConfig = typeof config;

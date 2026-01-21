@@ -5,13 +5,14 @@ import { useNavigate } from 'react-router-dom';
 export function OnboardingPage() {
     const [step, setStep] = useState(1);
     const [name, setName] = useState('');
+    const [nickname, setNickname] = useState('');
     const [gender, setGender] = useState<'male' | 'female' | 'non-binary' | ''>('');
     const [checked, setChecked] = useState(false);
     const { confirmAdult, updateProfile, isLoading } = useUserStore();
     const navigate = useNavigate();
 
     const handleNext = () => {
-        if (step === 1 && name.trim() && gender) {
+        if (step === 1 && name.trim() && nickname.trim() && gender) {
             setStep(2);
         }
     };
@@ -21,6 +22,7 @@ export function OnboardingPage() {
 
         await updateProfile({
             displayName: name.trim(),
+            nickname: nickname.trim(),
             gender
         });
         await confirmAdult();
@@ -53,11 +55,32 @@ export function OnboardingPage() {
                                     spellCheck={false}
                                     value={name}
                                     onChange={e => setName(e.target.value)}
-                                    placeholder="Как к тебе обращаться?"
+                                    placeholder="Твоё имя"
                                     className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border 
                                         text-text-primary placeholder:text-text-muted
                                         focus:outline-none focus:border-primary transition-colors"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-2">
+                                    Уникальный никнейм *
+                                </label>
+                                <input
+                                    type="text"
+                                    inputMode="text"
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    spellCheck={false}
+                                    value={nickname}
+                                    onChange={e => setNickname(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                                    placeholder="username123"
+                                    maxLength={30}
+                                    className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border 
+                                        text-text-primary placeholder:text-text-muted
+                                        focus:outline-none focus:border-primary transition-colors"
+                                />
+                                <p className="mt-1 text-xs text-text-muted">Только латинские буквы, цифры и _</p>
                             </div>
 
 
@@ -94,7 +117,7 @@ export function OnboardingPage() {
                                             : 'bg-surface-light border-border text-text-secondary hover:border-purple-500/50'
                                             }`}
                                     >
-                                        ⚧️ Другое
+                                        ⚧️ Другой
                                     </button>
                                 </div>
                             </div>
@@ -102,7 +125,7 @@ export function OnboardingPage() {
 
                         <button
                             onClick={handleNext}
-                            disabled={!name.trim() || !gender}
+                            disabled={!name.trim() || !nickname.trim() || !gender}
                             className="w-full py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200
                                 bg-gradient-to-r from-primary to-indigo-500
                                 hover:from-primary/90 hover:to-indigo-500/90 hover:shadow-lg hover:shadow-primary/20
@@ -167,3 +190,4 @@ export function OnboardingPage() {
         </div>
     );
 }
+

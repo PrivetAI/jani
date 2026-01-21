@@ -156,26 +156,53 @@ export function CharactersPage() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                     Персонажи
                 </h2>
+                <button
+                    onClick={() => navigate('/create-character')}
+                    className="px-4 py-2 rounded-xl text-sm font-medium
+                        bg-gradient-to-r from-primary to-indigo-500 text-white
+                        hover:shadow-lg hover:shadow-primary/30 transition-all cursor-pointer"
+                >
+                    Создать персонажа
+                </button>
             </div>
 
             <SearchBar onSearch={setSearch} />
 
-            {/* Tags Filter Bar */}
+            {/* Tags Filter Bar - 2 rows with horizontal scroll */}
             {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-4">
-                    {tags.map(tag => (
-                        <button
-                            key={tag.id}
-                            onClick={() => toggleTag(tag.id)}
-                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all
-                                ${selectedTags.includes(tag.id)
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                                    : 'bg-surface-light border border-border text-text-secondary hover:border-primary/40 hover:text-text-primary'
-                                }`}
-                        >
-                            {tag.name}
-                        </button>
-                    ))}
+                <div className="mt-4 overflow-x-auto scrollbar-hide -mx-4 px-4">
+                    <div className="flex flex-col gap-2 min-w-max">
+                        <div className="flex gap-2">
+                            {tags.filter((_, i) => i % 2 === 0).map(tag => (
+                                <button
+                                    key={tag.id}
+                                    onClick={() => toggleTag(tag.id)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer whitespace-nowrap
+                                        ${selectedTags.includes(tag.id)
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                            : 'bg-surface-light border border-border text-text-secondary hover:border-primary/40 hover:text-text-primary'
+                                        }`}
+                                >
+                                    {tag.name}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            {tags.filter((_, i) => i % 2 === 1).map(tag => (
+                                <button
+                                    key={tag.id}
+                                    onClick={() => toggleTag(tag.id)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer whitespace-nowrap
+                                        ${selectedTags.includes(tag.id)
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                            : 'bg-surface-light border border-border text-text-secondary hover:border-primary/40 hover:text-text-primary'
+                                        }`}
+                                >
+                                    {tag.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
 

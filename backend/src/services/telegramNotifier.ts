@@ -118,3 +118,56 @@ function escapeHtml(text: string): string {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 }
+
+interface NewCharacterContext {
+    characterId: number;
+    characterName: string;
+    authorId: number;
+    authorName: string;
+    description: string;
+}
+
+/**
+ * Notify admins about new UGC character submission
+ */
+export async function notifyNewCharacter(context: NewCharacterContext): Promise<void> {
+    const adminIds = config.adminTelegramIds;
+    if (!adminIds.length) return;
+
+    const timestamp = new Date().toISOString();
+    const descPreview = context.description.length > 150
+        ? context.description.slice(0, 150) + '...'
+        : context.description;
+
+    const text = [
+        '👤 <b>Новый персонаж на модерацию</b>',
+        '',
+        `<b>ID:</b> <code>${context.characterId}</code>`,
+        `<b>Имя:</b> ${escapeHtml(context.characterName)}`,
+        `<b>Автор:</b> ${escapeHtml(context.authorName)} (ID: ${context.authorId})`,
+        '',
+        `<b>Описание:</b>`,
+        escapeHtml(descPreview),
+        '',
+        `<i>${timestamp}</i>`,
+    ].join('\n');
+
+    for (const adminId of adminIds) {
+        try {
+            await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: adminId,
+                    text,
+                    parse_mode: 'HTML',
+                }),
+            });
+        } catch (err) {
+            logger.error('Failed to notify about new character', {
+                adminId,
+                error: (err as Error).message,
+            });
+        }
+    }
+}

@@ -28,14 +28,14 @@ const router = Router();
 // Chat Messages API
 // ============================================
 
-/** Get chat history with a character */
+/** Get chat history with a character (cursor-based pagination) */
 router.get(
     '/:characterId/messages',
     telegramAuth,
     asyncHandler(async (req, res) => {
         const characterId = Number(req.params.characterId);
         const limit = Math.min(Number(req.query.limit) || 50, 100);
-        const offset = Number(req.query.offset) || 0;
+        const before = req.query.before as string | undefined; // cursor
 
         const character = await getCharacterById(characterId);
         if (!character || !character.is_active) {
@@ -47,18 +47,17 @@ router.get(
             return res.status(403).json({ error: 'premium_required', message: 'Требуется подписка' });
         }
 
-        const history = await getDialogHistory(req.auth!.id, characterId, limit + offset);
-        const sliced = history.slice(offset);
+        const result = await getDialogHistory(req.auth!.id, characterId, { limit, before });
 
         res.json({
-            messages: sliced.map(m => ({
+            messages: result.messages.map(m => ({
                 id: m.id,
                 role: m.role,
                 text: m.message_text,
                 createdAt: m.created_at,
             })),
-            total: history.length,
-            hasMore: history.length > offset + limit,
+            hasMore: result.hasMore,
+            nextCursor: result.nextCursor,
         });
     })
 );
@@ -211,52 +210,62 @@ router.get(
             lastMessageAt: session.last_message_at,
             messagesCount: session.messages_count,
             createdAt: session.created_at,
+            // LLM settings
+            llmModel: session.llm_model,
+            llmTemperature: session.llm_temperature,
+            llmTopP: session.llm_top_p,
         });
     })
 );
 
-// Note: PATCH session - only for user settings like Model override
-const updateSessionSchema = z.object({
-    llmModel: z.string().nullable().optional(),
-});
+// ============================================
+// LLM Settings API
+// ============================================
 
-router.patch(
-    '/:characterId/session',
+/** Get user's LLM settings for a character */
+router.get(
+    '/:characterId/llm-settings',
     telegramAuth,
     asyncHandler(async (req, res) => {
         const characterId = Number(req.params.characterId);
-        const parsed = updateSessionSchema.safeParse(req.body);
+        const session = await getOrCreateSession(req.auth!.id, characterId);
+
+        res.json({
+            model: session.llm_model,
+            temperature: session.llm_temperature,
+            topP: session.llm_top_p,
+        });
+    })
+);
+
+/** Update user's LLM settings for a character */
+const llmSettingsSchema = z.object({
+    model: z.string().nullable().optional(),
+    temperature: z.number().min(0).max(2).nullable().optional(),
+    topP: z.number().min(0).max(1).nullable().optional(),
+});
+
+router.patch(
+    '/:characterId/llm-settings',
+    telegramAuth,
+    asyncHandler(async (req, res) => {
+        const characterId = Number(req.params.characterId);
+        const parsed = llmSettingsSchema.safeParse(req.body);
 
         if (!parsed.success) {
             return res.status(400).json({ error: 'invalid_input', message: 'Некорректные данные' });
         }
 
         const updated = await updateSessionSettings(req.auth!.id, characterId, {
-            llm_model: parsed.data.llmModel
+            llm_model: parsed.data.model,
+            llm_temperature: parsed.data.temperature,
+            llm_top_p: parsed.data.topP,
         });
 
-        // Get emotional state
-        const emotionalState = await getOrCreateEmotionalState(req.auth!.id, characterId);
-
         res.json({
-            id: updated.id,
-            userId: updated.user_id,
-            characterId: updated.character_id,
-
-            // New emotional state
-            emotionalState: {
-                attraction: emotionalState.attraction,
-                trust: emotionalState.trust,
-                affection: emotionalState.affection,
-                dominance: emotionalState.dominance,
-                closeness: emotionalState.closeness,
-                mood: emotionalState.mood,
-                moodLabel: emotionalState.mood.primary,
-            },
-            lastMessageAt: updated.last_message_at,
-            messagesCount: updated.messages_count,
-            createdAt: updated.created_at,
-            llmModel: updated.llm_model,
+            model: updated.llm_model,
+            temperature: updated.llm_temperature,
+            topP: updated.llm_top_p,
         });
     })
 );

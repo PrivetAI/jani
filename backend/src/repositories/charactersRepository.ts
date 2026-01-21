@@ -8,6 +8,7 @@ export interface CharacterRecord {
   system_prompt: string;
   access_type: 'free' | 'premium';
   is_active: boolean;
+  is_approved: boolean;
   created_at: string;
   created_by: number | null;
   // Catalog fields
@@ -34,6 +35,7 @@ const mapCharacter = (row: any): CharacterRecord => ({
   system_prompt: row.system_prompt,
   access_type: row.access_type,
   is_active: row.is_active,
+  is_approved: row.is_approved ?? true,
   created_at: row.created_at,
   created_by: row.created_by ?? null,
   genre: row.genre ?? null,
@@ -51,12 +53,29 @@ const mapCharacter = (row: any): CharacterRecord => ({
 
 export interface CharacterFilters {
   includeInactive?: boolean;
+  includeUnapproved?: boolean;
   search?: string;
   accessType?: 'free' | 'premium';
   tagIds?: number[];
 }
 
+// Cache for characters list (10 minutes)
+const CACHE_TTL_MS = 10 * 60 * 1000;
+let charactersCache: { data: CharacterRecord[]; cachedAt: number } | null = null;
+
+/** Invalidate characters cache (call on create/update/delete) */
+export const invalidateCharactersCache = () => {
+  charactersCache = null;
+};
+
 export const listCharacters = async (filters: CharacterFilters = {}) => {
+  // Use cache only for default catalog view (no filters except default)
+  const isDefaultView = !filters.search && !filters.tagIds?.length && !filters.accessType && !filters.includeInactive && !filters.includeUnapproved;
+
+  if (isDefaultView && charactersCache && Date.now() - charactersCache.cachedAt < CACHE_TTL_MS) {
+    return charactersCache.data;
+  }
+
   let sql = 'SELECT DISTINCT c.* FROM characters c';
   const params: any[] = [];
   const conditions: string[] = [];
@@ -78,6 +97,11 @@ export const listCharacters = async (filters: CharacterFilters = {}) => {
     conditions.push('c.is_active = TRUE');
   }
 
+  // By default, only show approved characters
+  if (!filters.includeUnapproved) {
+    conditions.push('c.is_approved = TRUE');
+  }
+
   if (filters.accessType) {
     conditions.push(`c.access_type = $${params.length + 1}`);
     params.push(filters.accessType);
@@ -96,7 +120,14 @@ export const listCharacters = async (filters: CharacterFilters = {}) => {
   sql += ' ORDER BY c.created_at DESC';
 
   const result = await query<CharacterRecord>(sql, params);
-  return result.rows.map(mapCharacter);
+  const characters = result.rows.map(mapCharacter);
+
+  // Cache only default view results
+  if (isDefaultView) {
+    charactersCache = { data: characters, cachedAt: Date.now() };
+  }
+
+  return characters;
 };
 
 export const getCharacterById = async (id: number): Promise<CharacterRecord | null> => {
@@ -132,6 +163,7 @@ export const createCharacter = async (payload: CharacterPayload) => {
       payload.llm_model ?? null
     ]
   );
+  invalidateCharactersCache();
   return mapCharacter(result.rows[0]);
 };
 
@@ -175,6 +207,7 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterReco
     ]
   );
 
+  invalidateCharactersCache();
   return mapCharacter(result.rows[0]);
 };
 
@@ -184,4 +217,5 @@ export const deleteCharacter = async (id: number) => {
   if (!result.rowCount) {
     throw new Error('Character not found');
   }
+  invalidateCharactersCache();
 };

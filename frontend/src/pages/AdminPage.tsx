@@ -22,6 +22,15 @@ interface UploadedFile {
     createdAt: string;
 }
 
+interface AllowedModel {
+    id: number;
+    provider: string;
+    modelId: string;
+    displayName: string;
+    isDefault: boolean;
+    isActive: boolean;
+}
+
 export function AdminPage() {
     const { profile, initData } = useUserStore();
     const [stats, setStats] = useState<any>(null);
@@ -51,6 +60,27 @@ export function AdminPage() {
     const [creatingTag, setCreatingTag] = useState(false);
     const [deletingTagId, setDeletingTagId] = useState<number | null>(null);
 
+    // Allowed Models management
+    const [allowedModels, setAllowedModels] = useState<AllowedModel[]>([]);
+    const [newModel, setNewModel] = useState({ provider: 'gemini', modelId: '', displayName: '' });
+    const [addingModel, setAddingModel] = useState(false);
+    const [allowedModelSearch, setAllowedModelSearch] = useState('');
+    const [isAllowedModelDropdownOpen, setIsAllowedModelDropdownOpen] = useState(false);
+
+    // UGC Moderation
+    interface PendingCharacter {
+        id: number;
+        name: string;
+        description: string;
+        systemPrompt: string;
+        avatarUrl?: string;
+        createdBy: { id: number; name: string };
+        createdAt: string;
+    }
+    const [pendingCharacters, setPendingCharacters] = useState<PendingCharacter[]>([]);
+    const [expandedPending, setExpandedPending] = useState<number | null>(null);
+    const [moderating, setModerating] = useState<number | null>(null);
+
     useEffect(() => {
         if (initData && profile?.isAdmin) {
             apiRequest('/api/admin/stats', { initData })
@@ -65,7 +95,7 @@ export function AdminPage() {
             apiRequest('/api/admin/settings', { initData })
                 .then((data: any) => setGlobalSettings(data.settings))
                 .catch(console.error);
-            apiRequest('/api/tags', { initData })
+            apiRequest('/api/admin/tags', { initData })
                 .then((data: any) => setAvailableTags(data.tags))
                 .catch(console.error);
             apiRequest('/api/admin/uploads', { initData })
@@ -73,6 +103,14 @@ export function AdminPage() {
                     setUploads(data.files || []);
                     setUsedUploads(data.usedFiles || []);
                 })
+                .catch(console.error);
+            // Load pending UGC characters
+            apiRequest('/api/admin/characters/pending', { initData })
+                .then((data: any) => setPendingCharacters(data.characters || []))
+                .catch(console.error);
+            // Load allowed models
+            apiRequest('/api/admin/allowed-models', { initData })
+                .then((data: any) => setAllowedModels(data.models || []))
                 .catch(console.error);
         }
     }, [initData, profile]);
@@ -287,6 +325,35 @@ export function AdminPage() {
         }
     };
 
+    const approveCharacter = async (id: number) => {
+        if (!initData) return;
+        setModerating(id);
+        try {
+            await apiRequest(`/api/admin/characters/${id}/approve`, { method: 'PATCH', initData });
+            setPendingCharacters(prev => prev.filter(c => c.id !== id));
+            // Reload main characters list
+            const data = await apiRequest<{ characters: Character[] }>('/api/admin/characters', { initData });
+            setCharacters(data.characters);
+        } catch (err) {
+            alert('Ошибка одобрения');
+        } finally {
+            setModerating(null);
+        }
+    };
+
+    const rejectCharacter = async (id: number) => {
+        if (!initData || !confirm('Удалить этого персонажа?')) return;
+        setModerating(id);
+        try {
+            await apiRequest(`/api/admin/characters/${id}/reject`, { method: 'DELETE', initData });
+            setPendingCharacters(prev => prev.filter(c => c.id !== id));
+        } catch (err) {
+            alert('Ошибка отклонения');
+        } finally {
+            setModerating(null);
+        }
+    };
+
     if (!profile?.isAdmin) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -310,10 +377,16 @@ export function AdminPage() {
                         <div className="flex-1 p-4 rounded-xl bg-surface-light border border-border">
                             <div className="text-2xl font-bold text-text-primary">{stats.totalUsers}</div>
                             <div className="text-sm text-text-muted">Пользователей</div>
+                            {stats.newUsersToday > 0 && (
+                                <div className="text-xs text-success mt-1">+{stats.newUsersToday} за 24ч</div>
+                            )}
                         </div>
                         <div className="flex-1 p-4 rounded-xl bg-surface-light border border-border">
-                            <div className="text-2xl font-bold text-text-primary">{stats.messagesCount}</div>
-                            <div className="text-sm text-text-muted">Сообщений</div>
+                            <div className="text-2xl font-bold text-text-primary">{stats.totalMessages}</div>
+                            <div className="text-sm text-text-muted">Сообщений всего</div>
+                            {stats.messagesCount > 0 && (
+                                <div className="text-xs text-success mt-1">+{stats.messagesCount} за 24ч</div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -362,7 +435,7 @@ export function AdminPage() {
                                                     setSummaryModelSearch('');
                                                     setIsSummaryModelOpen(false);
                                                 }}
-                                                className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 ${!globalSettings.summary_model ? 'bg-primary/10 text-primary' : 'text-text-primary'
+                                                className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 cursor-pointer ${!globalSettings.summary_model ? 'bg-primary/10 text-primary' : 'text-text-primary'
                                                     }`}
                                             >
                                                 Авто
@@ -378,7 +451,7 @@ export function AdminPage() {
                                                             setSummaryModelSearch('');
                                                             setIsSummaryModelOpen(false);
                                                         }}
-                                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 ${globalSettings.summary_model === m.id ? 'bg-primary/10 text-primary' : 'text-text-primary'
+                                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 cursor-pointer ${globalSettings.summary_model === m.id ? 'bg-primary/10 text-primary' : 'text-text-primary'
                                                             }`}
                                                     >
                                                         {m.name}
@@ -401,7 +474,7 @@ export function AdminPage() {
                                             setProviderModels(prev => ({ ...prev, [globalSettings.summary_provider]: data.models || [] }));
                                         }
                                     }}
-                                    className="px-3 py-2 rounded-lg bg-surface border border-border text-text-secondary text-sm hover:bg-primary/20"
+                                    className="px-3 py-2 rounded-lg bg-surface border border-border text-text-secondary text-sm hover:bg-primary/20 cursor-pointer"
                                 >
                                     🔄
                                 </button>
@@ -425,7 +498,7 @@ export function AdminPage() {
                             }
                         }}
                         disabled={savingSettings}
-                        className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50"
+                        className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50 cursor-pointer"
                     >
                         {savingSettings ? 'Сохранение...' : 'Сохранить настройки'}
                     </button>
@@ -447,7 +520,7 @@ export function AdminPage() {
                         <button
                             onClick={createNewTag}
                             disabled={creatingTag || !newTagName.trim()}
-                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50"
+                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50 cursor-pointer"
                         >
                             {creatingTag ? '...' : '+ Добавить'}
                         </button>
@@ -464,7 +537,7 @@ export function AdminPage() {
                                 <button
                                     onClick={() => deleteTagById(tag.id)}
                                     disabled={deletingTagId === tag.id}
-                                    className="text-danger hover:text-danger/80 text-sm disabled:opacity-50"
+                                    className="text-danger hover:text-danger/80 text-sm disabled:opacity-50 cursor-pointer"
                                     title="Удалить тег"
                                 >
                                     {deletingTagId === tag.id ? '...' : '×'}
@@ -476,6 +549,271 @@ export function AdminPage() {
                         )}
                     </div>
                 </div>
+
+                {/* Allowed Models Management */}
+                <div className="mb-6 p-4 rounded-xl bg-surface-light border border-border">
+                    <h3 className="text-sm font-semibold mb-3 text-text-secondary">🤖 Разрешённые модели для пользователей ({allowedModels.length})</h3>
+
+                    {/* Add new model */}
+                    <div className="flex gap-2 mb-4 flex-wrap items-end">
+                        <div>
+                            <label className="block text-xs text-text-muted mb-1">Провайдер</label>
+                            <select
+                                value={newModel.provider}
+                                onChange={e => {
+                                    setNewModel(prev => ({ ...prev, provider: e.target.value, modelId: '', displayName: '' }));
+                                    setAllowedModelSearch('');
+                                }}
+                                className="px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm"
+                            >
+                                <option value="gemini">Gemini</option>
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="openai">OpenAI</option>
+                            </select>
+                        </div>
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="block text-xs text-text-muted mb-1">Модель</label>
+                            <div className="relative">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={isAllowedModelDropdownOpen ? allowedModelSearch : (
+                                            (providerModels[newModel.provider] || []).find(m => m.id === newModel.modelId)?.name ||
+                                            newModel.modelId || ''
+                                        )}
+                                        onChange={e => {
+                                            setAllowedModelSearch(e.target.value);
+                                            if (!isAllowedModelDropdownOpen) setIsAllowedModelDropdownOpen(true);
+                                        }}
+                                        onFocus={() => setIsAllowedModelDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setIsAllowedModelDropdownOpen(false), 150)}
+                                        placeholder="Поиск модели..."
+                                        className="flex-1 px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (!initData) return;
+                                            const endpoints: Record<string, string> = {
+                                                gemini: '/api/admin/gemini-models',
+                                                openai: '/api/admin/openai-models',
+                                                openrouter: '/api/admin/openrouter-models',
+                                            };
+                                            const endpoint = endpoints[newModel.provider];
+                                            if (endpoint) {
+                                                setLoadingModels(true);
+                                                try {
+                                                    const data = await apiRequest(endpoint, { initData }) as any;
+                                                    setProviderModels(prev => ({ ...prev, [newModel.provider]: data.models || [] }));
+                                                } finally {
+                                                    setLoadingModels(false);
+                                                }
+                                            }
+                                        }}
+                                        className="px-3 py-2 rounded-lg bg-surface border border-border text-text-secondary text-sm hover:bg-primary/20 cursor-pointer"
+                                    >
+                                        {loadingModels ? '...' : '🔄'}
+                                    </button>
+                                </div>
+                                {isAllowedModelDropdownOpen && (providerModels[newModel.provider] || []).length > 0 && (
+                                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-lg bg-slate-900 border border-border shadow-lg">
+                                        {(providerModels[newModel.provider] || [])
+                                            .filter(m => m.name.toLowerCase().includes(allowedModelSearch.toLowerCase()) || m.id.toLowerCase().includes(allowedModelSearch.toLowerCase()))
+                                            .slice(0, 50)
+                                            .map(m => (
+                                                <button
+                                                    key={m.id}
+                                                    type="button"
+                                                    onMouseDown={() => {
+                                                        setNewModel(prev => ({ ...prev, modelId: m.id, displayName: m.name }));
+                                                        setAllowedModelSearch('');
+                                                        setIsAllowedModelDropdownOpen(false);
+                                                    }}
+                                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 cursor-pointer ${newModel.modelId === m.id ? 'bg-primary/10 text-primary' : 'text-text-primary'
+                                                        }`}
+                                                >
+                                                    {m.name}
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
+                                {isAllowedModelDropdownOpen && (providerModels[newModel.provider] || []).length === 0 && (
+                                    <div className="absolute z-50 w-full mt-1 p-3 rounded-lg bg-slate-900 border border-border shadow-lg text-text-muted text-sm">
+                                        Нажмите 🔄 чтобы загрузить список моделей
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex-1 min-w-[150px]">
+                            <label className="block text-xs text-text-muted mb-1">Название для UI</label>
+                            <input
+                                type="text"
+                                value={newModel.displayName}
+                                onChange={e => setNewModel(prev => ({ ...prev, displayName: e.target.value }))}
+                                placeholder="Название..."
+                                className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm"
+                            />
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (!initData || !newModel.modelId.trim() || !newModel.displayName.trim()) return;
+                                setAddingModel(true);
+                                try {
+                                    const result = await apiRequest<{ id: number }>('/api/admin/allowed-models', {
+                                        method: 'POST',
+                                        body: {
+                                            provider: newModel.provider,
+                                            model_id: newModel.modelId.trim(),
+                                            display_name: newModel.displayName.trim(),
+                                        },
+                                        initData,
+                                    });
+                                    setAllowedModels(prev => [...prev, {
+                                        id: result.id,
+                                        provider: newModel.provider,
+                                        modelId: newModel.modelId.trim(),
+                                        displayName: newModel.displayName.trim(),
+                                        isDefault: false,
+                                        isActive: true,
+                                    }]);
+                                    setNewModel({ provider: 'gemini', modelId: '', displayName: '' });
+                                } catch (err) {
+                                    alert('Ошибка добавления модели');
+                                } finally {
+                                    setAddingModel(false);
+                                }
+                            }}
+                            disabled={addingModel || !newModel.modelId.trim() || !newModel.displayName.trim()}
+                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-indigo-500 text-white text-sm font-medium disabled:opacity-50 cursor-pointer"
+                        >
+                            {addingModel ? '...' : '+ Добавить'}
+                        </button>
+                    </div>
+
+                    {/* Models list */}
+                    <div className="space-y-2">
+                        {allowedModels.map(model => (
+                            <div
+                                key={model.id}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${model.isActive ? 'bg-surface border-border' : 'bg-surface/50 border-border/50 opacity-60'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs px-2 py-0.5 rounded bg-surface-light text-text-muted">{model.provider}</span>
+                                    <div>
+                                        <span className="text-sm font-medium text-text-primary">{model.displayName}</span>
+                                        {model.isDefault && <span className="ml-2 text-xs text-primary">⭐ по умолчанию</span>}
+                                        <p className="text-xs text-text-muted">{model.modelId}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={async () => {
+                                            if (!initData) return;
+                                            try {
+                                                await apiRequest(`/api/admin/allowed-models/${model.id}`, {
+                                                    method: 'PATCH',
+                                                    body: { is_active: !model.isActive },
+                                                    initData,
+                                                });
+                                                setAllowedModels(prev => prev.map(m => m.id === model.id ? { ...m, isActive: !m.isActive } : m));
+                                            } catch (err) {
+                                                console.error(err);
+                                            }
+                                        }}
+                                        className={`px-2 py-1 rounded text-xs cursor-pointer ${model.isActive ? 'bg-success/20 text-success' : 'bg-surface-light text-text-muted'}`}
+                                    >
+                                        {model.isActive ? '✓ Активна' : 'Выключена'}
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (!initData || !confirm('Удалить модель?')) return;
+                                            try {
+                                                await apiRequest(`/api/admin/allowed-models/${model.id}`, {
+                                                    method: 'DELETE',
+                                                    initData,
+                                                });
+                                                setAllowedModels(prev => prev.filter(m => m.id !== model.id));
+                                            } catch (err) {
+                                                console.error(err);
+                                            }
+                                        }}
+                                        className="text-danger hover:text-danger/80 text-sm cursor-pointer"
+                                        title="Удалить"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {allowedModels.length === 0 && (
+                            <p className="text-text-muted text-sm">Нет разрешённых моделей</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* UGC Moderation */}
+                {pendingCharacters.length > 0 && (
+                    <div className="mb-6 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+                        <h3 className="text-sm font-semibold mb-3 text-yellow-400">
+                            ⏳ На модерации ({pendingCharacters.length})
+                        </h3>
+                        <div className="space-y-3">
+                            {pendingCharacters.map(char => (
+                                <div key={char.id} className="p-3 rounded-lg bg-surface border border-border">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            {char.avatarUrl ? (
+                                                <img src={char.avatarUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-lg bg-surface-light flex items-center justify-center text-2xl">👤</div>
+                                            )}
+                                            <div>
+                                                <h4 className="font-medium text-text-primary">{char.name}</h4>
+                                                <p className="text-xs text-text-muted">от {char.createdBy.name}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => approveCharacter(char.id)}
+                                                disabled={moderating === char.id}
+                                                className="px-3 py-1.5 rounded-lg text-xs bg-success/20 text-success hover:bg-success/30 disabled:opacity-50 cursor-pointer"
+                                            >
+                                                ✓ Одобрить
+                                            </button>
+                                            <button
+                                                onClick={() => rejectCharacter(char.id)}
+                                                disabled={moderating === char.id}
+                                                className="px-3 py-1.5 rounded-lg text-xs bg-danger/20 text-danger hover:bg-danger/30 disabled:opacity-50 cursor-pointer"
+                                            >
+                                                ✕ Отклонить
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setExpandedPending(expandedPending === char.id ? null : char.id)}
+                                        className="mt-2 text-xs text-primary hover:underline cursor-pointer"
+                                    >
+                                        {expandedPending === char.id ? 'Скрыть детали ▲' : 'Показать детали ▼'}
+                                    </button>
+                                    {expandedPending === char.id && (
+                                        <div className="mt-3 space-y-2 text-sm">
+                                            <div>
+                                                <span className="text-text-muted">Описание:</span>
+                                                <p className="text-text-secondary mt-1">{char.description}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-text-muted">Системный промпт:</span>
+                                                <pre className="mt-1 p-2 rounded bg-slate-900 text-xs text-primary whitespace-pre-wrap">
+                                                    {char.systemPrompt}
+                                                </pre>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* System Prompt */}
                 <div className="mb-6">
@@ -491,7 +829,7 @@ export function AdminPage() {
                     <button
                         onClick={startCreate}
                         className="px-3 py-1.5 rounded-lg text-xs bg-gradient-to-r from-primary to-indigo-500 text-white
-                            hover:shadow-lg hover:shadow-primary/20 transition-all"
+                            hover:shadow-lg hover:shadow-primary/20 transition-all cursor-pointer"
                     >
                         + Создать
                     </button>
@@ -545,7 +883,7 @@ export function AdminPage() {
                         <button
                             onClick={deleteUnusedUploads}
                             disabled={deletingUnused}
-                            className="px-3 py-1.5 rounded-lg text-xs bg-danger/10 text-danger hover:bg-danger/20 transition-colors disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs bg-danger/10 text-danger hover:bg-danger/20 transition-colors disabled:opacity-50 cursor-pointer"
                         >
                             {deletingUnused ? 'Удаление...' : `🗑 Удалить неиспользуемые (${uploads.filter(f => !usedUploads.includes(f.filename)).length})`}
                         </button>

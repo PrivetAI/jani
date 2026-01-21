@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useUserStore } from '../../store/userStore';
 
@@ -7,9 +7,16 @@ interface MemoryViewerProps {
 }
 
 export function MemoryViewer({ onClose }: MemoryViewerProps) {
-    const { memories, selectedCharacter, deleteMemory, addMemory, isLoadingMemories } = useChatStore();
+    const { memories, selectedCharacter, deleteMemory, addMemory, loadMemories, isLoadingMemories } = useChatStore();
     const { initData } = useUserStore();
     const [newMemory, setNewMemory] = useState('');
+
+    // Refresh memories when modal opens
+    useEffect(() => {
+        if (selectedCharacter && initData) {
+            loadMemories(selectedCharacter.id, initData);
+        }
+    }, [selectedCharacter, initData, loadMemories]);
 
     const handleAdd = async () => {
         if (!newMemory.trim() || !selectedCharacter || !initData) return;

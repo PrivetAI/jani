@@ -1,12 +1,9 @@
 import { useChatStore } from '../../store/chatStore';
-import { useUserStore } from '../../store/userStore';
 import { decline } from '../../utils/gender';
 
 interface SessionInfoPanelProps {
     onClose: () => void;
 }
-
-
 
 const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
@@ -50,14 +47,7 @@ const EmotionalBar = ({ label, value, emoji }: { label: string; value: number; e
 };
 
 export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
-    const { session, selectedCharacter, limits, memories, updateSessionSettings } = useChatStore();
-    const { initData } = useUserStore();
-
-    const handleModelUpdate = (model: string | null) => {
-        if (selectedCharacter && initData) {
-            updateSessionSettings(selectedCharacter.id, { llmModel: model }, initData);
-        }
-    };
+    const { session, selectedCharacter, limits, memories } = useChatStore();
 
     if (!session) {
         return (
@@ -162,28 +152,6 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                             </p>
                         </div>
                     )}
-
-                    {/* Model Settings */}
-                    <div className="space-y-2 pt-2 border-t border-border">
-                        <label className="text-sm text-text-secondary">Override LLM Model (optional)</label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Default (Auto)"
-                                defaultValue={session.llmModel || ''}
-                                onBlur={(e) => {
-                                    const val = e.target.value.trim() || null;
-                                    if (val !== session.llmModel) {
-                                        handleModelUpdate(val);
-                                    }
-                                }}
-                                className="flex-1 px-3 py-2 rounded-xl bg-surface-light border border-border text-text-primary text-sm focus:outline-none focus:border-primary"
-                            />
-                        </div>
-                        <p className="text-xs text-text-muted">
-                            Укажите ID модели. Оставьте пустым для настроек персонажа.
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>

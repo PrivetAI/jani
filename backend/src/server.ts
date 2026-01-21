@@ -9,6 +9,7 @@ import { chatRouter } from './routes/chat.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { createSocketServer } from './socketServer.js';
+import { notifyAdminError } from './services/telegramNotifier.js';
 
 export const buildServer = () => {
   const app = express();
@@ -32,6 +33,12 @@ export const buildServer = () => {
       error: err.message,
       stack: err.stack,
     });
+
+    // Notify admin about server errors
+    notifyAdminError({
+      error: err,
+    }).catch(() => { }); // Fire and forget
+
     res.status(500).json({ message: 'Internal error', error: err.message });
   });
 

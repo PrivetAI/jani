@@ -34,6 +34,7 @@ export class CharacterChatService {
 
   private buildSystemPrompt(
     character: CharacterRecord,
+    voicePerson: 1 | 3 = 3,
     userInfo?: string | null,
     memory?: string | null,
     userFacts?: string | null,
@@ -42,7 +43,7 @@ export class CharacterChatService {
     const parts: string[] = [
       config.driverPrompt,
       '',
-      buildCharacterCard(character),
+      buildCharacterCard(character, voicePerson),
     ];
 
     // Variables at the end for better LLM attention (recency bias)
@@ -76,12 +77,13 @@ export class CharacterChatService {
 
   private buildStaticMessages(
     character: CharacterRecord,
+    voicePerson: 1 | 3 = 3,
     userInfo?: string | null,
     memory?: string | null,
     userFacts?: string | null,
     emotionalContext?: string | null
   ): LLMMessage[] {
-    const systemPrompt = this.buildSystemPrompt(character, userInfo, memory, userFacts, emotionalContext);
+    const systemPrompt = this.buildSystemPrompt(character, voicePerson, userInfo, memory, userFacts, emotionalContext);
     return [{ role: 'system', content: systemPrompt }];
   }
 
@@ -220,10 +222,6 @@ export class CharacterChatService {
     // Build user info for prompt
     const userInfo = buildUserInfo(request.username, request.userDisplayName, request.userGender);
 
-    // Resolve provider and model
-    const provider = (request.character.llm_provider as 'openrouter' | 'gemini') || 'openrouter';
-    const model = request.character.llm_model || undefined;
-
     const historyMessages = toLLMHistory(request.history);
     const historyTokens = this.countTokens(historyMessages);
     const userTurn = buildUserMessage(request.userMessage);
@@ -286,8 +284,9 @@ export class CharacterChatService {
     }
 
     const memoryBlock = buildMemoryBlock(promptSummary);
+    const voicePerson = request.voicePerson ?? 3;
 
-    let staticMessages = this.buildStaticMessages(request.character, userInfo, memoryBlock, userFacts, emotionalContext);
+    let staticMessages = this.buildStaticMessages(request.character, voicePerson, userInfo, memoryBlock, userFacts, emotionalContext);
     let staticTokens = this.countTokens(staticMessages);
 
 
@@ -308,7 +307,7 @@ export class CharacterChatService {
       const overflowResult = await this.summarizeHistory(discarded, request.character.name, promptSummary);
       promptSummary = overflowResult.summary ?? promptSummary;
 
-      staticMessages = this.buildStaticMessages(request.character, userInfo, buildMemoryBlock(promptSummary), userFacts, emotionalContext);
+      staticMessages = this.buildStaticMessages(request.character, voicePerson, userInfo, buildMemoryBlock(promptSummary), userFacts, emotionalContext);
       staticTokens = this.countTokens(staticMessages);
       if (!unlimitedBudget) {
         ({ kept, discarded } = applyHistoryBudget(
@@ -321,12 +320,19 @@ export class CharacterChatService {
     const messages: LLMMessage[] = [...staticMessages, ...kept];
     const promptTokens = this.countTokens(messages);
 
+    // Priority chain: User session settings > Character settings > Global config
+    const sessionSettings = request.sessionLlmSettings;
+    // Provider priority: session (from allowed_models) > character > default
+    const resolvedProvider = (sessionSettings?.provider || request.character.llm_provider || 'openrouter') as 'openrouter' | 'gemini' | 'openai';
+    const resolvedModel = sessionSettings?.model || request.character.llm_model || undefined;
+    const resolvedTemperature = sessionSettings?.temperature ?? request.character.llm_temperature ?? config.chatTemperature;
+    const resolvedTopP = sessionSettings?.topP ?? request.character.llm_top_p ?? config.chatTopP;
 
     const rawReply = await llmService.generateReply(messages, {
-      model,
-      provider,
-      temperature: request.character.llm_temperature ?? config.chatTemperature,
-      topP: request.character.llm_top_p ?? config.chatTopP,
+      model: resolvedModel,
+      provider: resolvedProvider,
+      temperature: resolvedTemperature,
+      topP: resolvedTopP,
       repetitionPenalty: request.character.llm_repetition_penalty ?? config.chatRepetitionPenalty,
       stop: config.chatStopSequences,
     });

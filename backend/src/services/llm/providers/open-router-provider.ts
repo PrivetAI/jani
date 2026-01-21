@@ -74,12 +74,10 @@ export class OpenRouterProvider implements LLMProvider {
         };
 
         // Log full LLM request
-        logger.llmRequest('Sending to OpenRouter', {
+        logger.llmRequest('OpenRouter INPUT', {
             model: payload.model,
-            messagesCount: messages.length,
-            messages: messages.map((m, i) => ({ index: i, role: m.role, content: m.content })),
             temperature: payload.temperature,
-            maxTokens: payload.max_tokens,
+            messages: messages.map(m => ({ role: m.role, content: m.content })),
         });
 
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -133,10 +131,8 @@ export class OpenRouterProvider implements LLMProvider {
             });
             throw new Error('OpenRouter returned empty response');
         }
-        logger.llmResponse('OpenRouter response', {
-            ...baseLog,
-            messagesCount: messages.length,
-            finishReason: choice?.finish_reason ?? null,
+        logger.llmResponse('OpenRouter OUTPUT', {
+            durationMs,
             usage: data.usage ?? null,
             content: String(content).trim(),
         });

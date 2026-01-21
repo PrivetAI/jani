@@ -99,6 +99,17 @@ export class GeminiProvider implements LLMProvider {
             throw new Error('Failed to parse Gemini response');
         }
 
+        // Check for prompt-level blocking (PROHIBITED_CONTENT, etc.)
+        const blockReason = data.promptFeedback?.blockReason;
+        if (blockReason) {
+            logger.error('Gemini BLOCKED PROMPT', {
+                durationMs,
+                blockReason,
+                rawBody,
+            });
+            throw new Error(`Gemini blocked: ${blockReason}`);
+        }
+
         // Extract content
         // Gemini response format: { candidates: [ { content: { parts: [ { text: "..." } ] } } ] }
         const candidate = data.candidates?.[0];

@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { addDialogMessage, countUserMessagesToday, getDialogHistory, getLastCharacterForUser, getCharacterById, type CharacterRecord, findOrCreateUser, updateLastCharacter, type UserRecord, getActiveSubscription } from '../modules/index.js';
+import { getSession } from '../repositories/sessionsRepository.js';
 import { characterChatService } from './characterChatService.js';
 import {
   CharacterInactiveError,
@@ -61,9 +62,38 @@ export class ChatSessionService {
       }
     }
 
-    const history = await getDialogHistory(user.id, character.id, 60);
+    const historyResult = await getDialogHistory(user.id, character.id, { limit: 60 });
+    const history = historyResult.messages;
     await addDialogMessage(user.id, character.id, 'user', request.messageText);
+    logger.chat(user.id, character.id, 'user', request.messageText);
     await updateLastCharacter(user.id, character.id);
+
+    // Get user's session LLM settings
+    const session = await getSession(user.id, character.id);
+    let sessionLlmSettings: { model?: string | null; temperature?: number | null; topP?: number | null; provider?: string | null } | undefined;
+
+    if (session && session.llm_model) {
+      // Lookup provider from allowed_models table
+      const { query } = await import('../db/pool.js');
+      const modelResult = await query<{ provider: string }>(
+        'SELECT provider FROM allowed_models WHERE model_id = $1',
+        [session.llm_model]
+      );
+      const resolvedProvider = modelResult.rows[0]?.provider ?? null;
+
+      sessionLlmSettings = {
+        model: session.llm_model,
+        temperature: session.llm_temperature,
+        topP: session.llm_top_p,
+        provider: resolvedProvider,
+      };
+    } else if (session) {
+      sessionLlmSettings = {
+        model: session.llm_model,
+        temperature: session.llm_temperature,
+        topP: session.llm_top_p,
+      };
+    }
 
     try {
       const result = await characterChatService.generateReply({
@@ -71,13 +101,16 @@ export class ChatSessionService {
         username: user.username ?? request.username,
         userDisplayName: user.display_name ?? undefined,
         userGender: user.gender ?? undefined,
+        voicePerson: user.voice_person,
         character,
         userMessage: request.messageText,
         history,
+        sessionLlmSettings,
       });
 
       // Save only clean reply to history (no thoughts)
       await addDialogMessage(user.id, character.id, 'assistant', result.reply);
+      logger.chat(user.id, character.id, 'assistant', result.reply);
 
       // Memory extraction now happens inline in characterChatService (no async call needed)
 

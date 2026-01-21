@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { telegramAuth, requireAdmin } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats, setCharacterTags, getCharacterTags, getAllTags, createTag, deleteTag } from '../modules/index.js';
+import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats, setCharacterTags, getCharacterTags, getCharacterTagsBatch, getAllTags, createTag, deleteTag } from '../modules/index.js';
 import { query } from '../db/pool.js';
 import { config } from '../config.js';
 
@@ -347,19 +347,93 @@ router.put(
 router.get(
   '/characters',
   asyncHandler(async (req, res) => {
-    const characters = await listCharacters({ includeInactive: true });
+    const characters = await listCharacters({ includeInactive: true, includeUnapproved: true });
 
     // Get likes counts for all characters
     const { getCharactersLikesCount } = await import('../modules/index.js');
     const likesMap = await getCharactersLikesCount(characters.map(c => c.id));
 
-    // Load tags and author for each character
-    const charactersWithTags = await Promise.all(
-      characters.map(async (c: CharacterRecord) => {
-        const tags = await getCharacterTags(c.id);
+    // Load tags for all characters in one batch query
+    const tagsByCharacter = await getCharacterTagsBatch(characters.map(c => c.id));
 
-        // Get author info
-        let createdBy: { id: number; name: string } | null = null;
+    // Load authors for all characters in one batch query
+    const authorIds = [...new Set(characters.map(c => c.created_by).filter((id): id is number => id !== null))];
+    const authorsMap = new Map<number, { id: number; name: string }>();
+    if (authorIds.length > 0) {
+      const authorsResult = await query<{ id: number; nickname: string | null; username: string | null }>(
+        'SELECT id, nickname, username FROM users WHERE id = ANY($1)',
+        [authorIds]
+      );
+      for (const author of authorsResult.rows) {
+        authorsMap.set(author.id, { id: author.id, name: author.nickname || 'Admin' });
+      }
+    }
+
+    const charactersWithTags = characters.map((c: CharacterRecord) => {
+      const tags = tagsByCharacter.get(c.id) || [];
+      const createdBy = c.created_by ? authorsMap.get(c.created_by) || { id: 0, name: 'Admin' } : { id: 0, name: 'Admin' };
+
+      return {
+        id: c.id,
+        name: c.name,
+        description: c.description_long,
+        avatarUrl: c.avatar_url,
+        systemPrompt: c.system_prompt,
+        accessType: c.access_type,
+        isActive: c.is_active,
+        isApproved: c.is_approved,
+        createdAt: c.created_at,
+        createdBy,
+        likesCount: likesMap.get(c.id) || 0,
+        // Catalog fields
+        genre: c.genre,
+        grammaticalGender: c.grammatical_gender,
+        // Initial relationship
+        initialAttraction: c.initial_attraction,
+        initialTrust: c.initial_trust,
+        initialAffection: c.initial_affection,
+        initialDominance: c.initial_dominance,
+        // LLM fields
+        llmProvider: c.llm_provider,
+        llmModel: c.llm_model,
+        llmTemperature: c.llm_temperature,
+        llmTopP: c.llm_top_p,
+        llmRepetitionPenalty: c.llm_repetition_penalty,
+        // Tags
+        tagIds: tags.map(t => t.id),
+      };
+    });
+
+    res.json({ characters: charactersWithTags });
+  })
+);
+
+// ============================================
+// UGC Moderation
+// ============================================
+
+/** Get pending (unapproved) characters for moderation */
+router.get(
+  '/characters/pending',
+  asyncHandler(async (req, res) => {
+    const result = await query<{
+      id: number;
+      name: string;
+      description_long: string;
+      avatar_url: string | null;
+      system_prompt: string;
+      created_at: string;
+      created_by: number;
+    }>(
+      `SELECT id, name, description_long, avatar_url, system_prompt, created_at, created_by
+       FROM characters
+       WHERE is_approved = FALSE
+       ORDER BY created_at DESC`
+    );
+
+    const pendingCharacters = await Promise.all(
+      result.rows.map(async (c) => {
+        let createdBy: { id: number; name: string } = { id: 0, name: 'Unknown' };
         if (c.created_by) {
           const authorResult = await query<{ id: number; nickname: string | null; username: string | null }>(
             'SELECT id, nickname, username FROM users WHERE id = $1',
@@ -367,11 +441,8 @@ router.get(
           );
           if (authorResult.rows.length) {
             const author = authorResult.rows[0];
-            createdBy = { id: author.id, name: author.nickname || 'Admin' };
+            createdBy = { id: author.id, name: author.nickname || author.username || 'User' };
           }
-        }
-        if (!createdBy) {
-          createdBy = { id: 0, name: 'Admin' };
         }
 
         return {
@@ -380,32 +451,37 @@ router.get(
           description: c.description_long,
           avatarUrl: c.avatar_url,
           systemPrompt: c.system_prompt,
-          accessType: c.access_type,
-          isActive: c.is_active,
           createdAt: c.created_at,
           createdBy,
-          likesCount: likesMap.get(c.id) || 0,
-          // Catalog fields
-          genre: c.genre,
-          grammaticalGender: c.grammatical_gender,
-          // Initial relationship
-          initialAttraction: c.initial_attraction,
-          initialTrust: c.initial_trust,
-          initialAffection: c.initial_affection,
-          initialDominance: c.initial_dominance,
-          // LLM fields
-          llmProvider: c.llm_provider,
-          llmModel: c.llm_model,
-          llmTemperature: c.llm_temperature,
-          llmTopP: c.llm_top_p,
-          llmRepetitionPenalty: c.llm_repetition_penalty,
-          // Tags
-          tagIds: tags.map(t => t.id),
         };
       })
     );
 
-    res.json({ characters: charactersWithTags });
+    res.json({ characters: pendingCharacters });
+  })
+);
+
+/** Approve a character */
+router.patch(
+  '/characters/:id/approve',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    await query('UPDATE characters SET is_approved = TRUE WHERE id = $1', [id]);
+    res.json({ success: true });
+  })
+);
+
+/** Reject (delete) a character */
+router.delete(
+  '/characters/:id/reject',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    // Only delete unapproved characters
+    const result = await query('DELETE FROM characters WHERE id = $1 AND is_approved = FALSE RETURNING id', [id]);
+    if (!result.rowCount) {
+      return res.status(404).json({ message: 'Персонаж не найден или уже одобрен' });
+    }
+    res.status(204).send();
   })
 );
 
@@ -602,6 +678,135 @@ router.delete(
     const deleted = await deleteTag(id);
     if (!deleted) {
       return res.status(404).json({ message: 'Тег не найден' });
+    }
+    res.status(204).send();
+  })
+);
+
+// ===== ALLOWED MODELS MANAGEMENT =====
+
+const allowedModelSchema = z.object({
+  provider: z.enum(['openrouter', 'gemini', 'openai']),
+  model_id: z.string().min(1),
+  display_name: z.string().min(1),
+  is_default: z.boolean().optional(),
+  is_active: z.boolean().optional(),
+});
+
+/** Get all allowed models */
+router.get(
+  '/allowed-models',
+  asyncHandler(async (_req, res) => {
+    const result = await query<{
+      id: number;
+      provider: string;
+      model_id: string;
+      display_name: string;
+      is_default: boolean;
+      is_active: boolean;
+    }>('SELECT * FROM allowed_models ORDER BY is_default DESC, display_name ASC');
+
+    res.json({
+      models: result.rows.map(m => ({
+        id: m.id,
+        provider: m.provider,
+        modelId: m.model_id,
+        displayName: m.display_name,
+        isDefault: m.is_default,
+        isActive: m.is_active,
+      })),
+    });
+  })
+);
+
+/** Create allowed model */
+router.post(
+  '/allowed-models',
+  asyncHandler(async (req, res) => {
+    const parsed = allowedModelSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
+    }
+
+    // If setting as default, clear other defaults
+    if (parsed.data.is_default) {
+      await query('UPDATE allowed_models SET is_default = FALSE WHERE is_default = TRUE');
+    }
+
+    const result = await query<{ id: number }>(
+      `INSERT INTO allowed_models (provider, model_id, display_name, is_default, is_active)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [
+        parsed.data.provider,
+        parsed.data.model_id,
+        parsed.data.display_name,
+        parsed.data.is_default ?? false,
+        parsed.data.is_active ?? true,
+      ]
+    );
+
+    res.status(201).json({ id: result.rows[0].id });
+  })
+);
+
+/** Update allowed model */
+router.patch(
+  '/allowed-models/:id',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const parsed = allowedModelSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
+    }
+
+    // If setting as default, clear other defaults
+    if (parsed.data.is_default) {
+      await query('UPDATE allowed_models SET is_default = FALSE WHERE is_default = TRUE AND id != $1', [id]);
+    }
+
+    const updates: string[] = [];
+    const values: any[] = [id];
+    let paramIndex = 2;
+
+    if (parsed.data.provider !== undefined) {
+      updates.push(`provider = $${paramIndex++}`);
+      values.push(parsed.data.provider);
+    }
+    if (parsed.data.model_id !== undefined) {
+      updates.push(`model_id = $${paramIndex++}`);
+      values.push(parsed.data.model_id);
+    }
+    if (parsed.data.display_name !== undefined) {
+      updates.push(`display_name = $${paramIndex++}`);
+      values.push(parsed.data.display_name);
+    }
+    if (parsed.data.is_default !== undefined) {
+      updates.push(`is_default = $${paramIndex++}`);
+      values.push(parsed.data.is_default);
+    }
+    if (parsed.data.is_active !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(parsed.data.is_active);
+    }
+
+    if (updates.length === 0) {
+      return res.json({ success: true });
+    }
+
+    await query(`UPDATE allowed_models SET ${updates.join(', ')} WHERE id = $1`, values);
+    res.json({ success: true });
+  })
+);
+
+/** Delete allowed model */
+router.delete(
+  '/allowed-models/:id',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const result = await query('DELETE FROM allowed_models WHERE id = $1 RETURNING id', [id]);
+    if (!result.rowCount) {
+      return res.status(404).json({ message: 'Модель не найдена' });
     }
     res.status(204).send();
   })

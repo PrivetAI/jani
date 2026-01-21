@@ -53,7 +53,7 @@ export function CharacterListItem({ character, onEdit }: CharacterListItemProps)
             <button
                 onClick={() => onEdit(character)}
                 className="ml-auto px-3 py-1.5 rounded-lg text-xs bg-surface border border-border text-text-secondary
-                    hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
+                    hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors cursor-pointer"
             >
                 Редактировать
             </button>

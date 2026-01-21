@@ -18,6 +18,18 @@ export const getAllTags = async (): Promise<TagRecord[]> => {
     return result.rows.map(mapTag);
 };
 
+/** Get only tags that have at least one character assigned */
+export const getTagsWithCharacters = async (): Promise<TagRecord[]> => {
+    const result = await query<TagRecord>(
+        `SELECT DISTINCT t.* FROM tags t
+         INNER JOIN character_tags ct ON t.id = ct.tag_id
+         INNER JOIN characters c ON ct.character_id = c.id
+         WHERE c.is_active = true AND c.is_approved = true
+         ORDER BY t.name`
+    );
+    return result.rows.map(mapTag);
+};
+
 
 
 /** Get tag by ID */
@@ -60,6 +72,29 @@ export const getCharacterTags = async (characterId: number): Promise<TagRecord[]
         [characterId]
     );
     return result.rows.map(mapTag);
+};
+
+/** Get tags for multiple characters in one query (batch) */
+export const getCharacterTagsBatch = async (characterIds: number[]): Promise<Map<number, TagRecord[]>> => {
+    if (characterIds.length === 0) return new Map();
+
+    const result = await query<TagRecord & { character_id: number }>(
+        `SELECT t.*, ct.character_id FROM tags t
+         INNER JOIN character_tags ct ON t.id = ct.tag_id
+         WHERE ct.character_id = ANY($1)
+         ORDER BY t.name`,
+        [characterIds]
+    );
+
+    const tagsByCharacter = new Map<number, TagRecord[]>();
+    for (const row of result.rows) {
+        if (!tagsByCharacter.has(row.character_id)) {
+            tagsByCharacter.set(row.character_id, []);
+        }
+        tagsByCharacter.get(row.character_id)!.push(mapTag(row));
+    }
+
+    return tagsByCharacter;
 };
 
 /** Add tag to character */

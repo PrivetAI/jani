@@ -22,6 +22,8 @@ export {
     getDialogHistory,
     getLastCharacterForUser,
     type DialogRecord,
+    type DialogHistoryOptions,
+    type DialogHistoryResult,
 } from '../repositories/dialogsRepository.js';
 
 // Memories
@@ -69,11 +71,13 @@ export {
 // Tags
 export {
     getAllTags,
+    getTagsWithCharacters,
     getTagById,
     getTagByName,
     createTag,
     deleteTag,
     getCharacterTags,
+    getCharacterTagsBatch,
     addTagToCharacter,
     removeTagFromCharacter,
     setCharacterTags,
@@ -113,3 +117,14 @@ export {
     getCharacterRatings,
     getCharactersLikesCount,
 } from '../repositories/ratingsRepository.js';
+
+// Comments
+export {
+    getCharacterComments,
+    createComment,
+    deleteComment,
+    getCommentById,
+    type CommentRecord,
+    type CommentWithReplies,
+} from '../repositories/commentsRepository.js';
+

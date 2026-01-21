@@ -63,6 +63,9 @@ interface ChatState {
     session: Session | null;
     isLoadingCharacters: boolean;
     isLoadingMessages: boolean;
+    isLoadingMoreMessages: boolean;
+    hasMoreMessages: boolean;
+    nextMessagesCursor: string | null;
     isSending: boolean;
     isTyping: boolean;
     isLoadingMemories: boolean;
@@ -71,6 +74,7 @@ interface ChatState {
     loadCharacters: (initData: string, filters?: { search?: string; tags?: number[]; accessType?: string }) => Promise<void>;
     selectCharacter: (characterId: number, initData: string) => Promise<void>;
     loadMessages: (characterId: number, initData: string) => Promise<void>;
+    loadMoreMessages: (characterId: number, initData: string) => Promise<void>;
     sendMessage: (characterId: number, text: string, initData: string) => void;
     initSocket: (initData: string) => void;
     disconnectSocket: () => void;
@@ -97,6 +101,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     session: null,
     isLoadingCharacters: false,
     isLoadingMessages: false,
+    isLoadingMoreMessages: false,
+    hasMoreMessages: false,
+    nextMessagesCursor: null,
     isSending: false,
     isTyping: false,
     isLoadingMemories: false,
@@ -209,12 +216,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     loadMessages: async (characterId: number, initData: string) => {
-        set({ isLoadingMessages: true, error: null, messages: [] });
+        set({ isLoadingMessages: true, error: null, messages: [], hasMoreMessages: false, nextMessagesCursor: null });
         try {
-            const data = await apiRequest<{ messages: DialogMessage[] }>(`/api/chats/${characterId}/messages`, { initData });
-            set({ messages: data.messages, isLoadingMessages: false });
+            const data = await apiRequest<{ messages: DialogMessage[]; hasMore: boolean; nextCursor: string | null }>(`/api/chats/${characterId}/messages`, { initData });
+            set({
+                messages: data.messages,
+                hasMoreMessages: data.hasMore,
+                nextMessagesCursor: data.nextCursor,
+                isLoadingMessages: false
+            });
         } catch (err) {
             set({ error: (err as Error).message, isLoadingMessages: false });
+        }
+    },
+
+    loadMoreMessages: async (characterId: number, initData: string) => {
+        const { nextMessagesCursor, hasMoreMessages, isLoadingMoreMessages } = get();
+        if (!hasMoreMessages || isLoadingMoreMessages || !nextMessagesCursor) return;
+
+        set({ isLoadingMoreMessages: true });
+        try {
+            const data = await apiRequest<{ messages: DialogMessage[]; hasMore: boolean; nextCursor: string | null }>(
+                `/api/chats/${characterId}/messages?before=${encodeURIComponent(nextMessagesCursor)}`,
+                { initData }
+            );
+            set(state => ({
+                messages: [...data.messages, ...state.messages], // prepend older messages
+                hasMoreMessages: data.hasMore,
+                nextMessagesCursor: data.nextCursor,
+                isLoadingMoreMessages: false
+            }));
+        } catch (err) {
+            set({ error: (err as Error).message, isLoadingMoreMessages: false });
         }
     },
 

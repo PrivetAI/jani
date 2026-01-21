@@ -6,6 +6,8 @@ import { CharacterPage } from './pages/CharacterPage';
 import { ChatPage } from './pages/ChatPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
+import { AuthorPage } from './pages/AuthorPage';
+import { CreateCharacterPage } from './pages/CreateCharacterPage';
 
 export const router = createBrowserRouter([
     {
@@ -40,6 +42,20 @@ export const router = createBrowserRouter([
                 path: 'admin',
                 element: <AdminPage />,
             },
+            {
+                path: 'author/:id',
+                element: <AuthorPage />,
+            },
+            {
+                path: 'create-character',
+                element: <CreateCharacterPage />,
+            },
+            {
+                path: 'edit-character/:id',
+                element: <CreateCharacterPage />,
+            },
         ],
     },
 ]);
+
+

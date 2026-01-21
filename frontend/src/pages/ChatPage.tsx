@@ -4,6 +4,7 @@ import { useChatStore } from '../store/chatStore';
 import { useUserStore } from '../store/userStore';
 import { MemoryViewer } from '../components/chat/MemoryViewer';
 import { SessionInfoPanel } from '../components/chat/SessionInfoPanel';
+import { LLMSettingsModal } from '../components/chat/LLMSettingsModal';
 import { formatMessage } from '../utils/textFormatter';
 import { getTypingStatus } from '../utils/gender';
 import { getImageUrl } from '../lib/imageUrl';
@@ -39,8 +40,11 @@ export function ChatPage() {
         selectCharacter,
         loadLimits,
         loadSession,
+        loadMoreMessages,
         limits,
         isLoadingMessages,
+        isLoadingMoreMessages,
+        hasMoreMessages,
         isSending,
         isTyping,
         error,
@@ -52,9 +56,22 @@ export function ChatPage() {
     const userName = profile?.displayName || profile?.nickname || 'Вы';
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showMemory, setShowMemory] = useState(false);
     const [showSession, setShowSession] = useState(false);
+    const [showLLMSettings, setShowLLMSettings] = useState(false);
+
+    // Handle scroll for infinite scroll (load older messages)
+    const handleScroll = () => {
+        const container = messagesContainerRef.current;
+        if (!container || isLoadingMoreMessages || !hasMoreMessages || !initData) return;
+
+        // Load more when scrolled near top (within 100px)
+        if (container.scrollTop < 100) {
+            loadMoreMessages(characterId, initData);
+        }
+    };
 
     // Initialize socket on mount, cleanup on unmount
     useEffect(() => {
@@ -133,6 +150,14 @@ export function ChatPage() {
                     )}
                 </div>
                 <button
+                    onClick={() => setShowLLMSettings(true)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl
+                        bg-surface-light border border-border-light text-text-secondary
+                        hover:bg-primary/20 hover:text-primary hover:border-primary/30 transition-colors"
+                >
+                    ⚙️
+                </button>
+                <button
                     onClick={() => setShowSession(true)}
                     className="w-10 h-10 flex items-center justify-center rounded-xl
                         bg-surface-light border border-border-light text-text-secondary
@@ -156,8 +181,26 @@ export function ChatPage() {
             {/* Memory Modal */}
             {showMemory && <MemoryViewer onClose={() => setShowMemory(false)} />}
 
+            {/* LLM Settings Modal */}
+            {showLLMSettings && <LLMSettingsModal onClose={() => setShowLLMSettings(false)} />}
+
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 space-y-4"
+            >
+                {/* Loading older messages indicator */}
+                {isLoadingMoreMessages && (
+                    <div className="text-center py-2">
+                        <span className="text-text-muted text-sm animate-pulse">Загрузка...</span>
+                    </div>
+                )}
+                {hasMoreMessages && !isLoadingMoreMessages && (
+                    <div className="text-center py-2">
+                        <span className="text-text-muted text-xs">↑ Прокрутите вверх для загрузки</span>
+                    </div>
+                )}
                 {messages.map(msg => (
                     <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                         <Avatar

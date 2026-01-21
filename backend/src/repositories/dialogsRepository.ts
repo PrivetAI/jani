@@ -58,15 +58,50 @@ export const countUserMessagesToday = async (userId: number) => {
   return Number(result.rows[0]?.count ?? 0);
 };
 
-export const getDialogHistory = async (userId: number, characterId: number, limit = 20) => {
-  const result = await query<DialogRecord>(
-    `SELECT * FROM dialogs
-     WHERE user_id = $1 AND character_id = $2
-     ORDER BY created_at DESC
-     LIMIT $3`,
-    [userId, characterId, limit]
-  );
-  return result.rows.map(mapDialog).reverse();
+export interface DialogHistoryOptions {
+  limit?: number;
+  before?: string; // cursor: ISO date string of oldest message in current view
+}
+
+export interface DialogHistoryResult {
+  messages: DialogRecord[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export const getDialogHistory = async (
+  userId: number,
+  characterId: number,
+  options: DialogHistoryOptions = {}
+): Promise<DialogHistoryResult> => {
+  const limit = options.limit ?? 20;
+  const fetchLimit = limit + 1; // Fetch one extra to check if there are more
+
+  let result;
+  if (options.before) {
+    result = await query<DialogRecord>(
+      `SELECT * FROM dialogs
+       WHERE user_id = $1 AND character_id = $2 AND created_at < $3
+       ORDER BY created_at DESC
+       LIMIT $4`,
+      [userId, characterId, options.before, fetchLimit]
+    );
+  } else {
+    result = await query<DialogRecord>(
+      `SELECT * FROM dialogs
+       WHERE user_id = $1 AND character_id = $2
+       ORDER BY created_at DESC
+       LIMIT $3`,
+      [userId, characterId, fetchLimit]
+    );
+  }
+
+  const hasMore = result.rows.length > limit;
+  const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+  const messages = rows.map(mapDialog).reverse();
+  const nextCursor = hasMore && rows.length > 0 ? rows[rows.length - 1].created_at : null;
+
+  return { messages, hasMore, nextCursor };
 };
 
 export const getLastCharacterForUser = async (userId: number): Promise<number | null> => {

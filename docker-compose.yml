@@ -42,8 +42,11 @@ services:
       WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      BACKUP_CHAT_ID: ${BACKUP_CHAT_ID:-}
+      LOG_DIR: /app/logs
     volumes:
       - uploads:/app/uploads
+      - logs:/app/logs
     ports:
       - "3000:3000"
 
@@ -85,3 +88,4 @@ services:
 volumes:
   pgdata:
   uploads:
+  logs:

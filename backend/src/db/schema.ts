@@ -73,6 +73,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'ru';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_adult_confirmed BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_person INTEGER DEFAULT 3;
 
 CREATE TABLE IF NOT EXISTS characters (
     id SERIAL PRIMARY KEY,
@@ -142,6 +143,7 @@ ALTER TABLE dialogs ADD COLUMN IF NOT EXISTS model_used TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_dialogs_user_character ON dialogs(user_id, character_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_dialogs_user_role ON dialogs(user_id, role, created_at);
+CREATE INDEX IF NOT EXISTS idx_dialogs_created_at ON dialogs(created_at);
 
 CREATE TABLE IF NOT EXISTS dialog_summaries (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -208,9 +210,25 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 -- Add user-specified model override
 ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS llm_model TEXT;
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS llm_temperature DECIMAL(3,2);
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS llm_top_p DECIMAL(3,2);
 
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_character ON chat_sessions(user_id, character_id);
+
+-- =====================================================
+-- ALLOWED LLM MODELS (admin-managed)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS allowed_models (
+    id SERIAL PRIMARY KEY,
+    provider TEXT NOT NULL,          -- 'gemini', 'openrouter', 'openai'
+    model_id TEXT NOT NULL UNIQUE,   -- 'gemini-2.0-flash-exp'
+    display_name TEXT NOT NULL,      -- 'Gemini 2.0 Flash'
+    is_default BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Character memories for long-term memory system
 CREATE TABLE IF NOT EXISTS character_memories (
@@ -265,6 +283,29 @@ CREATE TABLE IF NOT EXISTS character_ratings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_character_ratings_character ON character_ratings(character_id);
+
+-- =====================================================
+-- CHARACTER COMMENTS (with nested replies)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS character_comments (
+    id SERIAL PRIMARY KEY,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES character_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_character ON character_comments(character_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON character_comments(parent_id);
+
+-- =====================================================
+-- UGC MODERATION
+-- =====================================================
+
+-- Add is_approved column for user-generated characters
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT TRUE;
 
 -- =====================================================
 -- SEED DATA

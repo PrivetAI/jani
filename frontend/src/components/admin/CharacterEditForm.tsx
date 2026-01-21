@@ -201,7 +201,7 @@ export function CharacterEditForm({
                                             : [...current, tag.id];
                                         setEditForm({ ...editForm, tagIds: updated });
                                     }}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer
                                         ${isSelected
                                             ? 'bg-primary text-white'
                                             : 'bg-surface border border-border text-text-secondary hover:border-primary/40'
@@ -314,7 +314,7 @@ export function CharacterEditForm({
                                                         key={m.id}
                                                         type="button"
                                                         onMouseDown={() => handleModelSelect(m.id)}
-                                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 ${editForm.llmModel === m.id ? 'bg-primary/10 text-primary' : 'text-text-primary'
+                                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-primary/20 cursor-pointer ${editForm.llmModel === m.id ? 'bg-primary/10 text-primary' : 'text-text-primary'
                                                             }`}
                                                     >
                                                         {m.name}
@@ -386,13 +386,13 @@ export function CharacterEditForm({
                 <div className="flex gap-3 pt-2">
                     <button
                         onClick={onSave}
-                        className="flex-1 py-2.5 rounded-xl font-medium text-white bg-gradient-to-r from-primary to-indigo-500"
+                        className="flex-1 py-2.5 rounded-xl font-medium text-white bg-gradient-to-r from-primary to-indigo-500 cursor-pointer"
                     >
                         Сохранить
                     </button>
                     <button
                         onClick={onCancel}
-                        className="flex-1 py-2.5 rounded-xl font-medium bg-surface border border-border text-text-secondary hover:text-text-primary"
+                        className="flex-1 py-2.5 rounded-xl font-medium bg-surface border border-border text-text-secondary hover:text-text-primary cursor-pointer"
                     >
                         Отмена
                     </button>

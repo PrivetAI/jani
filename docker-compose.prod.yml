@@ -54,8 +54,11 @@ services:
       ENABLE_MESSAGE_LIMIT: ${ENABLE_MESSAGE_LIMIT:-true}
       SUBSCRIPTION_DURATION_DAYS: ${SUBSCRIPTION_DURATION_DAYS:-30}
       AUTH_ALLOW_DEV_INIT_DATA: "false"
+      BACKUP_CHAT_ID: ${BACKUP_CHAT_ID:-}
+      LOG_DIR: /app/logs
     volumes:
       - uploads:/app/uploads
+      - logs:/app/logs
     expose:
       - "3000"
 
@@ -87,5 +90,6 @@ services:
 volumes:
   pgdata:
   uploads:
+  logs:
   caddy_data:
   caddy_config:

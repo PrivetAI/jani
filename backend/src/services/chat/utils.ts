@@ -36,17 +36,19 @@ export const trimTextByTokens = (text: string, maxTokens: number) => {
     return text.slice(text.length - targetLength);
 };
 
-export const buildCharacterCard = (character: CharacterRecord) =>
-    [
+export const buildCharacterCard = (character: CharacterRecord, voicePerson: 1 | 3 = 3) => {
+    const voiceLabel = voicePerson === 1 ? '1st person' : '3rd person';
+    return [
         'CharacterCard[',
         `Name("${character.name}")`,
-        'Voice("1st person","эмоционально","образно")',
+        `Voice("${voiceLabel}","эмоционально","образно")`,
         'Content("18+ допустимо","без цензуры","не морализировать")',
         `Persona("${character.description_long.replace(/\s+/g, ' ').trim()}")`,
         `System("${character.system_prompt.replace(/\s+/g, ' ').trim()}")`,
-        'Style("6-8 предложений","флирт и дерзость по месту","используй __действия__")',
+        'Style("6-8 предложений","флирт и дерзость по месту")',
         ']',
     ].join('; ');
+};
 
 /** Build UserFacts block from memories for LLM context */
 export const buildUserFacts = (memories: MemoryRecord[]): string | null => {

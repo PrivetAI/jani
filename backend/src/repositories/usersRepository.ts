@@ -10,6 +10,7 @@ export interface UserRecord {
   display_name: string | null;
   gender: string | null;
   language: string;
+  voice_person: 1 | 3;
   is_adult_confirmed: boolean;
   last_active_at: string | null;
   created_at: string;
@@ -24,6 +25,7 @@ const mapUser = (row: any): UserRecord => ({
   display_name: row.display_name,
   gender: row.gender,
   language: row.language ?? 'ru',
+  voice_person: row.voice_person ?? 3,
   is_adult_confirmed: row.is_adult_confirmed ?? false,
   last_active_at: row.last_active_at,
   created_at: row.created_at,
@@ -72,6 +74,7 @@ export interface ProfileUpdate {
   nickname?: string | null;
   gender?: string | null;
   language?: string;
+  voice_person?: 1 | 3;
 }
 
 export const updateUserProfile = async (
@@ -97,6 +100,10 @@ export const updateUserProfile = async (
   if (updates.language !== undefined) {
     setClause.push(`language = $${paramIndex++}`);
     values.push(updates.language);
+  }
+  if (updates.voice_person !== undefined) {
+    setClause.push(`voice_person = $${paramIndex++}`);
+    values.push(updates.voice_person);
   }
 
   if (setClause.length === 0) {
@@ -137,6 +144,7 @@ export interface UserProfile {
   displayName?: string | null;
   gender?: string | null;
   language: string;
+  voicePerson: 1 | 3;
   isAdultConfirmed: boolean;
   lastCharacterId?: number | null;
   subscriptionStatus: 'none' | 'active' | 'expired';
@@ -156,6 +164,7 @@ export const buildUserProfile = (
   displayName: user.display_name,
   gender: user.gender,
   language: user.language,
+  voicePerson: user.voice_person,
   isAdultConfirmed: user.is_adult_confirmed,
   lastCharacterId: user.last_character_id,
   subscriptionStatus: subscription.status,

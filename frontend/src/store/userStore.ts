@@ -3,6 +3,7 @@ import { apiRequest } from '../lib/api';
 import { logger } from '../lib/logger';
 
 export interface Profile {
+    id: number;
     telegramUserId: number;
     username: string | null;
     nickname?: string | null;
@@ -14,6 +15,7 @@ export interface Profile {
     displayName?: string;
     gender?: string;
     language?: string;
+    voicePerson?: 1 | 3;
     isAdultConfirmed?: boolean;
 }
 

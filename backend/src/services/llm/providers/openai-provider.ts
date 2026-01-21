@@ -33,10 +33,8 @@ export class OpenAIProvider implements LLMProvider {
         // Log full LLM request
         logger.llmRequest('OpenAI INPUT', {
             model: payload.model,
-            messagesCount: messages.length,
-            messages: messages.map((m, i) => ({ index: i, role: m.role, content: m.content })),
             temperature: payload.temperature,
-            maxTokens: payload.max_tokens,
+            messages: messages.map(m => ({ role: m.role, content: m.content })),
         });
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -92,9 +90,7 @@ export class OpenAIProvider implements LLMProvider {
         }
 
         logger.llmResponse('OpenAI OUTPUT', {
-            ...baseLog,
-            messagesCount: messages.length,
-            finishReason: choice?.finish_reason ?? null,
+            durationMs,
             usage: data.usage ?? null,
             content: String(content).trim(),
         });
