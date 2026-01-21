@@ -212,7 +212,22 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterReco
 };
 
 export const deleteCharacter = async (id: number) => {
+  // Clear references in users table
   await query('UPDATE users SET last_character_id = NULL WHERE last_character_id = $1', [id]);
+
+  // Delete related records (cascade)
+  // First delete messages for all dialogs with this character
+  await query('DELETE FROM messages WHERE dialog_id IN (SELECT id FROM dialogs WHERE character_id = $1)', [id]);
+  // Then delete dialogs
+  await query('DELETE FROM dialogs WHERE character_id = $1', [id]);
+  // Delete user likes
+  await query('DELETE FROM user_likes WHERE character_id = $1', [id]);
+  // Delete character tags
+  await query('DELETE FROM character_tags WHERE character_id = $1', [id]);
+  // Delete user character states
+  await query('DELETE FROM user_character_state WHERE character_id = $1', [id]);
+
+  // Finally delete the character
   const result = await query('DELETE FROM characters WHERE id = $1 RETURNING id', [id]);
   if (!result.rowCount) {
     throw new Error('Character not found');
