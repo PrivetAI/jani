@@ -355,11 +355,22 @@ export function AdminPage() {
     };
 
     const deleteCharacterById = async (char: Character) => {
-        if (!initData || !confirm(`Удалить персонажа "${char.name}"? Это действие нельзя отменить.`)) return;
+        console.log('deleteCharacterById called', char.id, char.name);
+        if (!initData) {
+            console.log('deleteCharacterById: no initData');
+            return;
+        }
+        if (!confirm(`Удалить персонажа "${char.name}"? Это действие нельзя отменить.`)) {
+            console.log('deleteCharacterById: cancelled by user');
+            return;
+        }
         try {
+            console.log('deleteCharacterById: sending DELETE request');
             await apiRequest(`/api/admin/characters/${char.id}`, { method: 'DELETE', initData });
+            console.log('deleteCharacterById: success');
             setCharacters(prev => prev.filter(c => c.id !== char.id));
         } catch (err) {
+            console.error('deleteCharacterById: error', err);
             alert('Ошибка удаления');
         }
     };
@@ -736,15 +747,25 @@ export function AdminPage() {
                                     </button>
                                     <button
                                         onClick={async () => {
-                                            if (!initData || !confirm('Удалить модель?')) return;
+                                            console.log('delete allowed model clicked', model.id, model.displayName);
+                                            if (!initData) {
+                                                console.log('delete model: no initData');
+                                                return;
+                                            }
+                                            if (!confirm('Удалить модель?')) {
+                                                console.log('delete model: cancelled by user');
+                                                return;
+                                            }
                                             try {
+                                                console.log('delete model: sending DELETE request');
                                                 await apiRequest(`/api/admin/allowed-models/${model.id}`, {
                                                     method: 'DELETE',
                                                     initData,
                                                 });
+                                                console.log('delete model: success');
                                                 setAllowedModels(prev => prev.filter(m => m.id !== model.id));
                                             } catch (err) {
-                                                console.error(err);
+                                                console.error('delete model: error', err);
                                                 alert('Ошибка удаления модели');
                                             }
                                         }}
