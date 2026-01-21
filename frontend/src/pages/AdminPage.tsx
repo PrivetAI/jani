@@ -745,6 +745,7 @@ export function AdminPage() {
                                                 setAllowedModels(prev => prev.filter(m => m.id !== model.id));
                                             } catch (err) {
                                                 console.error(err);
+                                                alert('Ошибка удаления модели');
                                             }
                                         }}
                                         className="text-danger hover:text-danger/80 text-sm cursor-pointer"

@@ -215,15 +215,21 @@ export const deleteCharacter = async (id: number) => {
   // Clear references in users table
   await query('UPDATE users SET last_character_id = NULL WHERE last_character_id = $1', [id]);
 
-  // Delete related records (cascade)
-  // First delete messages for all dialogs with this character
-  await query('DELETE FROM messages WHERE dialog_id IN (SELECT id FROM dialogs WHERE character_id = $1)', [id]);
-  // Then delete dialogs
+  // Delete related records (cascade) - order matters due to foreign keys
+  // Delete dialogs (messages are in dialogs table, not separate)
   await query('DELETE FROM dialogs WHERE character_id = $1', [id]);
-  // Delete user likes
-  await query('DELETE FROM user_likes WHERE character_id = $1', [id]);
+  // Delete dialog summaries
+  await query('DELETE FROM dialog_summaries WHERE character_id = $1', [id]);
+  // Delete character ratings (likes/dislikes)
+  await query('DELETE FROM character_ratings WHERE character_id = $1', [id]);
+  // Delete character comments
+  await query('DELETE FROM character_comments WHERE character_id = $1', [id]);
+  // Delete character memories
+  await query('DELETE FROM character_memories WHERE character_id = $1', [id]);
   // Delete character tags
   await query('DELETE FROM character_tags WHERE character_id = $1', [id]);
+  // Delete chat sessions
+  await query('DELETE FROM chat_sessions WHERE character_id = $1', [id]);
   // Delete user character states
   await query('DELETE FROM user_character_state WHERE character_id = $1', [id]);
 
