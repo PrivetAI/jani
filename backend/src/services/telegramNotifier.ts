@@ -218,3 +218,45 @@ export async function notifyNewCharacter(context: NewCharacterContext): Promise<
         }
     }
 }
+
+interface CharacterApprovedContext {
+    characterId: number;
+    characterName: string;
+    userTelegramId: number;
+}
+
+/**
+ * Notify user that their character was approved
+ */
+export async function notifyUserCharacterApproved(context: CharacterApprovedContext): Promise<void> {
+    const text = [
+        '✅ <b>Ваш персонаж одобрен!</b>',
+        '',
+        `<b>Персонаж:</b> ${escapeHtml(context.characterName)}`,
+        '',
+        'Теперь он доступен в общем каталоге персонажей!',
+    ].join('\n');
+
+    try {
+        await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: context.userTelegramId,
+                text,
+                parse_mode: 'HTML',
+            }),
+        });
+        logger.info('User notified about character approval', {
+            characterId: context.characterId,
+            userTelegramId: context.userTelegramId,
+        });
+    } catch (err) {
+        logger.error('Failed to notify user about character approval', {
+            characterId: context.characterId,
+            userTelegramId: context.userTelegramId,
+            error: (err as Error).message,
+        });
+    }
+}
+

@@ -468,8 +468,42 @@ router.patch(
   '/characters/:id/approve',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+
+    // Get character info and creator's telegram ID before approval
+    const characterResult = await query<{
+      name: string;
+      created_by: number;
+    }>(
+      'SELECT name, created_by FROM characters WHERE id = $1',
+      [id]
+    );
+
+    if (!characterResult.rows.length) {
+      return res.status(404).json({ message: 'Персонаж не найден' });
+    }
+
+    const character = characterResult.rows[0];
+
+    // Get creator's telegram_id
+    const userResult = await query<{ telegram_id: number }>(
+      'SELECT telegram_id FROM users WHERE id = $1',
+      [character.created_by]
+    );
+
+    // Approve character
     await query('UPDATE characters SET is_approved = TRUE WHERE id = $1', [id]);
     invalidateCharactersCache();
+
+    // Notify user if telegram_id exists
+    if (userResult.rows.length && userResult.rows[0].telegram_id) {
+      const { notifyUserCharacterApproved } = await import('../services/telegramNotifier.js');
+      notifyUserCharacterApproved({
+        characterId: id,
+        characterName: character.name,
+        userTelegramId: userResult.rows[0].telegram_id,
+      }).catch(() => { }); // Fire and forget
+    }
+
     res.json({ success: true });
   })
 );
