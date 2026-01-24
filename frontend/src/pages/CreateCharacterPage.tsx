@@ -15,6 +15,7 @@ interface AllowedModel {
     displayName: string;
     provider: string;
     isDefault: boolean;
+    isRecommended: boolean;
 }
 
 interface CharacterData {
@@ -113,7 +114,7 @@ export function CreateCharacterPage() {
     if (profile && !profile.nickname) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center px-4">
-                <h1 className="text-2xl font-bold text-text-primary mb-2">Нужен никнейм</h1>
+                <h1 className="text-2xl font-semibold text-text-primary mb-2">Нужен никнейм</h1>
                 <p className="text-text-secondary text-center mb-6">
                     Для создания персонажа необходимо заполнить никнейм в профиле.
                 </p>
@@ -203,7 +204,7 @@ export function CreateCharacterPage() {
     if (success) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center px-4">
-                <h1 className="text-2xl font-bold text-text-primary mb-2">
+                <h1 className="text-2xl font-semibold text-text-primary mb-2">
                     {isEdit ? 'Персонаж обновлён!' : 'Персонаж создан!'}
                 </h1>
                 <p className="text-text-secondary text-center mb-6">
@@ -238,7 +239,7 @@ export function CreateCharacterPage() {
                     <button onClick={() => navigate(-1)} className="text-text-secondary hover:text-text-primary transition-colors">
                         ← Назад
                     </button>
-                    <h1 className="text-lg font-semibold text-text-primary">
+                    <h1 className="text-xl font-semibold text-text-primary">
                         {isEdit ? 'Редактировать персонажа' : 'Новый персонаж'}
                     </h1>
                     <div className="w-16" />
@@ -326,14 +327,108 @@ export function CreateCharacterPage() {
                     <textarea
                         value={systemPrompt}
                         onChange={e => setSystemPrompt(e.target.value)}
-                        placeholder="Ты — молодая волшебница по имени Лира. Тебе 19 лет. Ты учишься в академии магии и увлекаешься артефактологией. Характер: любопытная, немного застенчивая, но смелая когда дело касается магии. Говоришь мягко и вдумчиво. Любишь книги и травяной чай."
+                        placeholder={`Ты — [Имя персонажа].
+Характер: [Основные черты характера, как он ведёт себя с другими, скрытые качества]
+Внешность: [Описание внешности, особенности, что носит]
+Предыстория: [История персонажа, что сформировало его характер]
+Сценарий: [Где и как начинается общение с пользователем]
+Стиль речи: [Как говорит: формально/неформально, особенности речи, акцент, привычки]`}
                         maxLength={4000}
-                        rows={8}
+                        rows={10}
                         className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border
                             focus:border-primary focus:outline-none resize-none transition-colors
                             placeholder:text-text-muted"
                     />
                     <p className="mt-1 text-xs text-text-muted text-right">{systemPrompt.length}/4000</p>
+
+                    {/* Tips */}
+                    <details className="mt-3 p-3 rounded-xl bg-surface border border-border">
+                        <summary className="text-sm font-medium text-primary cursor-pointer">
+                            💡 Как создать хорошего персонажа
+                        </summary>
+                        <div className="mt-3 space-y-4 text-xs text-text-secondary">
+                            <p>
+                                <strong>Системный промпт</strong> — это инструкция для ИИ, как вести себя в роли персонажа.
+                                Чем подробнее опишете, тем интереснее и живее будет общение!
+                            </p>
+
+                            {/* Structure */}
+                            <div className="p-3 rounded-lg bg-surface-light space-y-2">
+                                <p className="font-semibold text-text-primary text-sm">📝 Структура хорошего промпта:</p>
+                                <div className="space-y-2 text-text-muted text-xs">
+                                    <div>
+                                        <span className="font-medium text-primary">Характер</span> — опишите 5-7 черт личности.
+                                        Добавьте скрытые качества, которые открываются не сразу!
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-primary">Внешность</span> — как выглядит, особенности,
+                                        узнаваемые детали (шрамы, татуировки, стиль одежды).
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-primary">Предыстория</span> — что сформировало характер?
+                                        Важные события, травмы, достижения.
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-primary">Сценарий</span> — где и как начинается общение?
+                                        Конкретное место и ситуация создают атмосферу.
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-primary">Стиль речи</span> — как говорит: короткие фразы
+                                        или длинные? Сленг, жаргон, акцент? Любимые словечки?
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Character traits examples */}
+                            <div className="p-3 rounded-lg bg-surface-light space-y-2">
+                                <p className="font-semibold text-text-primary text-sm">🎭 Примеры черт характера:</p>
+                                <div className="space-y-2 text-text-muted text-xs">
+                                    <div>
+                                        <p className="text-primary text-xs font-medium mb-1">Положительные:</p>
+                                        <p>верный, заботливый, храбрый, честный, добрый, надёжный, терпеливый, щедрый, мудрый, веселый</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-primary text-xs font-medium mb-1">Сложные:</p>
+                                        <p>саркастичный, упрямый, замкнутый, властный, ревнивый, циничный, гордый, импульсивный, мстительный</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Speech style examples */}
+                            <div className="p-3 rounded-lg bg-surface-light space-y-2">
+                                <p className="font-semibold text-text-primary text-sm">💬 Примеры стиля речи:</p>
+                                <ul className="space-y-1 text-text-muted text-xs">
+                                    <li>• <strong>Военный:</strong> короткие приказы, жаргон</li>
+                                    <li>• <strong>Интеллигент:</strong> книжные выражения, сложные конструкции</li>
+                                    <li>• <strong>Простой парень:</strong> просторечия, сленг, мат (если позволяет сеттинг)</li>
+                                    <li>• <strong>Аристократ:</strong> витиеватые фразы, обращения</li>
+                                </ul>
+                            </div>
+
+                            {/* Scenario examples */}
+                            <div className="p-3 rounded-lg bg-surface-light space-y-2">
+                                <p className="font-semibold text-text-primary text-sm">🎬 Примеры сценариев:</p>
+                                <ul className="space-y-1 text-text-muted text-xs">
+                                    <li>• Случайная встреча в кафе, баре, парке</li>
+                                    <li>• Вы коллеги/соседи/одногруппники</li>
+                                    <li>• Он/она спасает тебя от опасности</li>
+                                    <li>• Ночь у костра после долгого дня</li>
+                                    <li>• Ты новенький в его/её команде</li>
+                                </ul>
+                            </div>
+
+                            {/* Secret sauce */}
+                            <div className="p-3 rounded-lg bg-gradient-to-r from-primary/10 to-indigo-500/10 border border-primary/30 space-y-2">
+                                <p className="font-semibold text-text-primary text-sm">✨ Секрет живого персонажа:</p>
+                                <ul className="space-y-1 text-text-muted text-xs">
+                                    <li>• <strong>Противоречия:</strong> "суровый снаружи, но заботливый внутри"</li>
+                                    <li>• <strong>Скрытые черты:</strong> "втайне пишет стихи", "боится темноты"</li>
+                                    <li>• <strong>Уникальные привычки:</strong> "постоянно крутит кольцо", "говорит с растениями"</li>
+                                    <li>• <strong>Слабости:</strong> "не умеет отказывать", "слишком доверчив"</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </details>
                 </div>
 
                 {/* Gender */}
@@ -366,10 +461,13 @@ export function CreateCharacterPage() {
                         <option value="">Выберите модель...</option>
                         {availableModels.map(model => (
                             <option key={model.id} value={model.modelId}>
-                                {model.displayName}
+                                {model.isRecommended ? '⭐ ' : ''}{model.displayName}{model.isRecommended ? ' (рекоменд.)' : ''}
                             </option>
                         ))}
                     </select>
+                    {availableModels.some(m => m.isRecommended) && (
+                        <p className="mt-1 text-xs text-text-muted">⭐ — рекомендуемые модели для персонажей</p>
+                    )}
                 </div>
 
                 {/* LLM Parameters */}

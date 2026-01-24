@@ -125,6 +125,15 @@ interface NewCharacterContext {
     authorId: number;
     authorName: string;
     description: string;
+    systemPrompt: string;
+    gender: string;
+    llmModel?: string | null;
+    llmProvider?: string | null;
+    llmTemperature?: number | null;
+    llmTopP?: number | null;
+    llmRepetitionPenalty?: number | null;
+    avatarUrl?: string | null;
+    tags?: string[];
 }
 
 /**
@@ -139,18 +148,56 @@ export async function notifyNewCharacter(context: NewCharacterContext): Promise<
         ? context.description.slice(0, 150) + '...'
         : context.description;
 
-    const text = [
+
+
+    const lines = [
         '👤 <b>Новый персонаж на модерацию</b>',
         '',
         `<b>ID:</b> <code>${context.characterId}</code>`,
         `<b>Имя:</b> ${escapeHtml(context.characterName)}`,
         `<b>Автор:</b> ${escapeHtml(context.authorName)} (ID: ${context.authorId})`,
-        '',
-        `<b>Описание:</b>`,
-        escapeHtml(descPreview),
-        '',
-        `<i>${timestamp}</i>`,
-    ].join('\n');
+        `<b>Пол:</b> ${context.gender === 'male' ? 'Мужской' : 'Женский'}`,
+    ];
+
+
+
+    if (context.tags && context.tags.length > 0) {
+        lines.push(`<b>Теги:</b> ${context.tags.map(t => escapeHtml(t)).join(', ')}`);
+    }
+
+    lines.push('');
+    lines.push(`<b>Описание:</b>`);
+    lines.push(escapeHtml(descPreview));
+
+    lines.push('');
+    lines.push(`<b>Системный промпт:</b>`);
+    lines.push(escapeHtml(context.systemPrompt));
+
+    // LLM settings
+    if (context.llmProvider || context.llmModel) {
+        lines.push('');
+        lines.push(`<b>LLM настройки:</b>`);
+        if (context.llmProvider) {
+            lines.push(`  Provider: <code>${context.llmProvider}</code>`);
+        }
+        if (context.llmModel) {
+            lines.push(`  Model: <code>${escapeHtml(context.llmModel)}</code>`);
+        }
+        if (context.llmTemperature !== null && context.llmTemperature !== undefined) {
+            lines.push(`  Temperature: ${context.llmTemperature}`);
+        }
+        if (context.llmTopP !== null && context.llmTopP !== undefined) {
+            lines.push(`  Top P: ${context.llmTopP}`);
+        }
+        if (context.llmRepetitionPenalty !== null && context.llmRepetitionPenalty !== undefined) {
+            lines.push(`  Repetition Penalty: ${context.llmRepetitionPenalty}`);
+        }
+    }
+
+    lines.push('');
+    lines.push(`<i>${timestamp}</i>`);
+
+    const text = lines.join('\n');
 
     for (const adminId of adminIds) {
         try {

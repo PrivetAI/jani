@@ -76,7 +76,15 @@ export const listCharacters = async (filters: CharacterFilters = {}) => {
     return charactersCache.data;
   }
 
-  let sql = 'SELECT DISTINCT c.* FROM characters c';
+  // Join with dialogs to count user messages per character
+  let sql = `SELECT c.*, COALESCE(msg_counts.msg_count, 0) as message_count 
+             FROM characters c
+             LEFT JOIN (
+               SELECT character_id, COUNT(*) as msg_count 
+               FROM dialogs 
+               WHERE role = 'user' 
+               GROUP BY character_id
+             ) msg_counts ON msg_counts.character_id = c.id`;
   const params: any[] = [];
   const conditions: string[] = [];
 
@@ -117,7 +125,8 @@ export const listCharacters = async (filters: CharacterFilters = {}) => {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
 
-  sql += ' ORDER BY c.created_at DESC';
+  // Sort by message count (popularity) descending, then by created_at as secondary sort
+  sql += ' ORDER BY message_count DESC, c.created_at DESC';
 
   const result = await query<CharacterRecord>(sql, params);
   const characters = result.rows.map(mapCharacter);

@@ -64,8 +64,7 @@ export class ChatSessionService {
 
     const historyResult = await getDialogHistory(user.id, character.id, { limit: 60 });
     const history = historyResult.messages;
-    await addDialogMessage(user.id, character.id, 'user', request.messageText);
-    logger.chat(user.id, character.id, 'user', request.messageText);
+    // Note: user message is saved AFTER successful LLM response (inside try block)
     await updateLastCharacter(user.id, character.id);
 
     // Get user's session LLM settings
@@ -108,9 +107,11 @@ export class ChatSessionService {
         sessionLlmSettings,
       });
 
+      // Save user message only after successful LLM response
+      await addDialogMessage(user.id, character.id, 'user', request.messageText);
+
       // Save only clean reply to history (no thoughts)
       await addDialogMessage(user.id, character.id, 'assistant', result.reply);
-      logger.chat(user.id, character.id, 'assistant', result.reply);
 
       // Memory extraction now happens inline in characterChatService (no async call needed)
 

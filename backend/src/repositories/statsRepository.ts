@@ -39,9 +39,9 @@ export const loadStats = async (period: keyof typeof periodToInterval = 'day'): 
     query<{ count: string }>('SELECT COUNT(*) FROM users'),
     query<{ count: string }>(`SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '1 day'`),
     query<{ count: string }>("SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND end_at > NOW()"),
-    query<{ count: string }>('SELECT COUNT(*) FROM dialogs'),
+    query<{ count: string }>("SELECT COUNT(*) FROM dialogs WHERE role = 'user'"),
     query<{ count: string }>(
-      `SELECT COUNT(*) FROM dialogs WHERE created_at >= NOW() - INTERVAL '${interval}'`
+      `SELECT COUNT(*) FROM dialogs WHERE role = 'user' AND created_at >= NOW() - INTERVAL '${interval}'`
     ),
   ]);
 

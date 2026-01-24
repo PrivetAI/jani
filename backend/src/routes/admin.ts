@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { telegramAuth, requireAdmin } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats, setCharacterTags, getCharacterTags, getCharacterTagsBatch, getAllTags, createTag, deleteTag } from '../modules/index.js';
+import { createCharacter, listCharacters, updateCharacter, deleteCharacter, getCharacterById, type CharacterRecord, loadStats, setCharacterTags, getCharacterTags, getCharacterTagsBatch, getAllTags, createTag, deleteTag, invalidateCharactersCache } from '../modules/index.js';
 import { query } from '../db/pool.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
@@ -469,6 +469,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     await query('UPDATE characters SET is_approved = TRUE WHERE id = $1', [id]);
+    invalidateCharactersCache();
     res.json({ success: true });
   })
 );
@@ -713,6 +714,8 @@ const allowedModelSchema = z.object({
   model_id: z.string().min(1),
   display_name: z.string().min(1),
   is_default: z.boolean().optional(),
+  is_fallback: z.boolean().optional(),
+  is_recommended: z.boolean().optional(),
   is_active: z.boolean().optional(),
 });
 
@@ -726,8 +729,10 @@ router.get(
       model_id: string;
       display_name: string;
       is_default: boolean;
+      is_fallback: boolean;
+      is_recommended: boolean;
       is_active: boolean;
-    }>('SELECT * FROM allowed_models ORDER BY is_default DESC, display_name ASC');
+    }>('SELECT * FROM allowed_models ORDER BY is_default DESC, is_recommended DESC, display_name ASC');
 
     res.json({
       models: result.rows.map(m => ({
@@ -736,6 +741,8 @@ router.get(
         modelId: m.model_id,
         displayName: m.display_name,
         isDefault: m.is_default,
+        isFallback: m.is_fallback,
+        isRecommended: m.is_recommended,
         isActive: m.is_active,
       })),
     });
@@ -756,15 +763,22 @@ router.post(
       await query('UPDATE allowed_models SET is_default = FALSE WHERE is_default = TRUE');
     }
 
+    // If setting as fallback, clear other fallbacks (only one global fallback)
+    if (parsed.data.is_fallback) {
+      await query('UPDATE allowed_models SET is_fallback = FALSE WHERE is_fallback = TRUE');
+    }
+
     const result = await query<{ id: number }>(
-      `INSERT INTO allowed_models (provider, model_id, display_name, is_default, is_active)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO allowed_models (provider, model_id, display_name, is_default, is_fallback, is_recommended, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [
         parsed.data.provider,
         parsed.data.model_id,
         parsed.data.display_name,
         parsed.data.is_default ?? false,
+        parsed.data.is_fallback ?? false,
+        parsed.data.is_recommended ?? false,
         parsed.data.is_active ?? true,
       ]
     );
@@ -788,6 +802,11 @@ router.patch(
       await query('UPDATE allowed_models SET is_default = FALSE WHERE is_default = TRUE AND id != $1', [id]);
     }
 
+    // If setting as fallback, clear other fallbacks (only one global fallback)
+    if (parsed.data.is_fallback) {
+      await query('UPDATE allowed_models SET is_fallback = FALSE WHERE is_fallback = TRUE AND id != $1', [id]);
+    }
+
     const updates: string[] = [];
     const values: any[] = [id];
     let paramIndex = 2;
@@ -807,6 +826,14 @@ router.patch(
     if (parsed.data.is_default !== undefined) {
       updates.push(`is_default = $${paramIndex++}`);
       values.push(parsed.data.is_default);
+    }
+    if (parsed.data.is_fallback !== undefined) {
+      updates.push(`is_fallback = $${paramIndex++}`);
+      values.push(parsed.data.is_fallback);
+    }
+    if (parsed.data.is_recommended !== undefined) {
+      updates.push(`is_recommended = $${paramIndex++}`);
+      values.push(parsed.data.is_recommended);
     }
     if (parsed.data.is_active !== undefined) {
       updates.push(`is_active = $${paramIndex++}`);

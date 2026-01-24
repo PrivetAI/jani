@@ -144,6 +144,7 @@ ALTER TABLE dialogs ADD COLUMN IF NOT EXISTS model_used TEXT;
 CREATE INDEX IF NOT EXISTS idx_dialogs_user_character ON dialogs(user_id, character_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_dialogs_user_role ON dialogs(user_id, role, created_at);
 CREATE INDEX IF NOT EXISTS idx_dialogs_created_at ON dialogs(created_at);
+CREATE INDEX IF NOT EXISTS idx_dialogs_character_role ON dialogs(character_id, role);
 
 CREATE TABLE IF NOT EXISTS dialog_summaries (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -226,9 +227,16 @@ CREATE TABLE IF NOT EXISTS allowed_models (
     model_id TEXT NOT NULL UNIQUE,   -- 'gemini-2.0-flash-exp'
     display_name TEXT NOT NULL,      -- 'Gemini 2.0 Flash'
     is_default BOOLEAN DEFAULT FALSE,
+    is_fallback BOOLEAN DEFAULT FALSE, -- Global fallback model for errors
+    is_recommended BOOLEAN DEFAULT FALSE, -- Recommended for user-created characters
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration: add is_fallback column if missing
+ALTER TABLE allowed_models ADD COLUMN IF NOT EXISTS is_fallback BOOLEAN DEFAULT FALSE;
+-- Migration: add is_recommended column if missing
+ALTER TABLE allowed_models ADD COLUMN IF NOT EXISTS is_recommended BOOLEAN DEFAULT FALSE;
 
 -- Character memories for long-term memory system
 CREATE TABLE IF NOT EXISTS character_memories (

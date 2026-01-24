@@ -10,6 +10,7 @@ export {
     createCharacter,
     updateCharacter,
     deleteCharacter,
+    invalidateCharactersCache,
     type CharacterRecord,
     type CharacterFilters,
 } from '../repositories/charactersRepository.js';

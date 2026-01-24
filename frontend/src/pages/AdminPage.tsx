@@ -28,6 +28,8 @@ interface AllowedModel {
     modelId: string;
     displayName: string;
     isDefault: boolean;
+    isFallback: boolean;
+    isRecommended: boolean;
     isActive: boolean;
 }
 
@@ -695,6 +697,8 @@ export function AdminPage() {
                                         modelId: newModel.modelId.trim(),
                                         displayName: newModel.displayName.trim(),
                                         isDefault: false,
+                                        isFallback: false,
+                                        isRecommended: false,
                                         isActive: true,
                                     }]);
                                     setNewModel({ provider: 'gemini', modelId: '', displayName: '' });
@@ -723,10 +727,56 @@ export function AdminPage() {
                                     <div>
                                         <span className="text-sm font-medium text-text-primary">{model.displayName}</span>
                                         {model.isDefault && <span className="ml-2 text-xs text-primary">⭐ по умолчанию</span>}
+                                        {model.isFallback && <span className="ml-2 text-xs text-warning">🔄 fallback</span>}
+                                        {model.isRecommended && <span className="ml-2 text-xs text-success">✨ рекомендуемая</span>}
                                         <p className="text-xs text-text-muted">{model.modelId}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={async () => {
+                                            if (!initData) return;
+                                            try {
+                                                await apiRequest(`/api/admin/allowed-models/${model.id}`, {
+                                                    method: 'PATCH',
+                                                    body: { is_fallback: !model.isFallback },
+                                                    initData,
+                                                });
+                                                // If setting as fallback, clear other fallbacks locally
+                                                if (!model.isFallback) {
+                                                    setAllowedModels(prev => prev.map(m => ({
+                                                        ...m,
+                                                        isFallback: m.id === model.id ? true : false
+                                                    })));
+                                                } else {
+                                                    setAllowedModels(prev => prev.map(m => m.id === model.id ? { ...m, isFallback: false } : m));
+                                                }
+                                            } catch (err) {
+                                                console.error(err);
+                                            }
+                                        }}
+                                        className={`px-2 py-1 rounded text-xs cursor-pointer ${model.isFallback ? 'bg-warning/20 text-warning' : 'bg-surface-light text-text-muted'}`}
+                                    >
+                                        {model.isFallback ? '🔄 Fallback' : 'Fallback'}
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (!initData) return;
+                                            try {
+                                                await apiRequest(`/api/admin/allowed-models/${model.id}`, {
+                                                    method: 'PATCH',
+                                                    body: { is_recommended: !model.isRecommended },
+                                                    initData,
+                                                });
+                                                setAllowedModels(prev => prev.map(m => m.id === model.id ? { ...m, isRecommended: !m.isRecommended } : m));
+                                            } catch (err) {
+                                                console.error(err);
+                                            }
+                                        }}
+                                        className={`px-2 py-1 rounded text-xs cursor-pointer ${model.isRecommended ? 'bg-success/20 text-success' : 'bg-surface-light text-text-muted'}`}
+                                    >
+                                        {model.isRecommended ? '✨ Рекоменд.' : 'Рекоменд.'}
+                                    </button>
                                     <button
                                         onClick={async () => {
                                             if (!initData) return;

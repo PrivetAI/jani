@@ -135,6 +135,16 @@ router.post(
       await setCharacterTags(characterId, parsed.data.tag_ids);
     }
 
+    // Get tag names if tags were set
+    let tagNames: string[] = [];
+    if (parsed.data.tag_ids && parsed.data.tag_ids.length > 0) {
+      const tagsResult = await query<{ name: string }>(
+        'SELECT name FROM tags WHERE id = ANY($1)',
+        [parsed.data.tag_ids]
+      );
+      tagNames = tagsResult.rows.map(t => t.name);
+    }
+
     // Notify admins about new character
     notifyNewCharacter({
       characterId,
@@ -142,6 +152,15 @@ router.post(
       authorId: req.auth!.id,
       authorName: req.auth!.username || 'User',
       description: parsed.data.description_long,
+      systemPrompt: parsed.data.system_prompt,
+      gender: parsed.data.grammatical_gender ?? 'female',
+      llmModel: parsed.data.llm_model,
+      llmProvider: parsed.data.llm_provider,
+      llmTemperature: parsed.data.llm_temperature,
+      llmTopP: parsed.data.llm_top_p,
+      llmRepetitionPenalty: parsed.data.llm_repetition_penalty,
+      avatarUrl: parsed.data.avatar_url,
+      tags: tagNames,
     }).catch(() => { }); // Fire and forget
 
     res.status(201).json({
@@ -224,6 +243,16 @@ router.put(
       await setCharacterTags(characterId, parsed.data.tag_ids);
     }
 
+    // Get tag names if tags were set
+    let tagNames: string[] = [];
+    if (parsed.data.tag_ids && parsed.data.tag_ids.length > 0) {
+      const tagsResult = await query<{ name: string }>(
+        'SELECT name FROM tags WHERE id = ANY($1)',
+        [parsed.data.tag_ids]
+      );
+      tagNames = tagsResult.rows.map(t => t.name);
+    }
+
     // Notify admins about updated character
     notifyNewCharacter({
       characterId,
@@ -231,6 +260,15 @@ router.put(
       authorId: req.auth!.id,
       authorName: req.auth!.username || 'User',
       description: parsed.data.description_long,
+      systemPrompt: parsed.data.system_prompt,
+      gender: parsed.data.grammatical_gender ?? 'female',
+      llmModel: parsed.data.llm_model,
+      llmProvider: parsed.data.llm_provider,
+      llmTemperature: parsed.data.llm_temperature,
+      llmTopP: parsed.data.llm_top_p,
+      llmRepetitionPenalty: parsed.data.llm_repetition_penalty,
+      avatarUrl: parsed.data.avatar_url,
+      tags: tagNames,
     }).catch(() => { }); // Fire and forget
 
     res.json({
@@ -425,11 +463,12 @@ router.get(
       model_id: string;
       display_name: string;
       is_default: boolean;
+      is_recommended: boolean;
     }>(
-      `SELECT id, provider, model_id, display_name, is_default 
+      `SELECT id, provider, model_id, display_name, is_default, is_recommended 
        FROM allowed_models 
        WHERE is_active = TRUE 
-       ORDER BY is_default DESC, display_name ASC`
+       ORDER BY is_recommended DESC, is_default DESC, display_name ASC`
     );
 
     res.json({
@@ -439,6 +478,7 @@ router.get(
         displayName: m.display_name,
         provider: m.provider,
         isDefault: m.is_default,
+        isRecommended: m.is_recommended,
       })),
     });
   })
