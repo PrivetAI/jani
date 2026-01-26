@@ -163,8 +163,15 @@ CREATE TABLE IF NOT EXISTS payments (
     amount_stars INTEGER NOT NULL,
     telegram_payment_id TEXT,
     status payment_status NOT NULL DEFAULT 'pending',
+    tier TEXT,
+    charge_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: add tier and charge_id columns
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS tier TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS charge_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_payments_charge_id ON payments(charge_id);
 
 -- =====================================================
 -- NEW TABLES FOR MINI APP

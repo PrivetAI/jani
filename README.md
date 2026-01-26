@@ -70,10 +70,12 @@ docker-compose up ngrok
 | `TELEGRAM_BOT_USERNAME` | Username бота |
 | `OPENROUTER_API_KEY` | API ключ OpenRouter |
 | `GEMINI_API_KEY` | API ключ Gemini |
+| `GEMINI_PROXY_URL` | URL прокси для Gemini API (опционально, например Cloudflare Worker) |
 | `OPENAI_API_KEY` | API ключ OpenAI |
 | `ADMIN_TELEGRAM_IDS` | ID админов через запятую |
 | `FREE_DAILY_MESSAGE_LIMIT` | Лимит сообщений/день (default: 50) |
 | `ENABLE_MESSAGE_LIMIT` | Применять лимит сообщений (true/false, default: true) |
+
 
 Полный список см. в `.env.example`.
 

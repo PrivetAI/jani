@@ -33,10 +33,9 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-replace-me}
       FREE_DAILY_MESSAGE_LIMIT: ${FREE_DAILY_MESSAGE_LIMIT:-50}
       ENABLE_MESSAGE_LIMIT: ${ENABLE_MESSAGE_LIMIT:-true}
-      SUBSCRIPTION_DURATION_DAYS: ${SUBSCRIPTION_DURATION_DAYS:-30}
       AUTH_ALLOW_DEV_INIT_DATA: ${AUTH_ALLOW_DEV_INIT_DATA:-true}
       MOCK_TELEGRAM_INIT_DATA: ${MOCK_TELEGRAM_INIT_DATA:-user=%7B%22id%22%3A123456%2C%22username%22%3A%22admin_user%22%7D&auth_date=1700000000&hash=dummy}
-      TELEGRAM_AUTO_WEBHOOK: "false"
+      TELEGRAM_AUTO_WEBHOOK: ${TELEGRAM_AUTO_WEBHOOK:-false}
       TELEGRAM_WEBHOOK_EXTERNAL_URL: ${TELEGRAM_WEBHOOK_EXTERNAL_URL:-}
       NGROK_API_URL: ${NGROK_API_URL:-http://ngrok:4040/api/tunnels}
       WEBAPP_PUBLIC_URL: ${WEBAPP_PUBLIC_URL:-${WEBAPP_URL:-http://localhost:4173}}
@@ -74,13 +73,13 @@ services:
   ngrok:
     image: ngrok/ngrok:alpine
     depends_on:
-      - backend
+      - frontend
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     command:
       - "http"
       - "--url=${NGROK_DOMAIN:-}"
-      - "backend:3000"
+      - "frontend:4173"
     ports:
       - "4040:4040"
     restart: unless-stopped

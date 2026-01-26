@@ -139,13 +139,20 @@ export function ChatPage() {
                     <h3 className="font-semibold truncate">{selectedCharacter?.name || 'Чат'}</h3>
                     {limits && (
                         <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 h-1 max-w-24 bg-border rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-gradient-to-r from-success to-emerald-400 rounded-full transition-all"
-                                    style={{ width: `${(limits.remaining / limits.total) * 100}%` }}
-                                />
-                            </div>
-                            <span className="text-[11px] text-text-muted">{limits.remaining}/{limits.total}</span>
+                            <span className="text-[11px]">⚡</span>
+                            {limits.hasSubscription || limits.total === -1 ? (
+                                <span className="text-[11px] text-primary font-medium">∞</span>
+                            ) : (
+                                <>
+                                    <div className="flex-1 h-1 max-w-24 bg-border rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-success to-emerald-400 rounded-full transition-all"
+                                            style={{ width: `${(limits.remaining / limits.total) * 100}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-[11px] text-text-muted">{limits.remaining}/{limits.total}</span>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>

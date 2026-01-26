@@ -8,6 +8,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
 import { AuthorPage } from './pages/AuthorPage';
 import { CreateCharacterPage } from './pages/CreateCharacterPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
 
 export const router = createBrowserRouter([
     {
@@ -39,6 +40,10 @@ export const router = createBrowserRouter([
                 element: <ProfilePage />,
             },
             {
+                path: 'subscription',
+                element: <SubscriptionPage />,
+            },
+            {
                 path: 'admin',
                 element: <AdminPage />,
             },
@@ -57,5 +62,3 @@ export const router = createBrowserRouter([
         ],
     },
 ]);
-
-

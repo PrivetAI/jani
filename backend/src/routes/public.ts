@@ -777,27 +777,42 @@ router.patch(
 // Subscription API
 // ============================================
 
-const subscriptionSchema = z.object({ amountStars: z.number().min(1).default(199) });
+import { createInvoiceLink, SUBSCRIPTION_TIERS, type SubscriptionTier } from '../services/paymentService.js';
 
+const invoiceSchema = z.object({
+  tier: z.enum(['weekly', 'monthly', 'quarterly']),
+});
+
+// Create invoice link for Telegram Stars payment
 router.post(
-  '/subscriptions/mock-checkout',
+  '/payments/create-invoice',
   telegramAuth,
   asyncHandler(async (req, res) => {
-    const body = subscriptionSchema.safeParse(req.body ?? {});
-    if (!body.success) {
-      return res.status(400).json({ message: 'Некорректные данные' });
+    const parsed = invoiceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Некорректный тариф', issues: parsed.error.errors });
     }
-    await recordPayment(req.auth!.id, body.data.amountStars, 'success');
-    const subscription = await createSubscription(req.auth!.id, config.subscriptionDurationDays);
+
+    const tier = parsed.data.tier as SubscriptionTier;
+    const invoiceLink = await createInvoiceLink(req.auth!.id, tier);
+
+    res.json({ invoiceLink, tier: SUBSCRIPTION_TIERS[tier] });
+  })
+);
+
+// Get subscription tiers info
+router.get(
+  '/payments/tiers',
+  asyncHandler(async (_req, res) => {
     res.json({
-      subscription: {
-        status: subscription.status,
-        startAt: subscription.start_at,
-        endAt: subscription.end_at,
-      },
+      tiers: Object.entries(SUBSCRIPTION_TIERS).map(([key, value]) => ({
+        id: key,
+        ...value,
+      })),
     });
   })
 );
+
 
 // ============================================
 // Legacy Dialogs API - DEPRECATED

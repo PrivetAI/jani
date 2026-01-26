@@ -8,7 +8,7 @@ const defaults = {
   port: 3000,
   freeDailyMessageLimit: 50,
   enableMessageLimit: true,
-  subscriptionDurationDays: 30,
+
   webAppUrl: 'http://localhost:4173',
   adminTelegramIds: [] as string[],
   allowDevInitData: false,
@@ -64,7 +64,7 @@ const envSchema = z.object({
   MOCK_TELEGRAM_INIT_DATA: z.string().optional(),
   FREE_DAILY_MESSAGE_LIMIT: z.string().optional(),
   ENABLE_MESSAGE_LIMIT: z.enum(['true', 'false']).optional(),
-  SUBSCRIPTION_DURATION_DAYS: z.string().optional(),
+
   WEBAPP_URL: z.string().optional(),
   WEBAPP_PUBLIC_URL: z.string().optional(),
   LLM_TEMPERATURE: z.string().optional(),
@@ -116,11 +116,7 @@ export const config = {
   freeDailyMessageLimit: stringToInt(env.FREE_DAILY_MESSAGE_LIMIT, defaults.freeDailyMessageLimit, 'FREE_DAILY_MESSAGE_LIMIT'),
   enableMessageLimit:
     env.ENABLE_MESSAGE_LIMIT !== undefined ? env.ENABLE_MESSAGE_LIMIT === 'true' : defaults.enableMessageLimit,
-  subscriptionDurationDays: stringToInt(
-    env.SUBSCRIPTION_DURATION_DAYS,
-    defaults.subscriptionDurationDays,
-    'SUBSCRIPTION_DURATION_DAYS'
-  ),
+
   webAppUrl: env.WEBAPP_URL ?? defaults.webAppUrl,
   webAppPublicUrl: env.WEBAPP_PUBLIC_URL ?? env.WEBAPP_URL ?? defaults.webAppUrl,
   llmDefaultTemperature: stringToFloat(env.LLM_TEMPERATURE, defaults.llmDefaultTemperature, 'LLM_TEMPERATURE'),

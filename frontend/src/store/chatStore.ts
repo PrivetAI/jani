@@ -308,16 +308,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
         try {
             const data = await apiRequest<{
                 hasSubscription: boolean;
-                messagesLimit: { remaining: number; total: number; resetsAt: string | null };
+                messagesLimit: { remaining: number; total: number; resetsAt: string | null } | null;
             }>('/api/limits', { initData });
-            set({
-                limits: {
-                    remaining: data.messagesLimit.remaining,
-                    total: data.messagesLimit.total,
-                    resetsAt: data.messagesLimit.resetsAt,
-                    hasSubscription: data.hasSubscription,
-                }
-            });
+
+            if (data.messagesLimit) {
+                set({
+                    limits: {
+                        remaining: data.messagesLimit.remaining,
+                        total: data.messagesLimit.total,
+                        resetsAt: data.messagesLimit.resetsAt,
+                        hasSubscription: data.hasSubscription,
+                    }
+                });
+            } else {
+                // Message limits disabled - set unlimited
+                set({
+                    limits: {
+                        remaining: -1,
+                        total: -1,
+                        resetsAt: null,
+                        hasSubscription: data.hasSubscription,
+                    }
+                });
+            }
         } catch (err) {
             console.error('Failed to load limits:', err);
         }

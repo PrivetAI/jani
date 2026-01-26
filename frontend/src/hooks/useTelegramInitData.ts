@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 interface TelegramWebApp {
   initData?: string;
   ready?: () => void;
+  openInvoice?: (
+    url: string,
+    callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void
+  ) => void;
 }
 
 declare global {

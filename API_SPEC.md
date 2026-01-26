@@ -649,6 +649,150 @@ PATCH /api/admin/characters/:id/status
 DELETE /api/admin/characters/:id
 ```
 
+### Модерация персонажей
+
+#### Одобрение UGC персонажа
+
+```http
+POST /api/admin/characters/:id/approve
+x-telegram-init-data: <initDataString>
+```
+
+**Response:**
+```json
+{
+  "character": {
+    "id": 42,
+    "name": "Персонаж",
+    "isApproved": true
+  }
+}
+```
+
+**Побочные эффекты:**
+- Устанавливает `is_approved = true`
+- Инвалидирует кеш списка персонажей
+- Логирует действие админа
+
+#### Отклонение UGC персонажа
+
+```http
+DELETE /api/admin/characters/:id/reject
+x-telegram-init-data: <initDataString>
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Побочные эффекты:**
+- Удаляет персонажа из базы данных
+- Логирует действие админа
+
+### Управление Allowed Models
+
+#### Получение всех моделей
+
+```http
+GET /api/admin/allowed-models
+x-telegram-init-data: <initDataString>
+```
+
+**Response:**
+```json
+{
+  "models": [
+    {
+      "id": 1,
+      "provider": "gemini",
+      "modelId": "gemini-2.0-flash-exp",
+      "displayName": "Gemini 2.0 Flash",
+      "isDefault": false,
+      "isFallback": true,
+      "isRecommended": true,
+      "isActive": true,
+      "createdAt": "2025-01-20T00:00:00Z"
+    }
+  ]
+}
+```
+
+#### Создание новой модели
+
+```http
+POST /api/admin/allowed-models
+Content-Type: application/json
+x-telegram-init-data: <initDataString>
+
+{
+  "provider": "gemini",
+  "modelId": "gemini-2.0-flash-exp",
+  "displayName": "Gemini 2.0 Flash",
+  "isDefault": false,
+  "isFallback": false,
+  "isRecommended": true,
+  "isActive": true
+}
+```
+
+**Validation:**
+- `provider`: должен быть один из ['gemini', 'openrouter', 'openai']
+- `modelId`: уникальный идентификатор модели
+- `displayName`: отображаемое имя (мин. 1 символ)
+
+**Response:**
+```json
+{
+  "model": {
+    "id": 5,
+    "provider": "gemini",
+    "modelId": "gemini-2.0-flash-exp",
+    "displayName": "Gemini 2.0 Flash",
+    "isDefault": false,
+    "isFallback": false,
+    "isRecommended": true,
+    "isActive": true
+  }
+}
+```
+
+#### Обновление модели
+
+```http
+PUT /api/admin/allowed-models/:id
+Content-Type: application/json
+x-telegram-init-data: <initDataString>
+
+{
+  "displayName": "Gemini 2.0 Flash (Updated)",
+  "isDefault": false,
+  "isFallback": true,
+  "isRecommended": true,
+  "isActive": true
+}
+```
+
+**Response:** обновлённый объект модели
+
+#### Удаление модели
+
+```http
+DELETE /api/admin/allowed-models/:id
+x-telegram-init-data: <initDataString>
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Note:** Нельзя удалить модель, если она используется хотя бы одним персонажем.
+
 ### Управление тегами
 
 ```http
@@ -668,6 +812,7 @@ GET /api/admin/stats?period=day
 ```http
 GET /api/admin/users
 ```
+
 
 ---
 

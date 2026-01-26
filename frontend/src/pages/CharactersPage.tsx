@@ -15,30 +15,44 @@ interface CharacterCardProps {
     char: Character;
     tags: Tag[];
     selectedTags: number[];
+    hasSubscription: boolean;
     onSelect: (id: number) => void;
     onTagClick: (id: number) => void;
 }
 
-function CharacterCard({ char, tags, selectedTags, onSelect, onTagClick }: CharacterCardProps) {
+function CharacterCard({ char, tags, selectedTags, hasSubscription, onSelect, onTagClick }: CharacterCardProps) {
+    const isPremiumLocked = char.accessType === 'premium' && !hasSubscription;
+
     return (
         <div
             onClick={() => onSelect(char.id)}
-            className="group cursor-pointer rounded-2xl overflow-hidden bg-surface-light border border-border
+            className={`group cursor-pointer rounded-2xl overflow-hidden bg-surface-light border border-border
                 transition-all duration-300 hover:border-border-light hover:shadow-xl hover:shadow-primary/10
-                hover:-translate-y-1"
+                hover:-translate-y-1 ${isPremiumLocked ? 'relative' : ''}`}
         >
             {/* Avatar */}
             <div className="relative aspect-[3/4] overflow-hidden">
                 <img
                     src={getImageUrl(char.avatarUrl)}
                     alt={char.name}
-                    className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+                    className={`w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105
+                        ${isPremiumLocked ? 'brightness-75' : ''}`}
                 />
                 {char.accessType === 'premium' && (
-                    <span className="absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium
-                        bg-gradient-to-r from-purple-500/80 to-pink-500/80 backdrop-blur-sm">
-                        Premium
+                    <span className={`absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium
+                        ${isPremiumLocked
+                            ? 'bg-gradient-to-r from-amber-500/90 to-yellow-500/90 backdrop-blur-sm'
+                            : 'bg-gradient-to-r from-purple-500/80 to-pink-500/80 backdrop-blur-sm'}`}>
+                        {isPremiumLocked ? '🔒 Premium' : '⭐ Premium'}
                     </span>
+                )}
+                {/* Lock overlay for non-subscribers */}
+                {isPremiumLocked && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="text-center">
+                            <span className="text-4xl">🔒</span>
+                        </div>
+                    </div>
                 )}
             </div>
             {/* Info */}
@@ -134,6 +148,9 @@ export function CharactersPage() {
         );
     };
 
+    const { profile } = useUserStore();
+    const hasSubscription = profile?.subscriptionStatus === 'active';
+
     const renderCharacterGrid = (chars: Character[]) => (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {chars.map(char => (
@@ -142,6 +159,7 @@ export function CharactersPage() {
                     char={char}
                     tags={tags}
                     selectedTags={selectedTags}
+                    hasSubscription={hasSubscription}
                     onSelect={handleSelect}
                     onTagClick={toggleTag}
                 />

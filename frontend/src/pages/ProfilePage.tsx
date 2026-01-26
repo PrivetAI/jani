@@ -123,6 +123,41 @@ export function ProfilePage() {
                             </p>
                         </div>
 
+                        {/* Subscription button */}
+                        {profile.subscriptionStatus === 'active' ? (
+                            <div
+                                onClick={() => navigate('/subscription')}
+                                className="mb-6 p-4 rounded-xl bg-surface-light border border-border cursor-pointer hover:border-border-light transition-colors"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xl">⭐</span>
+                                        <div>
+                                            <p className="text-sm font-medium text-text-primary">Premium активен</p>
+                                            <p className="text-xs text-text-muted">до {profile.subscriptionEndAt ? new Date(profile.subscriptionEndAt).toLocaleDateString('ru-RU') : '—'}</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-text-muted">→</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div
+                                onClick={() => navigate('/subscription')}
+                                className="mb-6 p-4 rounded-xl bg-surface-light border border-border cursor-pointer hover:border-primary/50 transition-colors"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xl">⭐</span>
+                                        <div>
+                                            <p className="text-sm font-medium text-text-primary">Получить Premium</p>
+                                            <p className="text-xs text-text-muted">Безлимит сообщений + все персонажи</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-primary font-medium text-sm">Открыть →</span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Form */}
                         <div className="space-y-5">
                             <div>
