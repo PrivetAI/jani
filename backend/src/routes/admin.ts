@@ -484,9 +484,9 @@ router.patch(
 
     const character = characterResult.rows[0];
 
-    // Get creator's telegram_id
-    const userResult = await query<{ telegram_id: number }>(
-      'SELECT telegram_id FROM users WHERE id = $1',
+    // Get creator's telegram_user_id
+    const userResult = await query<{ telegram_user_id: number }>(
+      'SELECT telegram_user_id FROM users WHERE id = $1',
       [character.created_by]
     );
 
@@ -494,13 +494,13 @@ router.patch(
     await query('UPDATE characters SET is_approved = TRUE WHERE id = $1', [id]);
     invalidateCharactersCache();
 
-    // Notify user if telegram_id exists
-    if (userResult.rows.length && userResult.rows[0].telegram_id) {
+    // Notify user if telegram_user_id exists
+    if (userResult.rows.length && userResult.rows[0].telegram_user_id) {
       const { notifyUserCharacterApproved } = await import('../services/telegramNotifier.js');
       notifyUserCharacterApproved({
         characterId: id,
         characterName: character.name,
-        userTelegramId: userResult.rows[0].telegram_id,
+        userTelegramId: userResult.rows[0].telegram_user_id,
       }).catch(() => { }); // Fire and forget
     }
 
