@@ -8,7 +8,7 @@ const buildDataCheckString = (params: URLSearchParams): string => {
     .join('\n');
 };
 
-export const parseInitData = (initData: string, botToken: string): TelegramInitData => {
+export const parseInitData = (initData: string, botToken: string, skipHashValidation = false): TelegramInitData => {
   const params = new URLSearchParams(initData);
   const hash = params.get('hash');
   if (!hash) {
@@ -18,10 +18,12 @@ export const parseInitData = (initData: string, botToken: string): TelegramInitD
   params.delete('hash');
   const dataCheckString = buildDataCheckString(params);
 
-  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-  const expectedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-  if (expectedHash !== hash) {
-    throw new Error('Invalid Telegram init data hash');
+  if (!skipHashValidation) {
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const expectedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    if (expectedHash !== hash) {
+      throw new Error('Invalid Telegram init data hash');
+    }
   }
 
   const userRaw = params.get('user');

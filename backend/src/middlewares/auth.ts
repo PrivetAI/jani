@@ -23,7 +23,7 @@ export const telegramAuth = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ message: 'Unauthorized: missing Telegram init data' });
     }
 
-    const parsed = parseInitData(initData, config.telegramBotToken);
+    const parsed = parseInitData(initData, config.telegramBotToken, config.allowDevInitData);
     const user = await findOrCreateUser(parsed.user);
     const subscription = await getSubscriptionStatus(user.id);
     const isAdmin = config.adminTelegramIds.includes(String(parsed.user.id));
@@ -58,7 +58,7 @@ export const validateTelegramInitData = async (initData: string) => {
     ? config.mockInitData
     : initData;
 
-  const parsed = parseInitData(dataToValidate, config.telegramBotToken);
+  const parsed = parseInitData(dataToValidate, config.telegramBotToken, config.allowDevInitData);
   const user = await findOrCreateUser(parsed.user);
 
   return {

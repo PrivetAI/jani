@@ -258,38 +258,50 @@ export function ChatPage() {
 
             {/* Input Area */}
             <div className="flex gap-3 px-4 pt-4 pb-5 bg-surface/90 backdrop-blur-xl border-t border-border">
-                <textarea
-                    ref={textareaRef}
-                    inputMode="text"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    enterKeyHint="send"
-                    value={inputText}
-                    onChange={e => {
-                        setInputText(e.target.value);
-                        // Auto-grow textarea
-                        e.target.style.height = 'auto';
-                        e.target.style.height = Math.min(e.target.scrollHeight, 144) + 'px'; // max 6 lines (~144px)
-                    }}
-                    onKeyDown={handleKeyDown}
-                    placeholder={isSending ? 'Подождите ответа...' : 'Напишите сообщение...'}
-                    rows={1}
-                    disabled={isSending}
-                    className={`flex-1 px-4 py-3 rounded-2xl bg-surface-light border border-border text-text-primary
-                        placeholder:text-text-muted resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20
-                        ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    style={{ minHeight: '48px' }}
-                />
-                <button
-                    onClick={handleSend}
-                    disabled={!inputText.trim() || isSending}
-                    className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center self-end
-                        bg-gradient-to-r from-primary to-indigo-500 text-white text-lg
-                        disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                >
-                    ➤
-                </button>
+                {limits && !limits.hasSubscription && limits.remaining === 0 ? (
+                    <button
+                        onClick={() => navigate('/subscription')}
+                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-primary to-indigo-500 text-white font-medium
+                            hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    >
+                        ⚡ Получить безлимит сообщений
+                    </button>
+                ) : (
+                    <>
+                        <textarea
+                            ref={textareaRef}
+                            inputMode="text"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            enterKeyHint="send"
+                            value={inputText}
+                            onChange={e => {
+                                setInputText(e.target.value);
+                                // Auto-grow textarea
+                                e.target.style.height = 'auto';
+                                e.target.style.height = Math.min(e.target.scrollHeight, 144) + 'px'; // max 6 lines (~144px)
+                            }}
+                            onKeyDown={handleKeyDown}
+                            placeholder={isSending ? 'Подождите ответа...' : 'Напишите сообщение...'}
+                            rows={1}
+                            disabled={isSending}
+                            className={`flex-1 px-4 py-3 rounded-2xl bg-surface-light border border-border text-text-primary
+                                placeholder:text-text-muted resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20
+                                ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ minHeight: '48px' }}
+                        />
+                        <button
+                            onClick={handleSend}
+                            disabled={!inputText.trim() || isSending}
+                            className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center self-end
+                                bg-gradient-to-r from-primary to-indigo-500 text-white text-lg
+                                disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                        >
+                            ➤
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );
