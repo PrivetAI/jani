@@ -141,7 +141,7 @@ export function ChatPage() {
                         <div className="flex items-center gap-2 mt-1">
                             <span className="text-[11px]">⚡</span>
                             {limits.hasSubscription || limits.total === -1 ? (
-                                <span className="text-[11px] text-primary font-medium">∞</span>
+                                <span className="text-lg text-primary font-medium">∞</span>
                             ) : (
                                 <>
                                     <div className="flex-1 h-1 max-w-24 bg-border rounded-full overflow-hidden">

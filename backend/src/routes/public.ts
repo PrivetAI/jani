@@ -15,6 +15,7 @@ const characterResponse = (character: CharacterRecord, tags?: string[]) => ({
   avatarUrl: character.avatar_url,
   accessType: character.access_type,
   isActive: character.is_active,
+  isPrivate: character.is_private,
   grammaticalGender: character.grammatical_gender,
   tags: tags ?? [],
 });
@@ -40,13 +41,26 @@ router.get(
     });
 
     // Apply the visibility filter
-    const visibleCharacters = includePremium
-      ? characters
-      : characters.filter(c => c.access_type === 'free');
+    // 1. Filter by premium access
+    // 2. Filter private characters (only visible to creator)
+    const userId = req.auth!.id;
+    const visibleCharacters = characters.filter(c => {
+      // Private characters only visible to creator
+      if (c.is_private && c.created_by !== userId) return false;
+      // Premium characters only visible to premium users
+      if (c.access_type === 'premium' && !includePremium) return false;
+      return true;
+    });
 
     // Get user's sessions to determine "my characters" (sorted by last_message_at DESC)
     const userSessions = await getUserSessions(req.auth!.id);
     const myCharacterIds = userSessions.map(s => s.character_id);
+
+    // Add user's own private characters to myCharacterIds (even without dialog)
+    const ownPrivateCharacters = characters
+      .filter(c => c.created_by === userId && c.is_private)
+      .map(c => c.id);
+    const allMyCharacterIds = [...new Set([...ownPrivateCharacters, ...myCharacterIds])];
 
     // Get likes counts for all characters
     const likesMap = await getCharactersLikesCount(visibleCharacters.map(c => c.id));
@@ -62,7 +76,7 @@ router.get(
       })
     );
 
-    res.json({ characters: charactersWithTags, includePremium, myCharacterIds });
+    res.json({ characters: charactersWithTags, includePremium, myCharacterIds: allMyCharacterIds });
   })
 );
 
@@ -86,13 +100,14 @@ const createCharacterSchema = z.object({
   llm_temperature: z.number().min(0).max(2).optional().nullable(),
   llm_top_p: z.number().min(0).max(1).optional().nullable(),
   llm_repetition_penalty: z.number().min(0.5).max(2).optional().nullable(),
+  is_private: z.boolean().optional(),
 });
 
 router.post(
   '/characters',
   telegramAuth,
   asyncHandler(async (req, res) => {
-    const { setCharacterTags } = await import('../modules/index.js');
+    const { setCharacterTags, invalidateCharactersCache } = await import('../modules/index.js');
     const { notifyNewCharacter } = await import('../services/telegramNotifier.js');
 
     const parsed = createCharacterSchema.safeParse(req.body);
@@ -100,20 +115,32 @@ router.post(
       return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
     }
 
-    // Create character with is_approved = false (needs moderation)
+    // Check if trying to create private character without premium
+    const subscription = res.locals.subscription as { status: string } | undefined;
+    const isPrivate = parsed.data.is_private ?? false;
+    if (isPrivate && subscription?.status !== 'active') {
+      return res.status(403).json({ message: 'Личные персонажи доступны только для Premium' });
+    }
+
+    // Private characters don't need moderation - auto-approved
+    const needsModeration = !isPrivate;
+
+    // Create character
     const result = await query<{ id: number }>(
       `INSERT INTO characters (
-         name, description_long, avatar_url, system_prompt, access_type, is_active, is_approved, created_by,
+         name, description_long, avatar_url, system_prompt, access_type, is_active, is_approved, is_private, created_by,
          grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance,
          llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty
        )
-       VALUES ($1, $2, $3, $4, 'free', TRUE, FALSE, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       VALUES ($1, $2, $3, $4, 'free', TRUE, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING id`,
       [
         parsed.data.name,
         parsed.data.description_long,
         parsed.data.avatar_url ?? null,
         parsed.data.system_prompt,
+        !needsModeration, // is_approved = true for private
+        isPrivate,
         req.auth!.id,
         parsed.data.grammatical_gender ?? 'female',
         parsed.data.initial_attraction ?? 0,
@@ -145,27 +172,33 @@ router.post(
       tagNames = tagsResult.rows.map(t => t.name);
     }
 
-    // Notify admins about new character
-    notifyNewCharacter({
-      characterId,
-      characterName: parsed.data.name,
-      authorId: req.auth!.id,
-      authorName: req.auth!.username || 'User',
-      description: parsed.data.description_long,
-      systemPrompt: parsed.data.system_prompt,
-      gender: parsed.data.grammatical_gender ?? 'female',
-      llmModel: parsed.data.llm_model,
-      llmProvider: parsed.data.llm_provider,
-      llmTemperature: parsed.data.llm_temperature,
-      llmTopP: parsed.data.llm_top_p,
-      llmRepetitionPenalty: parsed.data.llm_repetition_penalty,
-      avatarUrl: parsed.data.avatar_url,
-      tags: tagNames,
-    }).catch(() => { }); // Fire and forget
+    // Invalidate cache so new character appears immediately
+    invalidateCharactersCache();
+
+    // Notify admins about new character (skip for private)
+    if (!isPrivate) {
+      notifyNewCharacter({
+        characterId,
+        characterName: parsed.data.name,
+        authorId: req.auth!.id,
+        authorName: req.auth!.username || 'User',
+        description: parsed.data.description_long,
+        systemPrompt: parsed.data.system_prompt,
+        gender: parsed.data.grammatical_gender ?? 'female',
+        llmModel: parsed.data.llm_model,
+        llmProvider: parsed.data.llm_provider,
+        llmTemperature: parsed.data.llm_temperature,
+        llmTopP: parsed.data.llm_top_p,
+        llmRepetitionPenalty: parsed.data.llm_repetition_penalty,
+        avatarUrl: parsed.data.avatar_url,
+        tags: tagNames,
+      }).catch(() => { }); // Fire and forget
+    }
 
     res.status(201).json({
       character: { id: characterId },
-      message: 'Персонаж отправлен на модерацию',
+      isPrivate,
+      message: isPrivate ? 'Личный персонаж создан' : 'Персонаж отправлен на модерацию',
     });
   })
 );
@@ -199,7 +232,17 @@ router.put(
       return res.status(400).json({ message: 'Некорректные данные', issues: parsed.error.errors });
     }
 
-    // Update character and set is_approved = false (needs re-moderation)
+    // Check if trying to make private without premium
+    const subscription = res.locals.subscription as { status: string } | undefined;
+    const isPrivate = parsed.data.is_private ?? false;
+    if (isPrivate && subscription?.status !== 'active') {
+      return res.status(403).json({ message: 'Личные персонажи доступны только для Premium' });
+    }
+
+    // Private characters don't need moderation
+    const needsModeration = !isPrivate;
+
+    // Update character and set is_approved = false (needs re-moderation) unless private
     await query(
       `UPDATE characters SET
          name = $3,
@@ -216,7 +259,8 @@ router.put(
          llm_temperature = $14,
          llm_top_p = $15,
          llm_repetition_penalty = $16,
-         is_approved = FALSE
+         is_private = $17,
+         is_approved = $18
        WHERE id = $1 AND created_by = $2`,
       [
         characterId,
@@ -235,6 +279,8 @@ router.put(
         parsed.data.llm_temperature ?? null,
         parsed.data.llm_top_p ?? null,
         parsed.data.llm_repetition_penalty ?? null,
+        isPrivate,
+        !needsModeration, // is_approved = true for private
       ]
     );
 
@@ -299,6 +345,7 @@ router.get(
       initial_dominance: number;
       created_by: number;
       is_approved: boolean;
+      is_private: boolean;
       llm_model: string | null;
       llm_provider: string | null;
       llm_temperature: number | null;
@@ -306,7 +353,7 @@ router.get(
       llm_repetition_penalty: number | null;
     }>(
       `SELECT id, name, description_long, avatar_url, system_prompt, grammatical_gender,
-       initial_attraction, initial_trust, initial_affection, initial_dominance, created_by, is_approved,
+       initial_attraction, initial_trust, initial_affection, initial_dominance, created_by, is_approved, is_private,
        llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty
        FROM characters WHERE id = $1`,
       [characterId]
@@ -343,6 +390,7 @@ router.get(
         llmTopP: character.llm_top_p,
         llmRepetitionPenalty: character.llm_repetition_penalty,
         isApproved: character.is_approved,
+        isPrivate: character.is_private ?? false,
         tagIds: tags.map(t => t.id),
       },
     });

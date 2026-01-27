@@ -110,6 +110,9 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_dominance INTEGER DEFAUL
 -- Character author (references users table - now safe because users exists)
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id);
 
+-- Private characters (visible only to creator)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE;
+
 -- Cross-reference: users.last_character_id
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_character_id INTEGER REFERENCES characters(id);
 

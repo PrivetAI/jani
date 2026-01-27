@@ -35,6 +35,7 @@ interface CharacterData {
     llmTemperature: number | null;
     llmTopP: number | null;
     llmRepetitionPenalty: number | null;
+    isPrivate?: boolean;
 }
 
 export function CreateCharacterPage() {
@@ -66,6 +67,7 @@ export function CreateCharacterPage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [isPrivate, setIsPrivate] = useState(false);
 
     // Load tags and character data (for edit mode)
     useEffect(() => {
@@ -99,6 +101,7 @@ export function CreateCharacterPage() {
                     setTemperature(c.llmTemperature != null ? Number(c.llmTemperature) : null);
                     setTopP(c.llmTopP != null ? Number(c.llmTopP) : null);
                     setRepetitionPenalty(c.llmRepetitionPenalty != null ? Number(c.llmRepetitionPenalty) : null);
+                    setIsPrivate(c.isPrivate ?? false);
                 }
             } catch (err: any) {
                 setError(err.message || 'Ошибка загрузки');
@@ -178,6 +181,7 @@ export function CreateCharacterPage() {
                 llm_temperature: temperature,
                 llm_top_p: topP,
                 llm_repetition_penalty: repetitionPenalty,
+                is_private: isPrivate,
             };
 
             if (isEdit) {
@@ -205,19 +209,21 @@ export function CreateCharacterPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center px-4">
                 <h1 className="text-2xl font-semibold text-text-primary mb-2">
-                    {isEdit ? 'Персонаж обновлён!' : 'Персонаж создан!'}
+                    {isEdit ? 'Персонаж обновлён!' : (isPrivate ? 'Личный персонаж создан!' : 'Персонаж создан!')}
                 </h1>
                 <p className="text-text-secondary text-center mb-6">
-                    {isEdit
-                        ? 'Изменения отправлены на модерацию. После проверки персонаж снова появится в каталоге.'
-                        : 'Ваш персонаж отправлен на модерацию. После проверки он появится в каталоге.'
+                    {isPrivate
+                        ? 'Ваш личный персонаж готов к использованию.'
+                        : isEdit
+                            ? 'Изменения отправлены на модерацию. После проверки персонаж снова появится в каталоге.'
+                            : 'Ваш персонаж отправлен на модерацию. После проверки он появится в каталоге.'
                     }
                 </p>
                 <button
-                    onClick={() => navigate('/profile')}
+                    onClick={() => navigate('/characters')}
                     className="px-6 py-3 bg-primary text-white rounded-xl font-medium"
                 >
-                    К моим персонажам
+                    К персонажам
                 </button>
             </div>
         );
@@ -445,6 +451,40 @@ export function CreateCharacterPage() {
                         <option value="female">Женский</option>
                         <option value="male">Мужской</option>
                     </select>
+                </div>
+
+                {/* Private/Public Toggle */}
+                <div className="p-4 rounded-xl bg-surface-light border border-border">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-text-primary">Личный персонаж</p>
+                            <p className="text-xs text-text-muted mt-1">
+                                Только вы будете видеть этого персонажа
+                            </p>
+                        </div>
+                        {profile?.subscriptionStatus === 'active' ? (
+                            <button
+                                type="button"
+                                onClick={() => setIsPrivate(!isPrivate)}
+                                className={`relative w-12 h-7 rounded-full transition-colors ${isPrivate ? 'bg-primary' : 'bg-border'
+                                    }`}
+                            >
+                                <span
+                                    className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${isPrivate ? 'translate-x-5' : ''
+                                        }`}
+                                />
+                            </button>
+                        ) : (
+                            <span className="text-xs text-primary px-2 py-1 bg-primary/10 rounded-lg">
+                                Premium
+                            </span>
+                        )}
+                    </div>
+                    {isPrivate && (
+                        <p className="text-xs text-success mt-2">
+                            ✓ Не требует модерации
+                        </p>
+                    )}
                 </div>
 
                 {/* Model Selection */}

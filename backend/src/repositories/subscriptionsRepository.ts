@@ -57,16 +57,37 @@ export const createSubscription = async (
   userId: number,
   durationDays: number
 ): Promise<SubscriptionRecord> => {
-  await query("UPDATE subscriptions SET status = 'expired' WHERE user_id = $1 AND status = 'active'", [userId]);
+  // Check if user has an active subscription to extend
+  const activeResult = await query<SubscriptionRecord>(
+    `SELECT * FROM subscriptions WHERE user_id = $1 AND status = 'active' ORDER BY end_at DESC LIMIT 1`,
+    [userId]
+  );
 
-  const start = new Date();
-  const end = new Date(start.getTime());
+  const now = new Date();
+
+  if (activeResult.rows.length > 0) {
+    // Extend existing subscription
+    const existing = activeResult.rows[0];
+    const currentEnd = new Date(existing.end_at);
+    const newEnd = new Date(currentEnd.getTime());
+    newEnd.setDate(newEnd.getDate() + durationDays);
+
+    const result = await query<SubscriptionRecord>(
+      `UPDATE subscriptions SET end_at = $1 WHERE id = $2 RETURNING *`,
+      [newEnd.toISOString(), existing.id]
+    );
+
+    return mapSubscription(result.rows[0]);
+  }
+
+  // No active subscription - create new one
+  const end = new Date(now.getTime());
   end.setDate(end.getDate() + durationDays);
 
   const result = await query<SubscriptionRecord>(
     `INSERT INTO subscriptions (user_id, status, start_at, end_at)
      VALUES ($1, 'active', $2, $3) RETURNING *`,
-    [userId, start.toISOString(), end.toISOString()]
+    [userId, now.toISOString(), end.toISOString()]
   );
 
   return mapSubscription(result.rows[0]);

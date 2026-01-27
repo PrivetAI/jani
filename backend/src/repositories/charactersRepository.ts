@@ -9,6 +9,7 @@ export interface CharacterRecord {
   access_type: 'free' | 'premium';
   is_active: boolean;
   is_approved: boolean;
+  is_private: boolean;
   created_at: string;
   created_by: number | null;
   // Catalog fields
@@ -36,6 +37,7 @@ const mapCharacter = (row: any): CharacterRecord => ({
   access_type: row.access_type,
   is_active: row.is_active,
   is_approved: row.is_approved ?? true,
+  is_private: row.is_private ?? false,
   created_at: row.created_at,
   created_by: row.created_by ?? null,
   genre: row.genre ?? null,
