@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import type { Character, LLMModel } from '../components/admin/types';
 import { CharacterEditForm } from '../components/admin/CharacterEditForm';
 import { CharacterListItem } from '../components/admin/CharacterListItem';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface GlobalSettings {
     summary_provider: string;
@@ -82,6 +83,21 @@ export function AdminPage() {
     const [pendingCharacters, setPendingCharacters] = useState<PendingCharacter[]>([]);
     const [expandedPending, setExpandedPending] = useState<number | null>(null);
     const [moderating, setModerating] = useState<number | null>(null);
+
+    // Character search
+    const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 300);
+
+    // Filtered characters
+    const filteredCharacters = useMemo(() => {
+        if (!debouncedSearch.trim()) return characters;
+        const query = debouncedSearch.toLowerCase();
+        return characters.filter(char =>
+            char.name.toLowerCase().includes(query) ||
+            char.description?.toLowerCase().includes(query) ||
+            char.createdBy?.name?.toLowerCase().includes(query)
+        );
+    }, [characters, debouncedSearch]);
 
     useEffect(() => {
         if (initData && profile?.isAdmin) {
@@ -388,7 +404,7 @@ export function AdminPage() {
     const currentModels = editForm.llmProvider ? providerModels[editForm.llmProvider] || [] : [];
 
     return (
-        <div className="min-h-screen p-4 pb-20">
+        <div className="min-h-screen p-4 pb-20" style={{ overscrollBehavior: 'contain' }}>
             <div className="max-w-4xl mx-auto">
                 <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                     Админ-панель
@@ -720,19 +736,19 @@ export function AdminPage() {
                         {allowedModels.map(model => (
                             <div
                                 key={model.id}
-                                className={`flex items-center justify-between p-3 rounded-lg border ${model.isActive ? 'bg-surface border-border' : 'bg-surface/50 border-border/50 opacity-60'}`}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border ${model.isActive ? 'bg-surface border-border' : 'bg-surface/50 border-border/50 opacity-60'}`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs px-2 py-0.5 rounded bg-surface-light text-text-muted">{model.provider}</span>
-                                    <div>
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <span className="text-xs px-2 py-0.5 rounded bg-surface-light text-text-muted shrink-0">{model.provider}</span>
+                                    <div className="min-w-0">
                                         <span className="text-sm font-medium text-text-primary">{model.displayName}</span>
                                         {model.isDefault && <span className="ml-2 text-xs text-primary">⭐ по умолчанию</span>}
                                         {model.isFallback && <span className="ml-2 text-xs text-warning">🔄 fallback</span>}
                                         {model.isRecommended && <span className="ml-2 text-xs text-success">✨ рекомендуемая</span>}
-                                        <p className="text-xs text-text-muted">{model.modelId}</p>
+                                        <p className="text-xs text-text-muted break-all">{model.modelId}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 sm:gap-2 flex-wrap shrink-0">
                                     <button
                                         onClick={async () => {
                                             if (!initData) return;
@@ -819,10 +835,9 @@ export function AdminPage() {
                                                 alert('Ошибка удаления модели');
                                             }
                                         }}
-                                        className="text-danger hover:text-danger/80 text-sm cursor-pointer"
-                                        title="Удалить"
+                                        className="px-2 py-1 rounded text-xs bg-danger/10 text-danger hover:bg-danger/20 cursor-pointer"
                                     >
-                                        ×
+                                        Удалить
                                     </button>
                                 </div>
                             </div>
@@ -906,15 +921,24 @@ export function AdminPage() {
                 </div>
 
                 {/* Characters */}
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-text-secondary">Персонажи ({characters.length})</h3>
-                    <button
-                        onClick={startCreate}
-                        className="px-3 py-1.5 rounded-lg text-xs bg-gradient-to-r from-primary to-indigo-500 text-white
-                            hover:shadow-lg hover:shadow-primary/20 transition-all cursor-pointer"
-                    >
-                        + Создать
-                    </button>
+                <div className="flex flex-col gap-3 mb-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-text-secondary">Персонажи ({filteredCharacters.length}{debouncedSearch ? ` из ${characters.length}` : ''})</h3>
+                        <button
+                            onClick={startCreate}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-gradient-to-r from-primary to-indigo-500 text-white
+                                hover:shadow-lg hover:shadow-primary/20 transition-all cursor-pointer"
+                        >
+                            + Создать
+                        </button>
+                    </div>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Поиск по имени, описанию, автору..."
+                        className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-text-primary text-sm placeholder:text-text-muted"
+                    />
                 </div>
 
                 {/* Create Form */}
@@ -935,7 +959,7 @@ export function AdminPage() {
                 )}
 
                 <div className="space-y-3">
-                    {characters.map(char => (
+                    {filteredCharacters.map(char => (
                         <div key={char.id} className="p-4 rounded-xl bg-surface-light border border-border">
                             {editingId === char.id ? (
                                 <CharacterEditForm

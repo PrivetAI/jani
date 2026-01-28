@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
-import { getImageUrl } from '../lib/imageUrl';
+import { getCharacterAvatarUrl } from '../lib/imageUrl';
 
 interface MyCharacter {
     id: number;
     name: string;
     avatarUrl?: string;
     isApproved: boolean;
+    grammaticalGender?: 'male' | 'female';
 }
 
 export function ProfilePage() {
@@ -284,11 +285,7 @@ export function ProfilePage() {
                                         key={char.id}
                                         className="flex items-center gap-3 p-3 rounded-xl bg-surface-light border border-border"
                                     >
-                                        {char.avatarUrl ? (
-                                            <img src={getImageUrl(char.avatarUrl)} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                                        ) : (
-                                            <div className="w-12 h-12 rounded-lg bg-surface flex items-center justify-center text-2xl">👤</div>
-                                        )}
+                                        <img src={getCharacterAvatarUrl(char.avatarUrl, char.grammaticalGender)} alt="" className="w-12 h-12 rounded-lg object-cover" />
                                         <div
                                             className={`flex-1 ${char.isApproved ? 'cursor-pointer' : ''}`}
                                             onClick={() => char.isApproved && navigate(`/character/${char.id}`)}

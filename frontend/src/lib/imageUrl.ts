@@ -20,3 +20,17 @@ export function getImageUrl(url: string | null | undefined): string {
     // For other relative paths, return as-is (they might be in public folder)
     return url;
 }
+
+/**
+ * Returns character avatar URL or default avatar based on gender.
+ * @param url - Custom avatar URL (can be null/undefined)
+ * @param gender - Character grammatical gender ('male' | 'female')
+ * @returns Processed avatar URL
+ */
+export function getCharacterAvatarUrl(url: string | null | undefined, gender: 'male' | 'female' = 'female'): string {
+    if (!url) {
+        return gender === 'male' ? '/avatars/male-default.png' : '/avatars/female-default.png';
+    }
+
+    return getImageUrl(url);
+}

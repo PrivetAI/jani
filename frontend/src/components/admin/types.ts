@@ -5,6 +5,7 @@ export interface Character {
     systemPrompt: string;
     accessType: 'free' | 'premium';
     isActive: boolean;
+    isPrivate?: boolean;
     avatarUrl?: string;
     genre?: string | null;
     grammaticalGender?: 'male' | 'female';
@@ -21,6 +22,7 @@ export interface Character {
     createdBy?: { id: number; name: string } | null;
     likesCount?: number;
 }
+
 
 export interface LLMModel {
     id: string;

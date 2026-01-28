@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
-import { getImageUrl } from '../lib/imageUrl';
+import { getCharacterAvatarUrl } from '../lib/imageUrl';
 
 interface AuthorInfo {
     id: number;
@@ -17,6 +17,7 @@ interface CharacterCard {
     accessType: 'free' | 'premium';
     tags: string[];
     likesCount: number;
+    grammaticalGender?: 'male' | 'female';
 }
 
 export function AuthorPage() {
@@ -99,7 +100,7 @@ export function AuthorPage() {
                             >
                                 <div className="aspect-square relative">
                                     <img
-                                        src={getImageUrl(char.avatarUrl)}
+                                        src={getCharacterAvatarUrl(char.avatarUrl, char.grammaticalGender)}
                                         alt={char.name}
                                         className="w-full h-full object-cover"
                                     />

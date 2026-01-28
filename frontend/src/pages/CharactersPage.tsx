@@ -4,7 +4,7 @@ import { useUserStore } from '../store/userStore';
 import { useNavigate } from 'react-router-dom';
 import { SearchBar } from '../components/characters/SearchBar';
 import { apiRequest } from '../lib/api';
-import { getImageUrl } from '../lib/imageUrl';
+import { getCharacterAvatarUrl } from '../lib/imageUrl';
 
 interface Tag {
     id: number;
@@ -33,7 +33,7 @@ function CharacterCard({ char, tags, selectedTags, hasSubscription, onSelect, on
             {/* Avatar */}
             <div className="relative aspect-[3/4] overflow-hidden">
                 <img
-                    src={getImageUrl(char.avatarUrl)}
+                    src={getCharacterAvatarUrl(char.avatarUrl, char.grammaticalGender)}
                     alt={char.name}
                     className={`w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105
                         ${isPremiumLocked ? 'brightness-75' : ''}`}

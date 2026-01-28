@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
-import { getImageUrl } from '../lib/imageUrl';
+import { getCharacterAvatarUrl } from '../lib/imageUrl';
 
 interface Tag {
     id: number;
@@ -265,17 +265,11 @@ export function CreateCharacterPage() {
                         Аватар
                     </label>
                     <div className="flex items-center gap-4">
-                        {avatarUrl ? (
-                            <img
-                                src={getImageUrl(avatarUrl)}
-                                alt="Avatar"
-                                className="w-32 h-32 rounded-xl object-cover"
-                            />
-                        ) : (
-                            <div className="w-32 h-32 rounded-xl bg-surface-light flex items-center justify-center text-5xl">
-                                👤
-                            </div>
-                        )}
+                        <img
+                            src={getCharacterAvatarUrl(avatarUrl, gender)}
+                            alt="Avatar"
+                            className="w-32 h-32 rounded-xl object-cover"
+                        />
                         <label className="px-4 py-2 bg-surface-light border border-border rounded-xl cursor-pointer
                             hover:border-primary transition-colors">
                             <span className="text-sm">{uploading ? 'Загрузка...' : 'Загрузить'}</span>

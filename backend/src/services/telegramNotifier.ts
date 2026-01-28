@@ -228,6 +228,118 @@ interface CharacterApprovedContext {
 /**
  * Notify user that their character was approved
  */
+interface PaymentSuccessContext {
+    telegramUserId: number;
+    username?: string;
+    tier: string;
+    tierLabel: string;
+    stars: number;
+    days: number;
+    chargeId: string;
+}
+
+/**
+ * Notify admins about successful Stars payment
+ */
+export async function notifyAdminPaymentSuccess(context: PaymentSuccessContext): Promise<void> {
+    const adminIds = config.adminTelegramIds;
+    if (!adminIds.length) return;
+
+    const timestamp = new Date().toISOString();
+    const userDisplay = context.username
+        ? `@${escapeHtml(context.username)} (${context.telegramUserId})`
+        : String(context.telegramUserId);
+
+    const lines = [
+        '💰💵💸 <b>Новая оплата Stars!</b> 💸💵💰',
+        '',
+        `<b>Пользователь:</b> ${userDisplay}`,
+        `<b>Тариф:</b> ${escapeHtml(context.tierLabel)}`,
+        `<b>Сумма:</b> ⭐️ ${context.stars} Stars`,
+        `<b>Дней:</b> ${context.days}`,
+        '',
+        `<code>${context.chargeId}</code>`,
+        '',
+        `<i>${timestamp}</i>`,
+    ];
+
+    const text = lines.join('\n');
+
+    for (const adminId of adminIds) {
+        try {
+            await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: adminId,
+                    text,
+                    parse_mode: 'HTML',
+                }),
+            });
+        } catch (err) {
+            logger.error('Failed to notify admin about payment', {
+                adminId,
+                error: (err as Error).message,
+            });
+        }
+    }
+}
+
+interface PaymentFailedContext {
+    telegramUserId: number;
+    username?: string;
+    reason: string;
+    payload?: string;
+}
+
+/**
+ * Notify admins about failed payment processing
+ */
+export async function notifyAdminPaymentFailed(context: PaymentFailedContext): Promise<void> {
+    const adminIds = config.adminTelegramIds;
+    if (!adminIds.length) return;
+
+    const timestamp = new Date().toISOString();
+    const userDisplay = context.username
+        ? `@${escapeHtml(context.username)} (${context.telegramUserId})`
+        : String(context.telegramUserId);
+
+    const lines = [
+        '❌💸 <b>Ошибка обработки оплаты</b> 💸❌',
+        '',
+        `<b>Пользователь:</b> ${userDisplay}`,
+        `<b>Причина:</b> ${escapeHtml(context.reason)}`,
+    ];
+
+    if (context.payload) {
+        lines.push(`<b>Payload:</b> <code>${escapeHtml(context.payload)}</code>`);
+    }
+
+    lines.push('');
+    lines.push(`<i>${timestamp}</i>`);
+
+    const text = lines.join('\n');
+
+    for (const adminId of adminIds) {
+        try {
+            await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: adminId,
+                    text,
+                    parse_mode: 'HTML',
+                }),
+            });
+        } catch (err) {
+            logger.error('Failed to notify admin about payment failure', {
+                adminId,
+                error: (err as Error).message,
+            });
+        }
+    }
+}
+
 export async function notifyUserCharacterApproved(context: CharacterApprovedContext): Promise<void> {
     const text = [
         '✅ <b>Ваш персонаж одобрен!</b>',

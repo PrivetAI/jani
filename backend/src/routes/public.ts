@@ -655,6 +655,7 @@ router.get(
           avatarUrl: char.avatar_url,
           accessType: char.access_type,
           isApproved: char.is_approved,
+          grammaticalGender: char.grammatical_gender || 'female',
           tags: tags.map(t => t.name),
           likesCount: likesMap.get(char.id) || 0,
         };

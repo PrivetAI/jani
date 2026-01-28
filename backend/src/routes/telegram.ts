@@ -7,6 +7,7 @@ import { buildWebAppButton } from '../telegram/helpers.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logger } from '../logger.js';
 import { answerPreCheckoutQuery, parseInvoicePayload, SUBSCRIPTION_TIERS } from '../services/paymentService.js';
+import { notifyAdminPaymentSuccess, notifyAdminPaymentFailed } from '../services/telegramNotifier.js';
 
 interface TelegramMessage {
   message_id: number;
@@ -128,6 +129,12 @@ const handleSuccessfulPayment = async (message: TelegramMessage) => {
 
   if (!payload) {
     logger.error('Invalid payload in successful payment', { payload: payment.invoice_payload });
+    await notifyAdminPaymentFailed({
+      telegramUserId: message.from.id,
+      username: message.from.username,
+      reason: 'Невалидный payload в успешном платеже',
+      payload: payment.invoice_payload,
+    });
     return;
   }
 
@@ -150,6 +157,17 @@ const handleSuccessfulPayment = async (message: TelegramMessage) => {
     tier: payload.tier,
     days: tierConfig.days,
     endAt: subscription.end_at,
+    chargeId: payment.telegram_payment_charge_id,
+  });
+
+  // Notify admins about successful payment 💰
+  await notifyAdminPaymentSuccess({
+    telegramUserId: message.from.id,
+    username: message.from.username,
+    tier: payload.tier,
+    tierLabel: tierConfig.label,
+    stars: tierConfig.stars,
+    days: tierConfig.days,
     chargeId: payment.telegram_payment_charge_id,
   });
 

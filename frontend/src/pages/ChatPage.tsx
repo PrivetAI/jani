@@ -7,9 +7,9 @@ import { SessionInfoPanel } from '../components/chat/SessionInfoPanel';
 import { LLMSettingsModal } from '../components/chat/LLMSettingsModal';
 import { formatMessage } from '../utils/textFormatter';
 import { getTypingStatus } from '../utils/gender';
-import { getImageUrl } from '../lib/imageUrl';
+import { getImageUrl, getCharacterAvatarUrl } from '../lib/imageUrl';
 
-function Avatar({ src, name, isUser }: { src?: string | null; name: string; isUser?: boolean }) {
+function Avatar({ src, name, isUser, gender }: { src?: string | null; name: string; isUser?: boolean; gender?: 'male' | 'female' }) {
     const initial = name?.charAt(0)?.toUpperCase() || '?';
 
     return (
@@ -19,8 +19,8 @@ function Avatar({ src, name, isUser }: { src?: string | null; name: string; isUs
                 : 'bg-surface-light border border-border text-text-secondary'
             }`}
         >
-            {src ? (
-                <img src={getImageUrl(src)} alt={name} className="w-full h-full rounded-xl object-cover" />
+            {src || (!isUser && gender) ? (
+                <img src={isUser ? getImageUrl(src) : getCharacterAvatarUrl(src, gender)} alt={name} className="w-full h-full rounded-xl object-cover" />
             ) : (
                 initial
             )}
@@ -214,6 +214,7 @@ export function ChatPage() {
                             src={msg.role === 'user' ? null : selectedCharacter?.avatarUrl}
                             name={msg.role === 'user' ? userName : (selectedCharacter?.name || 'AI')}
                             isUser={msg.role === 'user'}
+                            gender={msg.role === 'user' ? undefined : selectedCharacter?.grammaticalGender}
                         />
                         <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                             <span className="text-xs text-text-muted mb-1 px-4">
@@ -235,6 +236,7 @@ export function ChatPage() {
                         <Avatar
                             src={selectedCharacter?.avatarUrl}
                             name={selectedCharacter?.name || 'AI'}
+                            gender={selectedCharacter?.grammaticalGender}
                         />
                         <div className="flex flex-col items-start">
                             <span className="text-xs text-text-muted mb-1 px-1">

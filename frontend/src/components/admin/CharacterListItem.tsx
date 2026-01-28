@@ -1,5 +1,5 @@
 import type { Character } from './types';
-import { getImageUrl } from '../../lib/imageUrl';
+import { getCharacterAvatarUrl } from '../../lib/imageUrl';
 
 interface CharacterListItemProps {
     character: Character;
@@ -12,7 +12,7 @@ export function CharacterListItem({ character, onEdit, onDelete }: CharacterList
         <div className="flex items-center gap-3 flex-wrap">
             <div className="h-10 w-10 rounded-full overflow-hidden bg-surface-light border border-border shrink-0">
                 <img
-                    src={getImageUrl(character.avatarUrl)}
+                    src={getCharacterAvatarUrl(character.avatarUrl, character.grammaticalGender)}
                     alt={character.name}
                     className="w-full h-full object-cover"
                 />
@@ -30,6 +30,11 @@ export function CharacterListItem({ character, onEdit, onDelete }: CharacterList
                 }`}>
                 {character.isActive ? '✓' : '✗'}
             </span>
+            {character.isPrivate && (
+                <span className="px-2 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-400">
+                    🔒 Личный
+                </span>
+            )}
             {character.createdBy && (
                 <span className="text-xs text-text-muted">
                     👤 {character.createdBy.name}

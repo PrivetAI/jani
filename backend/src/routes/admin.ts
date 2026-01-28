@@ -403,6 +403,8 @@ router.get(
         llmRepetitionPenalty: c.llm_repetition_penalty,
         // Tags
         tagIds: tags.map(t => t.id),
+        // Private character flag
+        isPrivate: c.is_private,
       };
     });
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
-import { getImageUrl } from '../lib/imageUrl';
+import { getCharacterAvatarUrl } from '../lib/imageUrl';
 
 interface CharacterDetail {
     id: number;
@@ -213,7 +213,7 @@ export function CharacterPage() {
             <div className="relative">
                 <div className="aspect-[4/4] max-h-[48vh] overflow-hidden">
                     <img
-                        src={getImageUrl(character.avatarUrl)}
+                        src={getCharacterAvatarUrl(character.avatarUrl, character.grammaticalGender)}
                         alt={character.name}
                         className="w-full h-full object-cover"
                     />
