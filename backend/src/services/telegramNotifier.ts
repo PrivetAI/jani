@@ -372,3 +372,46 @@ export async function notifyUserCharacterApproved(context: CharacterApprovedCont
     }
 }
 
+interface CharacterRejectedContext {
+    characterId: number;
+    characterName: string;
+    userTelegramId: number;
+    reason: string;
+}
+
+/**
+ * Notify user that their character was rejected
+ */
+export async function notifyUserCharacterRejected(context: CharacterRejectedContext): Promise<void> {
+    const text = [
+        '❌ <b>Ваш персонаж отклонен</b>',
+        '',
+        `<b>Персонаж:</b> ${escapeHtml(context.characterName)}`,
+        `<b>Причина:</b> ${escapeHtml(context.reason)}`,
+        '',
+        'Пожалуйста, отредактируйте и мы проверим его еще раз',
+        'Ваши персонажи отображаются в «Профиль» → «Мои персонажи»',
+    ].join('\n');
+
+    try {
+        await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: context.userTelegramId,
+                text,
+                parse_mode: 'HTML',
+            }),
+        });
+        logger.info('User notified about character rejection', {
+            characterId: context.characterId,
+            userTelegramId: context.userTelegramId,
+        });
+    } catch (err) {
+        logger.error('Failed to notify user about character rejection', {
+            characterId: context.characterId,
+            userTelegramId: context.userTelegramId,
+            error: (err as Error).message,
+        });
+    }
+}

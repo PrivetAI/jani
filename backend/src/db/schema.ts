@@ -325,6 +325,9 @@ CREATE INDEX IF NOT EXISTS idx_comments_parent ON character_comments(parent_id);
 -- Add is_approved column for user-generated characters
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT TRUE;
 
+-- Add rejection_reason for moderation (stores reason when character is rejected)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
 -- =====================================================
 -- SEED DATA
 -- =====================================================

@@ -465,6 +465,57 @@ router.get(
   })
 );
 
+/** Get rejected characters for moderation */
+router.get(
+  '/characters/rejected',
+  asyncHandler(async (req, res) => {
+    const result = await query<{
+      id: number;
+      name: string;
+      description_long: string;
+      avatar_url: string | null;
+      system_prompt: string;
+      created_at: string;
+      created_by: number;
+      rejection_reason: string;
+    }>(
+      `SELECT id, name, description_long, avatar_url, system_prompt, created_at, created_by, rejection_reason
+       FROM characters
+       WHERE rejection_reason IS NOT NULL
+       ORDER BY created_at DESC`
+    );
+
+    const rejectedCharacters = await Promise.all(
+      result.rows.map(async (c) => {
+        let createdBy: { id: number; name: string } = { id: 0, name: 'Unknown' };
+        if (c.created_by) {
+          const authorResult = await query<{ id: number; nickname: string | null; username: string | null }>(
+            'SELECT id, nickname, username FROM users WHERE id = $1',
+            [c.created_by]
+          );
+          if (authorResult.rows.length) {
+            const author = authorResult.rows[0];
+            createdBy = { id: author.id, name: author.nickname || author.username || 'User' };
+          }
+        }
+
+        return {
+          id: c.id,
+          name: c.name,
+          description: c.description_long,
+          avatarUrl: c.avatar_url,
+          systemPrompt: c.system_prompt,
+          createdAt: c.created_at,
+          createdBy,
+          rejectionReason: c.rejection_reason,
+        };
+      })
+    );
+
+    res.json({ characters: rejectedCharacters });
+  })
+);
+
 /** Approve a character */
 router.patch(
   '/characters/:id/approve',
@@ -510,25 +561,52 @@ router.patch(
   })
 );
 
-/** Reject (delete) a character */
-router.delete(
+/** Reject a character (mark as rejected with reason) */
+router.patch(
   '/characters/:id/reject',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    // Get character info before deleting for logging
-    const charResult = await query<{ id: number; name: string }>('SELECT id, name FROM characters WHERE id = $1 AND is_approved = FALSE', [id]);
+    const { reason } = req.body as { reason?: string };
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: 'Причина отклонения обязательна' });
+    }
+
+    // Get character info and creator's telegram ID
+    const charResult = await query<{
+      id: number;
+      name: string;
+      created_by: number;
+    }>('SELECT id, name, created_by FROM characters WHERE id = $1 AND is_approved = FALSE', [id]);
+
     if (!charResult.rows.length) {
       logger.warn('Admin: reject character failed - not found or already approved', { characterId: id, adminId: req.auth?.id });
       return res.status(404).json({ message: 'Персонаж не найден или уже одобрен' });
     }
+
     const character = charResult.rows[0];
-    // Only delete unapproved characters
-    const result = await query('DELETE FROM characters WHERE id = $1 AND is_approved = FALSE RETURNING id', [id]);
-    if (!result.rowCount) {
-      return res.status(404).json({ message: 'Персонаж не найден или уже одобрен' });
+
+    // Update character with rejection reason (keep in DB, don't delete)
+    await query('UPDATE characters SET rejection_reason = $1 WHERE id = $2', [reason.trim(), id]);
+
+    // Get creator's telegram_user_id and notify them
+    const userResult = await query<{ telegram_user_id: number }>(
+      'SELECT telegram_user_id FROM users WHERE id = $1',
+      [character.created_by]
+    );
+
+    if (userResult.rows.length && userResult.rows[0].telegram_user_id) {
+      const { notifyUserCharacterRejected } = await import('../services/telegramNotifier.js');
+      notifyUserCharacterRejected({
+        characterId: id,
+        characterName: character.name,
+        userTelegramId: userResult.rows[0].telegram_user_id,
+        reason: reason.trim(),
+      }).catch(() => { }); // Fire and forget
     }
-    logger.info('Admin: character rejected', { characterId: id, characterName: character.name, adminId: req.auth?.id });
-    res.status(204).send();
+
+    logger.info('Admin: character rejected', { characterId: id, characterName: character.name, reason: reason.trim(), adminId: req.auth?.id });
+    res.json({ success: true });
   })
 );
 

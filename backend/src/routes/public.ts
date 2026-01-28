@@ -243,6 +243,7 @@ router.put(
     const needsModeration = !isPrivate;
 
     // Update character and set is_approved = false (needs re-moderation) unless private
+    // Also clear rejection_reason to move from rejected back to pending
     await query(
       `UPDATE characters SET
          name = $3,
@@ -260,7 +261,8 @@ router.put(
          llm_top_p = $15,
          llm_repetition_penalty = $16,
          is_private = $17,
-         is_approved = $18
+         is_approved = $18,
+         rejection_reason = NULL
        WHERE id = $1 AND created_by = $2`,
       [
         characterId,

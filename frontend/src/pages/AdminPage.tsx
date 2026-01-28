@@ -80,9 +80,17 @@ export function AdminPage() {
         createdBy: { id: number; name: string };
         createdAt: string;
     }
+    interface RejectedCharacter extends PendingCharacter {
+        rejectionReason: string;
+    }
     const [pendingCharacters, setPendingCharacters] = useState<PendingCharacter[]>([]);
+    const [rejectedCharacters, setRejectedCharacters] = useState<RejectedCharacter[]>([]);
     const [expandedPending, setExpandedPending] = useState<number | null>(null);
+    const [expandedRejected, setExpandedRejected] = useState<number | null>(null);
     const [moderating, setModerating] = useState<number | null>(null);
+    // Rejection modal state
+    const [rejectModalCharId, setRejectModalCharId] = useState<number | null>(null);
+    const [rejectionReason, setRejectionReason] = useState('');
 
     // Character search
     const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +133,10 @@ export function AdminPage() {
             // Load pending UGC characters
             apiRequest('/api/admin/characters/pending', { initData })
                 .then((data: any) => setPendingCharacters(data.characters || []))
+                .catch(console.error);
+            // Load rejected UGC characters
+            apiRequest('/api/admin/characters/rejected', { initData })
+                .then((data: any) => setRejectedCharacters(data.characters || []))
                 .catch(console.error);
             // Load allowed models
             apiRequest('/api/admin/allowed-models', { initData })
@@ -359,17 +371,40 @@ export function AdminPage() {
         }
     };
 
-    const rejectCharacter = async (id: number) => {
-        if (!initData || !confirm('Удалить этого персонажа?')) return;
-        setModerating(id);
+    // Open rejection modal
+    const rejectCharacter = (id: number) => {
+        setRejectModalCharId(id);
+        setRejectionReason('');
+    };
+
+    // Confirm rejection with reason
+    const confirmRejectCharacter = async () => {
+        if (!initData || !rejectModalCharId || !rejectionReason.trim()) return;
+        setModerating(rejectModalCharId);
         try {
-            await apiRequest(`/api/admin/characters/${id}/reject`, { method: 'DELETE', initData });
-            setPendingCharacters(prev => prev.filter(c => c.id !== id));
+            await apiRequest(`/api/admin/characters/${rejectModalCharId}/reject`, {
+                method: 'PATCH',
+                body: { reason: rejectionReason.trim() },
+                initData,
+            });
+            // Move from pending to rejected
+            const rejected = pendingCharacters.find(c => c.id === rejectModalCharId);
+            setPendingCharacters(prev => prev.filter(c => c.id !== rejectModalCharId));
+            if (rejected) {
+                setRejectedCharacters(prev => [{ ...rejected, rejectionReason: rejectionReason.trim() }, ...prev]);
+            }
+            setRejectModalCharId(null);
+            setRejectionReason('');
         } catch (err) {
             alert('Ошибка отклонения');
         } finally {
             setModerating(null);
         }
+    };
+
+    const cancelReject = () => {
+        setRejectModalCharId(null);
+        setRejectionReason('');
     };
 
     const deleteCharacterById = async (char: Character) => {
@@ -912,7 +947,88 @@ export function AdminPage() {
                     </div>
                 )}
 
-                {/* System Prompt */}
+                {/* Rejection Reason Modal */}
+                {rejectModalCharId && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-surface rounded-xl p-6 max-w-md w-full border border-border">
+                            <h3 className="text-lg font-semibold text-text-primary mb-4">Причина отклонения</h3>
+                            <textarea
+                                value={rejectionReason}
+                                onChange={e => setRejectionReason(e.target.value)}
+                                placeholder="Укажите причину отклонения персонажа..."
+                                className="w-full px-3 py-2 rounded-lg bg-surface-light border border-border text-text-primary text-sm min-h-[100px] resize-none"
+                                autoFocus
+                            />
+                            <div className="flex justify-end gap-2 mt-4">
+                                <button
+                                    onClick={cancelReject}
+                                    className="px-4 py-2 rounded-lg text-sm text-text-secondary hover:bg-surface-light cursor-pointer"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    onClick={confirmRejectCharacter}
+                                    disabled={!rejectionReason.trim() || moderating !== null}
+                                    className="px-4 py-2 rounded-lg text-sm bg-danger text-white hover:bg-danger/80 disabled:opacity-50 cursor-pointer"
+                                >
+                                    {moderating ? 'Отклонение...' : 'Отклонить'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Rejected Characters */}
+                {rejectedCharacters.length > 0 && (
+                    <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                        <h3 className="text-sm font-semibold mb-3 text-red-400">
+                            ❌ Отклонённые ({rejectedCharacters.length})
+                        </h3>
+                        <div className="space-y-3">
+                            {rejectedCharacters.map(char => (
+                                <div key={char.id} className="p-3 rounded-lg bg-surface border border-border">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            {char.avatarUrl ? (
+                                                <img src={char.avatarUrl} alt="" className="w-12 h-12 rounded-lg object-cover opacity-60" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-lg bg-surface-light flex items-center justify-center text-2xl opacity-60">👤</div>
+                                            )}
+                                            <div>
+                                                <h4 className="font-medium text-text-primary">{char.name}</h4>
+                                                <p className="text-xs text-text-muted">от {char.createdBy.name}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
+                                        <span className="text-xs text-red-400">Причина: </span>
+                                        <span className="text-xs text-text-secondary">{char.rejectionReason}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setExpandedRejected(expandedRejected === char.id ? null : char.id)}
+                                        className="mt-2 text-xs text-primary hover:underline cursor-pointer"
+                                    >
+                                        {expandedRejected === char.id ? 'Скрыть детали ▲' : 'Показать детали ▼'}
+                                    </button>
+                                    {expandedRejected === char.id && (
+                                        <div className="mt-3 space-y-2 text-sm">
+                                            <div>
+                                                <span className="text-text-muted">Описание:</span>
+                                                <p className="text-text-secondary mt-1">{char.description}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-text-muted">Системный промпт:</span>
+                                                <pre className="mt-1 p-2 rounded bg-slate-900 text-xs text-primary whitespace-pre-wrap">
+                                                    {char.systemPrompt}
+                                                </pre>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}                {/* System Prompt */}
                 <div className="mb-6">
                     <h3 className="text-sm font-semibold mb-2 text-text-secondary">Общий системный промпт</h3>
                     <pre className="p-3 rounded-lg bg-slate-900/80 border border-border text-primary text-xs font-mono whitespace-pre-wrap">
