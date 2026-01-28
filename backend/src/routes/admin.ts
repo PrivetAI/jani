@@ -431,7 +431,7 @@ router.get(
     }>(
       `SELECT id, name, description_long, avatar_url, system_prompt, created_at, created_by
        FROM characters
-       WHERE is_approved = FALSE
+       WHERE is_approved = FALSE AND rejection_reason IS NULL
        ORDER BY created_at DESC`
     );
 

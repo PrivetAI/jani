@@ -240,6 +240,10 @@ router.post(
                 isRegenerate: true,
             });
 
+            // For limit counting: save a dummy user message (regenerate consumes energy)
+            // This ensures countUserMessagesToday() includes regenerates
+            await addDialogMessage(req.auth!.id, characterId, 'user', '[regenerated]');
+
             // Get updated limits
             const usedNow = await countUserMessagesToday(req.auth!.id);
 
