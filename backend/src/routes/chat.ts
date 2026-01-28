@@ -17,6 +17,8 @@ import {
     updateSessionSettings,
     type DialogRecord,
     getOrCreateEmotionalState,
+    getLastAssistantMessage,
+    deleteDialogMessage,
 } from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
 import { config } from '../config.js';
@@ -174,6 +176,88 @@ router.post(
             success: true,
             deletedMessagesCount: result.rowCount ?? 0,
         });
+    })
+);
+
+/** Regenerate last assistant message */
+router.post(
+    '/:characterId/regenerate',
+    telegramAuth,
+    asyncHandler(async (req, res) => {
+        const characterId = Number(req.params.characterId);
+
+        const character = await getCharacterById(characterId);
+        if (!character || !character.is_active) {
+            return res.status(404).json({ error: 'character_not_found', message: 'Персонаж не найден' });
+        }
+
+        const subscription = res.locals.subscription as { status: string } | undefined;
+        const hasSubscription = subscription?.status === 'active';
+
+        if (character.access_type === 'premium' && !hasSubscription) {
+            return res.status(403).json({ error: 'premium_required', message: 'Требуется подписка' });
+        }
+
+        // Check message limit (same as regular message)
+        if (!hasSubscription && config.enableMessageLimit) {
+            const used = await countUserMessagesToday(req.auth!.id);
+            if (used >= config.freeDailyMessageLimit) {
+                return res.status(429).json({
+                    error: 'daily_limit_exceeded',
+                    message: `Дневной лимит ${config.freeDailyMessageLimit} сообщений исчерпан`,
+                    limits: {
+                        remaining: 0,
+                        total: config.freeDailyMessageLimit,
+                        resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+                    },
+                });
+            }
+        }
+
+        // Get last assistant message
+        const lastAssistant = await getLastAssistantMessage(req.auth!.id, characterId);
+        if (!lastAssistant) {
+            return res.status(400).json({ error: 'no_message', message: 'Нет сообщения для перегенерации' });
+        }
+
+        // Get last user message (to regenerate from)
+        const history = await getDialogHistory(req.auth!.id, characterId, { limit: 10 });
+        const lastUserMsg = [...history.messages].reverse().find(m => m.role === 'user');
+        if (!lastUserMsg) {
+            return res.status(400).json({ error: 'no_user_message', message: 'Нет сообщения пользователя' });
+        }
+
+        // Delete the old assistant message
+        await deleteDialogMessage(lastAssistant.id);
+
+        try {
+            // Generate new response using last user message
+            const result = await chatSessionService.processMessage({
+                telegramUserId: req.auth!.telegramUserId,
+                username: req.auth!.username,
+                messageText: lastUserMsg.message_text,
+                characterId,
+                isRegenerate: true,
+            });
+
+            // Get updated limits
+            const usedNow = await countUserMessagesToday(req.auth!.id);
+
+            res.json({
+                assistantMessage: {
+                    role: 'assistant',
+                    text: result.reply,
+                    createdAt: new Date().toISOString(),
+                },
+                limits: (hasSubscription || !config.enableMessageLimit) ? null : {
+                    remaining: Math.max(0, config.freeDailyMessageLimit - usedNow),
+                    total: config.freeDailyMessageLimit,
+                    resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+                },
+            });
+        } catch (error: any) {
+            return res.status(500).json({ error: 'llm_error', message: error.message });
+        }
     })
 );
 

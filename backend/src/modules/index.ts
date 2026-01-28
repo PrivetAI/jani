@@ -22,6 +22,8 @@ export {
     countUserMessagesToday,
     getDialogHistory,
     getLastCharacterForUser,
+    getLastAssistantMessage,
+    deleteDialogMessage,
     type DialogRecord,
     type DialogHistoryOptions,
     type DialogHistoryResult,

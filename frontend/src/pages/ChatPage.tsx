@@ -47,6 +47,8 @@ export function ChatPage() {
         hasMoreMessages,
         isSending,
         isTyping,
+        isRegenerating,
+        regenerateLastMessage,
         error,
         initSocket,
         disconnectSocket
@@ -208,29 +210,54 @@ export function ChatPage() {
                         <span className="text-text-muted text-xs">↑ Прокрутите вверх для загрузки</span>
                     </div>
                 )}
-                {messages.map(msg => (
-                    <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                        <Avatar
-                            src={msg.role === 'user' ? null : selectedCharacter?.avatarUrl}
-                            name={msg.role === 'user' ? userName : (selectedCharacter?.name || 'AI')}
-                            isUser={msg.role === 'user'}
-                            gender={msg.role === 'user' ? undefined : selectedCharacter?.grammaticalGender}
-                        />
-                        <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                            <span className="text-xs text-text-muted mb-1 px-4">
-                                {msg.role === 'user' ? userName : selectedCharacter?.name}
-                            </span>
-                            <div className={`px-4 py-3 rounded-2xl leading-relaxed text-left overflow-wrap-anywhere
-                                ${msg.role === 'user'
-                                    ? 'bg-gradient-to-r from-primary/70 to-indigo-500/60 rounded-br-sm'
-                                    : 'bg-surface border border-border rounded-bl-sm'
-                                }`}
-                            >
-                                {formatMessage(msg.text)}
+                {messages.map((msg, index) => {
+                    // Check if this is the last assistant message
+                    const isLastAssistant = msg.role === 'assistant' &&
+                        index === messages.length - 1 ||
+                        (msg.role === 'assistant' && messages.slice(index + 1).every(m => m.role === 'user'));
+                    const showRegenerate = isLastAssistant && !isSending && !isTyping && !isRegenerating;
+
+                    return (
+                        <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <Avatar
+                                src={msg.role === 'user' ? null : selectedCharacter?.avatarUrl}
+                                name={msg.role === 'user' ? userName : (selectedCharacter?.name || 'AI')}
+                                isUser={msg.role === 'user'}
+                                gender={msg.role === 'user' ? undefined : selectedCharacter?.grammaticalGender}
+                            />
+                            <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                <span className="text-xs text-text-muted mb-1 px-4">
+                                    {msg.role === 'user' ? userName : selectedCharacter?.name}
+                                </span>
+                                <div className={`px-4 py-3 rounded-2xl leading-relaxed text-left overflow-wrap-anywhere
+                                    ${msg.role === 'user'
+                                        ? 'bg-gradient-to-r from-primary/70 to-indigo-500/60 rounded-br-sm'
+                                        : 'bg-surface border border-border rounded-bl-sm'
+                                    } ${isRegenerating && isLastAssistant ? 'opacity-50' : ''}`}
+                                >
+                                    {formatMessage(msg.text)}
+                                </div>
+                                {showRegenerate && initData && (
+                                    <div className="w-full flex justify-end mt-1">
+                                        <button
+                                            onClick={() => regenerateLastMessage(characterId, initData)}
+                                            className="p-2 text-text-muted hover:text-primary 
+                                                hover:bg-primary/10 rounded-lg transition-colors"
+                                            title="Перегенерировать"
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                                <path d="M3 3v5h5" />
+                                                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                                                <path d="M16 21h5v-5" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {(isSending || isTyping) && (
                     <div className="flex gap-2 flex-row">
                         <Avatar

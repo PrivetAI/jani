@@ -111,3 +111,25 @@ export const getLastCharacterForUser = async (userId: number): Promise<number | 
   );
   return result.rows[0]?.character_id ?? null;
 };
+
+export const getLastAssistantMessage = async (
+  userId: number,
+  characterId: number
+): Promise<DialogRecord | null> => {
+  const result = await query<DialogRecord>(
+    `SELECT * FROM dialogs
+     WHERE user_id = $1 AND character_id = $2 AND role = 'assistant'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId, characterId]
+  );
+  return result.rows[0] ? mapDialog(result.rows[0]) : null;
+};
+
+export const deleteDialogMessage = async (messageId: number): Promise<boolean> => {
+  const result = await query(
+    'DELETE FROM dialogs WHERE id = $1',
+    [messageId]
+  );
+  return (result.rowCount ?? 0) > 0;
+};

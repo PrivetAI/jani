@@ -69,20 +69,19 @@ services:
       VITE_DEBUG_LOG: ${VITE_DEBUG_LOG:-true}
     ports:
       - "4173:4173"
-
-  ngrok:
-    image: ngrok/ngrok:alpine
-    depends_on:
-      - frontend
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
-    command:
-      - "http"
-      - "--url=${NGROK_DOMAIN:-}"
-      - "frontend:4173"
-    ports:
-      - "4040:4040"
-    restart: unless-stopped
+  # ngrok:
+  #   image: ngrok/ngrok:alpine
+  #   depends_on:
+  #     - frontend
+  #   environment:
+  #     NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+  #   command:
+  #     - "http"
+  #     - "--url=${NGROK_DOMAIN:-}"
+  #     - "frontend:4173"
+  #   ports:
+  #     - "4040:4040"
+  #   restart: unless-stopped
 
 volumes:
   pgdata:

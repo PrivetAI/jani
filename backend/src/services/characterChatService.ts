@@ -289,8 +289,10 @@ export class CharacterChatService {
     let staticMessages = this.buildStaticMessages(request.character, voicePerson, userInfo, memoryBlock, userFacts, emotionalContext);
     let staticTokens = this.countTokens(staticMessages);
 
-
-    const windowWithUser = [...windowMessages, userTurn];
+    // For regenerate: history already contains the last user message, don't add it again
+    const windowWithUser = request.isRegenerate
+      ? windowMessages
+      : [...windowMessages, userTurn];
     const availableForWindow = unlimitedBudget
       ? Number.POSITIVE_INFINITY
       : Math.max(

@@ -10,6 +10,7 @@ export interface ChatRequest {
     character: CharacterRecord;
     userMessage: string;
     history: DialogRecord[];
+    isRegenerate?: boolean;
     // User-level LLM settings (from chat_sessions table + allowed_models lookup)
     sessionLlmSettings?: {
         model?: string | null;

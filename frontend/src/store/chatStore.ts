@@ -68,6 +68,7 @@ interface ChatState {
     nextMessagesCursor: string | null;
     isSending: boolean;
     isTyping: boolean;
+    isRegenerating: boolean;
     isLoadingMemories: boolean;
     error: string | null;
 
@@ -89,6 +90,7 @@ interface ChatState {
     loadSession: (characterId: number, initData: string) => Promise<void>;
     updateSessionSettings: (characterId: number, settings: { llmModel: string | null }, initData: string) => Promise<void>;
     forgetRecent: (characterId: number, count: number, initData: string) => Promise<void>;
+    regenerateLastMessage: (characterId: number, initData: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -106,6 +108,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     nextMessagesCursor: null,
     isSending: false,
     isTyping: false,
+    isRegenerating: false,
     isLoadingMemories: false,
     error: null,
     // Internal state for socket handlers
@@ -369,6 +372,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
             set(state => ({ messages: state.messages.slice(0, -count) }));
         } catch (err) {
             set({ error: (err as Error).message });
+        }
+    },
+
+    regenerateLastMessage: async (characterId: number, initData: string) => {
+        // Remove last assistant message and show typing
+        set(state => {
+            const messages = [...state.messages];
+            // Find and remove last assistant message
+            for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].role === 'assistant') {
+                    messages.splice(i, 1);
+                    break;
+                }
+            }
+            return { messages, isRegenerating: true, isTyping: true, error: null };
+        });
+
+        try {
+            const data = await apiRequest<{
+                assistantMessage: { role: 'assistant'; text: string; createdAt: string };
+                limits: { remaining: number; total: number; resetsAt: string } | null;
+            }>(`/api/chats/${characterId}/regenerate`, {
+                method: 'POST',
+                initData
+            });
+
+            // Add new assistant message
+            const newMessage = {
+                id: Date.now(),
+                role: 'assistant' as const,
+                text: data.assistantMessage.text,
+                createdAt: data.assistantMessage.createdAt,
+            };
+
+            set(state => ({
+                messages: [...state.messages, newMessage],
+                isRegenerating: false,
+                isTyping: false,
+                limits: data.limits ? { ...state.limits!, ...data.limits, hasSubscription: state.limits?.hasSubscription ?? false } : state.limits,
+            }));
+        } catch (err) {
+            set({ error: (err as Error).message, isRegenerating: false, isTyping: false });
         }
     }
 }));

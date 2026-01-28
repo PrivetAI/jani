@@ -22,6 +22,7 @@ export interface ChatRequest {
   username?: string;
   messageText: string;
   characterId?: number | null;
+  isRegenerate?: boolean;
 }
 
 export class ChatSessionService {
@@ -105,10 +106,13 @@ export class ChatSessionService {
         userMessage: request.messageText,
         history,
         sessionLlmSettings,
+        isRegenerate: request.isRegenerate,
       });
 
-      // Save user message only after successful LLM response
-      await addDialogMessage(user.id, character.id, 'user', request.messageText);
+      // Save user message only after successful LLM response (skip for regenerate)
+      if (!request.isRegenerate) {
+        await addDialogMessage(user.id, character.id, 'user', request.messageText);
+      }
 
       // Save only clean reply to history (no thoughts)
       await addDialogMessage(user.id, character.id, 'assistant', result.reply);
