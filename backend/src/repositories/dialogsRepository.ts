@@ -22,11 +22,12 @@ export const addDialogMessage = async (
   userId: number,
   characterId: number,
   role: 'user' | 'assistant',
-  message: string
+  message: string,
+  isRegenerated = false
 ) => {
   await query(
-    'INSERT INTO dialogs (user_id, character_id, role, message_text) VALUES ($1, $2, $3, $4)',
-    [userId, characterId, role, message]
+    'INSERT INTO dialogs (user_id, character_id, role, message_text, is_regenerated) VALUES ($1, $2, $3, $4, $5)',
+    [userId, characterId, role, message, isRegenerated]
   );
 };
 
@@ -82,6 +83,7 @@ export const getDialogHistory = async (
     result = await query<DialogRecord>(
       `SELECT * FROM dialogs
        WHERE user_id = $1 AND character_id = $2 AND created_at < $3
+         AND (is_regenerated IS NULL OR is_regenerated = FALSE)
        ORDER BY created_at DESC
        LIMIT $4`,
       [userId, characterId, options.before, fetchLimit]
@@ -90,6 +92,7 @@ export const getDialogHistory = async (
     result = await query<DialogRecord>(
       `SELECT * FROM dialogs
        WHERE user_id = $1 AND character_id = $2
+         AND (is_regenerated IS NULL OR is_regenerated = FALSE)
        ORDER BY created_at DESC
        LIMIT $3`,
       [userId, characterId, fetchLimit]
