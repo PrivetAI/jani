@@ -163,17 +163,20 @@ export const parseJsonResponse = (rawResponse: string): ExtractedData => {
     });
 
     try {
-        // Try to find JSON object with "reply" field
-        const jsonMatch = rawResponse.match(/\{[\s\S]*"reply"[\s\S]*\}/);
+        // First, try to parse the whole response as JSON directly
+        let jsonStr = rawResponse.trim();
 
-        if (!jsonMatch) {
-            logger.warn('No JSON with "reply" field found in LLM response', {
-                preview: preview(rawResponse, 150)
-            });
-            return defaultResult;
+        // If response is not starting with {, try to extract JSON
+        if (!jsonStr.startsWith('{')) {
+            const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                logger.warn('No JSON found in LLM response', {
+                    preview: preview(rawResponse, 150)
+                });
+                return defaultResult;
+            }
+            jsonStr = jsonMatch[0];
         }
-
-        let jsonStr = jsonMatch[0];
 
         // Sanitize JSON: fix common LLM mistakes
 
