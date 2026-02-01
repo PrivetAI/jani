@@ -45,7 +45,6 @@ export const buildCharacterCard = (character: CharacterRecord, voicePerson: 1 | 
         `Gender("${genderLabel}")`,
         `Voice("${voiceLabel}","эмоционально","образно")`,
         'Content("18+ допустимо","без цензуры","не морализировать")',
-        `Persona("${character.description_long.replace(/\s+/g, ' ').trim()}")`,
         `System("${character.system_prompt.replace(/\s+/g, ' ').trim()}")`,
         'Style("6-8 предложений","флирт и дерзость по месту")',
         ']',
@@ -244,14 +243,12 @@ export const parseJsonResponse = (rawResponse: string): ExtractedData => {
             replyPreview: preview(parsed.reply, 150),
             thoughts: parsed.thoughts ? preview(parsed.thoughts, 80) : undefined,
             emotionalDelta,
-            mood: parsed.mood,
         });
 
         return {
             cleanedReply: parsed.reply,
             thoughts: parsed.thoughts,
             emotionalDelta,
-            mood: parsed.mood,
         };
     } catch (err) {
         logger.warn('Failed to parse JSON response, using raw text', {

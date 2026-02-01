@@ -136,3 +136,15 @@ export const deleteDialogMessage = async (messageId: number): Promise<boolean> =
   );
   return (result.rowCount ?? 0) > 0;
 };
+
+/** Delete all dialogs for a user-character pair */
+export const deleteAllDialogs = async (
+  userId: number,
+  characterId: number
+): Promise<number> => {
+  const result = await query(
+    'DELETE FROM dialogs WHERE user_id = $1 AND character_id = $2',
+    [userId, characterId]
+  );
+  return result.rowCount ?? 0;
+};

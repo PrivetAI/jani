@@ -4,20 +4,13 @@ import { query } from '../db/pool.js';
 export interface EmotionalState {
     userId: number;
     characterId: number;
-    attraction: number;  // -50 to +50
-    trust: number;       // -50 to +50
-    affection: number;   // -50 to +50
-    dominance: number;   // -50 to +50 (negative = user dominates)
-    mood: CharacterMood;
+    attraction: number;  // -100 to +100
+    trust: number;       // -100 to +100
+    affection: number;   // -100 to +100
+    dominance: number;   // -100 to +100 (negative = user dominates)
     updatedAt: string;
     // Computed field
-    closeness: number;   // 0 to 50, computed from (attraction + trust + affection) / 3
-}
-
-export interface CharacterMood {
-    primary: string;      // e.g. "jealous", "aroused", "vulnerable"
-    secondary?: string;
-    intensity: number;    // 1-10
+    closeness: number;   // 0 to 100, computed from (attraction + trust + affection) / 3
 }
 
 export interface EmotionalDelta {
@@ -34,7 +27,6 @@ interface StateRecord {
     trust: number;
     affection: number;
     dominance: number;
-    mood: CharacterMood;
     updated_at: string;
 }
 
@@ -43,7 +35,6 @@ const DEFAULT_STATE = {
     trust: 10,
     affection: 5,
     dominance: 0,
-    mood: { primary: 'neutral', intensity: 5 } as CharacterMood,
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -59,7 +50,6 @@ const mapState = (row: StateRecord): EmotionalState => ({
     trust: row.trust,
     affection: row.affection,
     dominance: row.dominance,
-    mood: row.mood,
     updatedAt: row.updated_at,
     closeness: computeCloseness(row.attraction, row.trust, row.affection),
 });
@@ -100,8 +90,8 @@ export const getOrCreateEmotionalState = async (
 
     // Create new with character's initial values
     const result = await query<StateRecord>(
-        `INSERT INTO user_character_state (user_id, character_id, attraction, trust, affection, dominance, mood)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO user_character_state (user_id, character_id, attraction, trust, affection, dominance)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
         [
             userId,
@@ -110,7 +100,6 @@ export const getOrCreateEmotionalState = async (
             initialTrust,
             initialAffection,
             initialDominance,
-            JSON.stringify(DEFAULT_STATE.mood),
         ]
     );
 
@@ -119,32 +108,30 @@ export const getOrCreateEmotionalState = async (
 
 /**
  * Update emotional state with deltas
- * Clamps all values to -50..+50 range
+ * Clamps all values to -100..+100 range
  */
 export const updateEmotionalState = async (
     userId: number,
     characterId: number,
-    delta: EmotionalDelta,
-    newMood?: CharacterMood
+    delta: EmotionalDelta
 ): Promise<EmotionalState> => {
     const current = await getOrCreateEmotionalState(userId, characterId);
 
-    const newAttraction = clamp(current.attraction + (delta.attraction || 0), -50, 50);
-    const newTrust = clamp(current.trust + (delta.trust || 0), -50, 50);
-    const newAffection = clamp(current.affection + (delta.affection || 0), -50, 50);
-    const newDominance = clamp(current.dominance + (delta.dominance || 0), -50, 50);
+    const newAttraction = clamp(current.attraction + (delta.attraction || 0), -100, 100);
+    const newTrust = clamp(current.trust + (delta.trust || 0), -100, 100);
+    const newAffection = clamp(current.affection + (delta.affection || 0), -100, 100);
+    const newDominance = clamp(current.dominance + (delta.dominance || 0), -100, 100);
 
     const result = await query<StateRecord>(
         `UPDATE user_character_state 
-     SET attraction = $1, trust = $2, affection = $3, dominance = $4, mood = $5, updated_at = NOW()
-     WHERE user_id = $6 AND character_id = $7
+     SET attraction = $1, trust = $2, affection = $3, dominance = $4, updated_at = NOW()
+     WHERE user_id = $5 AND character_id = $6
      RETURNING *`,
         [
             newAttraction,
             newTrust,
             newAffection,
             newDominance,
-            JSON.stringify(newMood || current.mood),
             userId,
             characterId,
         ]
@@ -163,38 +150,60 @@ export const buildEmotionalContext = (state: EmotionalState, gender: 'male' | 'f
 
     // Closeness level
     let closenessLabel: string;
-    if (state.closeness >= 40) closenessLabel = 'очень близкие';
-    else if (state.closeness >= 25) closenessLabel = 'тёплые';
-    else if (state.closeness >= 10) closenessLabel = 'нейтральные';
+    if (state.closeness >= 80) closenessLabel = 'очень близкие';
+    else if (state.closeness >= 50) closenessLabel = 'тёплые';
+    else if (state.closeness >= 20) closenessLabel = 'нейтральные';
     else if (state.closeness >= 0) closenessLabel = 'прохладные';
     else closenessLabel = 'напряжённые';
 
-    parts.push(`Отношения: ${closenessLabel} (близость ${state.closeness}/50)`);
+    parts.push(`Отношения: ${closenessLabel} (близость ${state.closeness}/100)`);
 
-    // Individual dimensions
-    const dims: string[] = [];
-    if (state.attraction > 20) dims.push('сильное влечение');
-    else if (state.attraction < -20) dims.push('отталкивание');
+    // Attraction
+    let attractionLabel: string | null = null;
+    if (state.attraction >= 80) attractionLabel = 'страстное влечение';
+    else if (state.attraction >= 50) attractionLabel = 'сильное влечение';
+    else if (state.attraction >= 20) attractionLabel = 'лёгкий интерес';
+    else if (state.attraction <= -60) attractionLabel = 'сильное отталкивание';
+    else if (state.attraction <= -30) attractionLabel = 'неприязнь';
 
-    if (state.trust > 30) dims.push('полное доверие');
-    else if (state.trust < -20) dims.push('недоверие');
+    // Trust
+    let trustLabel: string | null = null;
+    if (state.trust >= 80) trustLabel = 'абсолютное доверие';
+    else if (state.trust >= 50) trustLabel = 'высокое доверие';
+    else if (state.trust >= 20) trustLabel = 'осторожное доверие';
+    else if (state.trust <= -60) trustLabel = 'глубокое недоверие';
+    else if (state.trust <= -30) trustLabel = 'подозрительность';
 
-    if (state.affection > 30) dims.push('глубокая привязанность');
-    else if (state.affection < -20) dims.push('холодность');
+    // Affection
+    let affectionLabel: string | null = null;
+    if (state.affection >= 80) affectionLabel = 'глубокая любовь';
+    else if (state.affection >= 50) affectionLabel = 'сильная привязанность';
+    else if (state.affection >= 20) affectionLabel = 'симпатия';
+    else if (state.affection <= -60) affectionLabel = 'враждебность';
+    else if (state.affection <= -30) affectionLabel = 'холодность';
 
-    if (state.dominance > 20) parts.push('Персонаж доминирует в отношениях');
-    else if (state.dominance < -20) parts.push('Пользователь ведёт в отношениях');
+    // Dominance
+    let dominanceLabel: string | null = null;
+    if (state.dominance >= 60) dominanceLabel = 'персонаж полностью доминирует';
+    else if (state.dominance >= 30) dominanceLabel = 'персонаж ведёт';
+    else if (state.dominance <= -60) dominanceLabel = 'пользователь полностью доминирует';
+    else if (state.dominance <= -30) dominanceLabel = 'пользователь ведёт';
 
+    const dims = [attractionLabel, trustLabel, affectionLabel].filter(Boolean);
     if (dims.length) parts.push(dims.join(', '));
-
-    // Mood (free-form from LLM)
-    if (state.mood.primary) {
-        const intensity = state.mood.intensity;
-        let moodText = state.mood.primary;
-        if (intensity >= 8) moodText = `очень ${moodText}`;
-        else if (intensity <= 3) moodText = `слегка ${moodText}`;
-        parts.push(`Текущее настроение персонажа: ${moodText}`);
-    }
+    if (dominanceLabel) parts.push(dominanceLabel);
 
     return parts.join('. ') + '.';
+};
+
+/** Delete emotional state for a user-character pair */
+export const deleteEmotionalState = async (
+    userId: number,
+    characterId: number
+): Promise<boolean> => {
+    const result = await query(
+        'DELETE FROM user_character_state WHERE user_id = $1 AND character_id = $2',
+        [userId, characterId]
+    );
+    return (result.rowCount ?? 0) > 0;
 };

@@ -24,12 +24,10 @@ export interface LLMResponseJSON {
     reply: string;
     thoughts?: string;
     relationship_delta?: EmotionalDelta | number;
-    mood?: string;
 }
 
 export interface ExtractedData {
     cleanedReply: string;
     thoughts?: string;
     emotionalDelta: EmotionalDelta;
-    mood?: string;
 }

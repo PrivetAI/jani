@@ -325,7 +325,7 @@ export function CreateCharacterPage() {
                         Системный промпт * <span className="text-text-muted font-normal">(описание персонажа)</span>
                     </label>
                     <div className="mb-2 p-3 rounded-lg bg-primary/10 border border-primary/30 text-xs text-text-secondary">
-                        💡 <strong>Важно:</strong> Опишите персонажа, с которым будут общаться.
+                        💡 <strong>Важно:</strong> Опишите персонажа, с которым  вы будете общаться.
                         Промпт начинается с "Ты — [Имя персонажа]"
                     </div>
                     <textarea
@@ -619,7 +619,7 @@ export function CreateCharacterPage() {
                                 <span>❤️ Влечение</span>
                                 <span>{initialAttraction}</span>
                             </div>
-                            <input type="range" min="-50" max="50" value={initialAttraction}
+                            <input type="range" min="-100" max="100" value={initialAttraction}
                                 onChange={e => setInitialAttraction(Number(e.target.value))}
                                 className="w-full accent-primary" />
                         </div>
@@ -629,7 +629,7 @@ export function CreateCharacterPage() {
                                 <span>🤝 Доверие</span>
                                 <span>{initialTrust}</span>
                             </div>
-                            <input type="range" min="-50" max="50" value={initialTrust}
+                            <input type="range" min="-100" max="100" value={initialTrust}
                                 onChange={e => setInitialTrust(Number(e.target.value))}
                                 className="w-full accent-primary" />
                         </div>
@@ -639,7 +639,7 @@ export function CreateCharacterPage() {
                                 <span>💕 Привязанность</span>
                                 <span>{initialAffection}</span>
                             </div>
-                            <input type="range" min="-50" max="50" value={initialAffection}
+                            <input type="range" min="-100" max="100" value={initialAffection}
                                 onChange={e => setInitialAffection(Number(e.target.value))}
                                 className="w-full accent-primary" />
                         </div>
@@ -649,7 +649,7 @@ export function CreateCharacterPage() {
                                 <span>👑 Доминирование</span>
                                 <span>{initialDominance}</span>
                             </div>
-                            <input type="range" min="-50" max="50" value={initialDominance}
+                            <input type="range" min="-100" max="100" value={initialDominance}
                                 onChange={e => setInitialDominance(Number(e.target.value))}
                                 className="w-full accent-primary" />
                         </div>

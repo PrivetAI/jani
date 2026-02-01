@@ -41,8 +41,6 @@ export interface EmotionalState {
     affection: number;
     dominance: number;
     closeness: number;
-    mood: { primary: string; secondary?: string; intensity: number };
-    moodLabel: string;
 }
 
 export interface Session {
@@ -91,6 +89,7 @@ interface ChatState {
     updateSessionSettings: (characterId: number, settings: { llmModel: string | null }, initData: string) => Promise<void>;
     forgetRecent: (characterId: number, count: number, initData: string) => Promise<void>;
     regenerateLastMessage: (characterId: number, initData: string) => Promise<void>;
+    resetChat: (characterId: number, initData: string) => Promise<boolean>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -429,6 +428,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }));
         } catch (err) {
             set({ error: (err as Error).message, isRegenerating: false, isTyping: false });
+        }
+    },
+
+    resetChat: async (characterId: number, initData: string) => {
+        try {
+            const data = await apiRequest<{
+                success: boolean;
+                emotionalState: {
+                    attraction: number;
+                    trust: number;
+                    affection: number;
+                    dominance: number;
+                    closeness: number;
+                };
+            }>(`/api/chats/${characterId}/reset`, {
+                method: 'DELETE',
+                initData
+            });
+
+            if (data.success) {
+                // Clear local state
+                set({
+                    messages: [],
+                    memories: [],
+                    session: {
+                        emotionalState: data.emotionalState,
+                        messagesCount: 0,
+                        lastMessageAt: null,
+                        createdAt: new Date().toISOString(),
+                        llmModel: null,
+                    },
+                });
+                return true;
+            }
+            return false;
+        } catch (err) {
+            set({ error: (err as Error).message });
+            return false;
         }
     }
 }));

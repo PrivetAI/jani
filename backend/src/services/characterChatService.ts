@@ -5,7 +5,6 @@ import {
   getOrCreateEmotionalState,
   updateEmotionalState,
   buildEmotionalContext,
-  type CharacterMood,
 } from '../modules/index.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
@@ -341,24 +340,18 @@ export class CharacterChatService {
 
     const sanitizedReply = sanitizeReply(rawReply, request.character.name, request.username);
 
-    // Parse JSON response for reply, emotional deltas, mood, and thoughts
+    // Parse JSON response for reply, emotional deltas, and thoughts
     const extracted = parseJsonResponse(sanitizedReply);
     const finalReply = extracted.cleanedReply;
 
     // Update emotional state if any dimension changed
     const hasDelta = Object.values(extracted.emotionalDelta).some(v => v !== undefined && v !== 0);
-    if (hasDelta || extracted.mood) {
+    if (hasDelta) {
       try {
-        // Convert mood string to CharacterMood object
-        const newMood: CharacterMood | undefined = extracted.mood
-          ? { primary: extracted.mood, intensity: 6 }
-          : undefined;
-
         await updateEmotionalState(
           request.userId,
           request.character.id,
-          extracted.emotionalDelta,
-          newMood
+          extracted.emotionalDelta
         );
       } catch (err) {
         logger.error('Failed to update emotional state', { error: (err as Error).message });

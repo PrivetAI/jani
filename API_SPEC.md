@@ -347,11 +347,7 @@ x-telegram-init-data: <initDataString>
     "attraction": 15,
     "trust": 20,
     "affection": 18,
-    "dominance": -5,
-    "mood": {
-      "primary": "playful",
-      "intensity": 7
-    }
+    "dominance": -5
   }
 }
 ```

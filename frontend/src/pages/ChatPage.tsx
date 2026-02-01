@@ -49,6 +49,7 @@ export function ChatPage() {
         isTyping,
         isRegenerating,
         regenerateLastMessage,
+        resetChat,
         error,
         initSocket,
         disconnectSocket
@@ -63,6 +64,18 @@ export function ChatPage() {
     const [showMemory, setShowMemory] = useState(false);
     const [showSession, setShowSession] = useState(false);
     const [showLLMSettings, setShowLLMSettings] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeleteChat = async () => {
+        if (!initData) return;
+        setIsDeleting(true);
+        const success = await resetChat(characterId, initData);
+        setIsDeleting(false);
+        if (success) {
+            setShowDeleteConfirm(false);
+        }
+    };
 
     // Handle scroll for infinite scroll (load older messages)
     const handleScroll = () => {
@@ -182,6 +195,14 @@ export function ChatPage() {
                 >
                     🧠
                 </button>
+                <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl
+                        bg-surface-light border border-border-light text-text-secondary
+                        hover:bg-danger/20 hover:text-danger hover:border-danger/30 transition-colors"
+                >
+                    🔄
+                </button>
             </header>
 
             {/* Session Info Modal */}
@@ -192,6 +213,38 @@ export function ChatPage() {
 
             {/* LLM Settings Modal */}
             {showLLMSettings && <LLMSettingsModal onClose={() => setShowLLMSettings(false)} />}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="w-full max-w-sm p-5 rounded-2xl bg-surface/95 border border-border space-y-4">
+                        <h3 className="text-lg font-semibold text-center">Удалить диалог?</h3>
+                        <p className="text-sm text-text-secondary text-center">
+                            Вся история, память и отношения будут очищены. Это действие нельзя отменить.
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={isDeleting}
+                                className="flex-1 py-2.5 rounded-xl text-sm
+                                    bg-surface-light border border-border text-text-secondary
+                                    hover:bg-surface transition-colors disabled:opacity-50"
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                onClick={handleDeleteChat}
+                                disabled={isDeleting}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-medium
+                                    bg-danger text-white
+                                    hover:bg-danger/80 transition-colors disabled:opacity-50"
+                            >
+                                {isDeleting ? '...' : 'Удалить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Messages */}
             <div

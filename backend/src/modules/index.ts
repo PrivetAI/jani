@@ -24,6 +24,7 @@ export {
     getLastCharacterForUser,
     getLastAssistantMessage,
     deleteDialogMessage,
+    deleteAllDialogs,
     type DialogRecord,
     type DialogHistoryOptions,
     type DialogHistoryResult,
@@ -108,9 +109,9 @@ export {
     getOrCreateEmotionalState,
     updateEmotionalState,
     buildEmotionalContext,
+    deleteEmotionalState,
     type EmotionalState,
     type EmotionalDelta,
-    type CharacterMood,
 } from '../repositories/userCharacterStateRepository.js';
 
 // Ratings

@@ -15,6 +15,9 @@ import {
     getOrCreateSession,
     recordMessage,
     updateSessionSettings,
+    resetSession,
+    deleteAllDialogs,
+    deleteEmotionalState,
     type DialogRecord,
     getOrCreateEmotionalState,
     getLastAssistantMessage,
@@ -292,8 +295,6 @@ router.get(
                 affection: emotionalState.affection,
                 dominance: emotionalState.dominance,
                 closeness: emotionalState.closeness,
-                mood: emotionalState.mood,
-                moodLabel: emotionalState.mood.primary,
             },
             lastMessageAt: session.last_message_at,
             messagesCount: session.messages_count,
@@ -452,4 +453,52 @@ router.delete(
     })
 );
 
+// ============================================
+// Reset Chat (Fresh Start)
+// ============================================
+
+/** Reset entire chat - delete all dialogs, memories, session, emotional state */
+router.delete(
+    '/:characterId/reset',
+    telegramAuth,
+    asyncHandler(async (req, res) => {
+        const characterId = Number(req.params.characterId);
+        const userId = req.auth!.id;
+
+        // Delete all data
+        const [deletedDialogs, deletedMemories] = await Promise.all([
+            deleteAllDialogs(userId, characterId),
+            deleteAllMemories(userId, characterId),
+            deleteEmotionalState(userId, characterId),
+        ]);
+
+        // Reset session (creates fresh one)
+        const freshSession = await resetSession(userId, characterId);
+
+        // Get fresh emotional state (will create with defaults)
+        const freshEmotionalState = await getOrCreateEmotionalState(userId, characterId);
+
+        res.json({
+            success: true,
+            deleted: {
+                dialogs: deletedDialogs,
+                memories: deletedMemories,
+            },
+            session: {
+                id: freshSession.id,
+                messagesCount: freshSession.messages_count,
+                createdAt: freshSession.created_at,
+            },
+            emotionalState: {
+                attraction: freshEmotionalState.attraction,
+                trust: freshEmotionalState.trust,
+                affection: freshEmotionalState.affection,
+                dominance: freshEmotionalState.dominance,
+                closeness: freshEmotionalState.closeness,
+            },
+        });
+    })
+);
+
 export const chatRouter = router;
+

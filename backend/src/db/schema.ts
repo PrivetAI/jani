@@ -48,11 +48,6 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
-DO $$ BEGIN
-    CREATE TYPE mood_type AS ENUM ('neutral', 'sweet', 'sarcastic', 'formal', 'playful');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
-END $$;
 
 -- =====================================================
 -- CORE TABLES
@@ -199,7 +194,7 @@ CREATE TABLE IF NOT EXISTS character_tags (
 CREATE INDEX IF NOT EXISTS idx_character_tags_character ON character_tags(character_id);
 CREATE INDEX IF NOT EXISTS idx_character_tags_tag ON character_tags(tag_id);
 
--- Chat sessions for relationship/mood settings
+-- Chat sessions for user-character settings
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -279,8 +274,6 @@ CREATE TABLE IF NOT EXISTS user_character_state (
     trust INTEGER DEFAULT 10,          -- доверие (базовое)
     affection INTEGER DEFAULT 5,       -- Привязанность
     dominance INTEGER DEFAULT 0,       -- -50=пользователь доминирует, +50=персонаж доминирует
-    -- Character mood (JSONB): {"primary": "jealous", "secondary": "aroused", "intensity": 7}
-    mood JSONB DEFAULT '{"primary": "neutral", "intensity": 5}'::jsonb,
     -- Metadata
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, character_id)

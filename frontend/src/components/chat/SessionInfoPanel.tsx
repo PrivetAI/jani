@@ -15,14 +15,14 @@ const formatDate = (dateStr: string | null) => {
     });
 };
 
-// Normalize -50..+50 to 0..100% for display
-const normalizeValue = (value: number) => Math.round(((value + 50) / 100) * 100);
+// Normalize -100..+100 to 0..100% for display
+const normalizeValue = (value: number) => Math.round(((value + 100) / 200) * 100);
 
 // Get bar color based on value
 const getBarColor = (value: number) => {
-    if (value >= 30) return 'from-success to-emerald-400';
-    if (value >= 10) return 'from-primary to-blue-400';
-    if (value >= -10) return 'from-yellow-500 to-amber-400';
+    if (value >= 60) return 'from-success to-emerald-400';
+    if (value >= 20) return 'from-primary to-blue-400';
+    if (value >= -20) return 'from-yellow-500 to-amber-400';
     return 'from-danger to-red-400';
 };
 
@@ -61,7 +61,6 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
 
     const emotionalState = session.emotionalState;
     const closeness = emotionalState.closeness;
-    const moodLabel = emotionalState.moodLabel;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -80,24 +79,21 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
 
                 {/* Content */}
                 <div className="p-5 space-y-5">
-                    {/* Character Name + Mood */}
+                    {/* Character Name */}
                     <div className="text-center">
                         <h4 className="text-xl font-bold text-text-primary">{selectedCharacter?.name}</h4>
-                        <div className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-light/50 border border-border-light">
-                            <span className="text-sm font-medium capitalize">{moodLabel}</span>
-                        </div>
                     </div>
 
                     {/* Closeness (Main Bar) */}
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
                             <span className="text-sm text-text-secondary">❤️ Близость</span>
-                            <span className="text-lg font-bold text-primary">{closeness}/50</span>
+                            <span className="text-lg font-bold text-primary">{closeness}/100</span>
                         </div>
                         <div className="w-full h-4 bg-surface-light rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-gradient-to-r from-pink-500 via-rose-400 to-red-400 transition-all duration-500"
-                                style={{ width: `${(closeness / 50) * 100}%` }}
+                                style={{ width: `${closeness}%` }}
                             />
                         </div>
                     </div>
