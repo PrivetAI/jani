@@ -54,6 +54,16 @@ export const sendTelegramMessage = async (payload: SendMessagePayload) => {
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
+
+      // User blocked the bot - not a critical error, just skip silently
+      if (response.status === 403 && body.includes('blocked by the user')) {
+        logger.warn('Telegram user blocked bot', {
+          chat_id: payload.chat_id,
+          durationMs: Date.now() - startedAt,
+        });
+        return; // Don't throw, just return
+      }
+
       const errorMessage = `Failed to send Telegram message: ${body || response.status}`;
       logger.error('Telegram sendMessage failed', {
         status: response.status,

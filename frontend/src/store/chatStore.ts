@@ -121,6 +121,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Listen for typing indicator
         socketClient.on<{ characterId: number }>('chat:typing', (data) => {
+            const state = get() as any;
+            // Only update typing if it's for the current chat
+            if (state._currentCharacterId !== data.characterId) return;
             logger.store('chatStore', 'chat:typing', data);
             set({ isTyping: true });
         });
@@ -132,6 +135,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             assistantMessage: { role: 'assistant'; text: string; createdAt: string };
             limits: { remaining: number; total: number; resetsAt: string };
         }>('chat:message', (data) => {
+            const currentState = get() as any;
+            // Only update if message is for the current chat
+            if (currentState._currentCharacterId !== data.characterId) return;
             logger.store('chatStore', 'chat:message', data);
             const assistantMsg: DialogMessage = {
                 id: Date.now(),
@@ -183,7 +189,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     selectCharacter: async (characterId: number, initData: string) => {
-        set({ _currentCharacterId: characterId } as any);
+        // Reset states and clear messages atomically to prevent flicker
+        set({
+            _currentCharacterId: characterId,
+            messages: [],
+            memories: [],
+            isSending: false,
+            isTyping: false,
+            isRegenerating: false,
+            selectedCharacter: null,
+        } as any);
 
         // Try to find in cache first
         let character = get().characters.find(c => c.id === characterId) || null;
