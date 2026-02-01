@@ -220,8 +220,6 @@ export function AdminPage() {
                     access_type: editForm.accessType,
                     is_active: editForm.isActive,
                     avatar_url: editForm.avatarUrl || null,
-                    genre: editForm.genre || null,
-
                     grammatical_gender: editForm.grammaticalGender || 'female',
                     initial_attraction: editForm.initialAttraction ?? 0,
                     initial_trust: editForm.initialTrust ?? 10,
@@ -279,7 +277,6 @@ export function AdminPage() {
                     access_type: editForm.accessType,
                     is_active: editForm.isActive,
                     avatar_url: editForm.avatarUrl || null,
-                    genre: editForm.genre || null,
                     grammatical_gender: editForm.grammaticalGender || 'female',
                     initial_attraction: editForm.initialAttraction ?? 0,
                     initial_trust: editForm.initialTrust ?? 10,

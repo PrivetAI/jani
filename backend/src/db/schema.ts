@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS characters (
 );
 
 -- Characters: new columns for Mini App catalog features
-ALTER TABLE characters ADD COLUMN IF NOT EXISTS genre TEXT;
+-- (genre column removed, use tags instead)
 ALTER TABLE characters DROP COLUMN IF EXISTS content_rating;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS grammatical_gender TEXT DEFAULT 'female';
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS popularity_score INTEGER DEFAULT 0;
@@ -325,17 +325,7 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 -- SEED DATA
 -- =====================================================
 
--- Default tags
-INSERT INTO tags (name) VALUES
-    ('romance'),
-    ('anime'),
-    ('fantasy'),
-    ('mentor'),
-    ('friendly'),
-    ('flirty'),
-    ('mysterious'),
-    ('playful')
-ON CONFLICT (name) DO NOTHING;
+-- Tags are managed via admin panel, no hardcoded tags here
 
 -- Characters are seeded from backend/src/data/popular_characters.ts
 -- No hardcoded characters here

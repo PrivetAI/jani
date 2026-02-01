@@ -12,8 +12,6 @@ export interface CharacterRecord {
   is_private: boolean;
   created_at: string;
   created_by: number | null;
-  // Catalog fields
-  genre: string | null;
   grammatical_gender: 'male' | 'female';
   // Initial relationship values
   initial_attraction: number;
@@ -40,7 +38,6 @@ const mapCharacter = (row: any): CharacterRecord => ({
   is_private: row.is_private ?? false,
   created_at: row.created_at,
   created_by: row.created_by ?? null,
-  genre: row.genre ?? null,
   grammatical_gender: row.grammatical_gender ?? 'female',
   initial_attraction: row.initial_attraction ?? 0,
   initial_trust: row.initial_trust ?? 10,
@@ -191,11 +188,11 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterReco
 
   const result = await query<CharacterRecord>(
     `UPDATE characters SET name = $1, description_long = $2, avatar_url = $3, system_prompt = $4,
-      access_type = $5, is_active = $6, genre = $7, grammatical_gender = $8,
-      initial_attraction = $9, initial_trust = $10, initial_affection = $11, initial_dominance = $12,
-      llm_provider = $13, llm_model = $14,
-      llm_temperature = $15, llm_top_p = $16, llm_repetition_penalty = $17
-      WHERE id = $18 RETURNING *`,
+      access_type = $5, is_active = $6, grammatical_gender = $7,
+      initial_attraction = $8, initial_trust = $9, initial_affection = $10, initial_dominance = $11,
+      llm_provider = $12, llm_model = $13,
+      llm_temperature = $14, llm_top_p = $15, llm_repetition_penalty = $16
+      WHERE id = $17 RETURNING *`,
     [
       updated.name,
       updated.description_long,
@@ -203,7 +200,6 @@ export const updateCharacter = async (id: number, payload: Partial<CharacterReco
       updated.system_prompt,
       updated.access_type,
       updated.is_active,
-      updated.genre,
       updated.grammatical_gender,
       updated.initial_attraction,
       updated.initial_trust,

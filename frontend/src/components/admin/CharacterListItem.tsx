@@ -45,9 +45,6 @@ export function CharacterListItem({ character, onEdit, onDelete }: CharacterList
                     👍 {character.likesCount}
                 </span>
             )}
-            {character.genre && (
-                <span className="text-xs text-text-muted">{character.genre}</span>
-            )}
             {character.llmProvider && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
                     {character.llmProvider}{character.llmModel ? `: ${character.llmModel.slice(0, 20)}` : ''}

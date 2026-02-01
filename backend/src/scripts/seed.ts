@@ -58,14 +58,14 @@ async function runSeed() {
         const result = await query<{ id: number }>(
             `INSERT INTO characters (
                 name, description_long, avatar_url, system_prompt, 
-                access_type, genre, grammatical_gender,
+                access_type, grammatical_gender,
                 initial_attraction, initial_trust, initial_affection, initial_dominance,
                 is_active, llm_provider, llm_model
-            ) VALUES ($1, $2, $3, $4, 'free', $5, $6, $7, $8, $9, $10, true, 'gemini', 'gemini-3-flash-preview')
+            ) VALUES ($1, $2, $3, $4, 'free', $5, $6, $7, $8, $9, true, 'gemini', 'gemini-3-flash-preview')
             RETURNING id`,
             [
                 char.name, char.description_long, char.avatar_url, char.system_prompt,
-                char.genre, char.grammatical_gender,
+                char.grammatical_gender,
                 char.initial_attraction, char.initial_trust, char.initial_affection, char.initial_dominance
             ]
         );

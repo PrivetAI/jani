@@ -7,7 +7,6 @@ export interface Character {
     isActive: boolean;
     isPrivate?: boolean;
     avatarUrl?: string;
-    genre?: string | null;
     grammaticalGender?: 'male' | 'female';
     initialAttraction?: number;
     initialTrust?: number;

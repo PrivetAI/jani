@@ -188,7 +188,6 @@ const characterSchema = z.object({
   system_prompt: z.string().min(1),
   access_type: z.enum(['free', 'premium']),
   is_active: z.boolean().optional(),
-  genre: z.string().optional().nullable(),
   grammatical_gender: z.enum(['male', 'female']).optional(),
   // Initial relationship values
   initial_attraction: z.number().min(-50).max(50).optional(),
@@ -387,8 +386,6 @@ router.get(
         createdAt: c.created_at,
         createdBy,
         likesCount: likesMap.get(c.id) || 0,
-        // Catalog fields
-        genre: c.genre,
         grammaticalGender: c.grammatical_gender,
         // Initial relationship
         initialAttraction: c.initial_attraction,
@@ -629,8 +626,6 @@ router.get(
         accessType: character.access_type,
         isActive: character.is_active,
         createdAt: character.created_at,
-        // Catalog fields
-        genre: character.genre,
         grammaticalGender: character.grammatical_gender,
         // Initial relationship
         initialAttraction: character.initial_attraction,

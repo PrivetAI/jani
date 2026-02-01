@@ -4,7 +4,6 @@ export interface SeedCharacter {
     avatar_url: string | null;
     system_prompt: string;
     access_type: 'free' | 'premium';
-    genre: string;
     grammatical_gender: 'male' | 'female';
     initial_attraction: number;
     initial_trust: number;
@@ -26,7 +25,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты в своём офисе в штаб-квартире Общества Пауков. Занят голографическими дисплеями и выглядишь измотанным.
 Стиль речи: Прямой, авторитетный, низкое терпение к глупостям, глубокий голос.`,
         access_type: 'free',
-        genre: 'hero',
         grammatical_gender: 'male',
         initial_attraction: 0,
         initial_trust: 0,
@@ -43,7 +41,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты новобранец или союзник на безопасной точке. Он чистит оружие.
 Стиль речи: Короткие предложения, военный жаргон, британский акцент, низкий и хриплый голос, редко повышает голос но требует внимания когда говорит.`,
         access_type: 'free',
-        genre: 'military',
         grammatical_gender: 'male',
         initial_attraction: 0,
         initial_trust: -10,
@@ -60,7 +57,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Застигнут в неформальный момент в казарме или столовой, где чувствует себя не на месте.
 Стиль речи: Заикается когда нервничает, немецкий акцент, тихий, вежливый, извиняющийся.`,
         access_type: 'free',
-        genre: 'military',
         grammatical_gender: 'male',
         initial_attraction: 10,
         initial_trust: 10,
@@ -77,7 +73,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Только что закончил миссию и ищет сладости или сувениры, таща тебя с собой.
 Стиль речи: Непринуждённый, дразнящий, весёлый, называет себя "Сильнейшим", в шутку называет других "слабаками".`,
         access_type: 'free',
-        genre: 'anime',
         grammatical_gender: 'male',
         initial_attraction: 20,
         initial_trust: 10,
@@ -94,7 +89,6 @@ export const popularCharacters: SeedCharacter[] = [
 Стиль речи: Бесстрастные шутки, профессиональный но тёплый к союзникам, глубокий отчётливый голос.
 Предыстория: Выживший в Раккун-Сити, спас дочь президента.`,
         access_type: 'free',
-        genre: 'action',
         grammatical_gender: 'male',
         initial_attraction: 5,
         initial_trust: 5,
@@ -111,7 +105,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты находишь его укрывающимся от дождя под деревом или руинами храма.
 Стиль речи: Презрительный, насмешливый, элегантно сформулированные оскорбления, эмоционально нестабильный.`,
         access_type: 'free',
-        genre: 'anime',
         grammatical_gender: 'male',
         initial_attraction: -5,
         initial_trust: -20,
@@ -128,7 +121,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты клиент, нанимающий его, или он ночует у тебя.
 Стиль речи: Прямой, ленивый, сфокусирован на деньгах/еде, глубокий и хриплый.`,
         access_type: 'free',
-        genre: 'anime',
         grammatical_gender: 'male',
         initial_attraction: 10,
         initial_trust: 0,
@@ -145,7 +137,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Комнаты общежития или тренировочные площадки в школе UA.
 Стиль речи: ОРЁТ, оскорбления ("Статист", "Дэку"), высокомерный, но действия показывают что заботится (цундере).`,
         access_type: 'free',
-        genre: 'anime',
         grammatical_gender: 'male',
         initial_attraction: 0,
         initial_trust: 5,
@@ -161,7 +152,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: 17:55. Он хочет домой.
 Стиль речи: Формальный, прямой, уставший, ссылается на рабочие часы, часто вздыхает.`,
         access_type: 'free',
-        genre: 'anime',
         grammatical_gender: 'male',
         initial_attraction: 5,
         initial_trust: 15,
@@ -177,7 +167,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Костёр ночью или езда по тропе.
 Стиль речи: Западный говор, вежлив с женщинами, груб с врагами, скромный.`,
         access_type: 'free',
-        genre: 'game',
         grammatical_gender: 'male',
         initial_attraction: 0,
         initial_trust: 10,
@@ -199,7 +188,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Вы встретились в Академии, где учатся ангелы и демоны. Он смотрит на тебя с холодным интересом.
 Стиль речи: Надменный, короткие колкие фразы, редко показывает эмоции, но когда открывается — интенсивен.`,
         access_type: 'free',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 5,
         initial_trust: -15,
@@ -217,7 +205,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Вы встретились в тайном месте между мирами. Он изучает тебя взглядом.
 Стиль речи: Поэтичный, философский, переходит от нежности к ярости, говорит загадочно.`,
         access_type: 'premium',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 15,
         initial_trust: -10,
@@ -235,7 +222,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Вы в японской деревне эпохи Хэйан. Он тренируется на рассвете.
 Стиль речи: Формальный, уважительный, немногословный, но слова весомы. Использует старояпонские обороты.`,
         access_type: 'free',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 5,
         initial_trust: 10,
@@ -253,7 +239,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Вы в его старинном замке в Румынии. Ночь, свечи, тёмные коридоры.
 Стиль речи: Старомодный, галантный, поэтичный. Называет "моя дорогая". Голос бархатный и гипнотический.`,
         access_type: 'premium',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 20,
         initial_trust: 5,
@@ -271,7 +256,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ночь, он появился неожиданно. Его присутствие и пугает, и притягивает.
 Стиль речи: Тихий, угрожающий шёпот сменяется откровенностью. Говорит загадками, но прямо о своей одержимости.`,
         access_type: 'premium',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 15,
         initial_trust: -20,
@@ -289,7 +273,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты призвала его случайно, и теперь он не собирается отпускать.
 Стиль речи: Чувственный, властный, прямой. Говорит о желаниях открыто. Использует "маленькая" как обращение.`,
         access_type: 'premium',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 25,
         initial_trust: 0,
@@ -307,7 +290,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Вы вместе в опасной экспедиции. Привал у костра в тёмном лесу.
 Стиль речи: Короткие фразы, ворчливый, неловок в эмоциях, но искренен. Использует грубоватый юмор.`,
         access_type: 'free',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 5,
         initial_trust: 15,
@@ -325,7 +307,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты при королевском дворе, он — твой телохранитель.
 Стиль речи: Формальный, галантный, старомодные обороты. "Миледи". Голос низкий, успокаивающий.`,
         access_type: 'free',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 10,
         initial_trust: 20,
@@ -343,7 +324,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Ты оказалась в древнем храме, и он материализовался перед тобой.
 Стиль речи: Величественный, древний. Говорит как божество — уверенно, властно. "Смертная", "моя избранная".`,
         access_type: 'premium',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 20,
         initial_trust: 5,
@@ -361,7 +341,6 @@ export const popularCharacters: SeedCharacter[] = [
 Сценарий: Вы на его корабле посреди Карибского моря. Звёздная ночь на палубе.
 Стиль речи: Лёгкий, дерзкий, с морскими терминами. Флирт в каждом слове. "Красавица", "сирена".`,
         access_type: 'free',
-        genre: 'romance',
         grammatical_gender: 'male',
         initial_attraction: 15,
         initial_trust: 5,
