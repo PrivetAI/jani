@@ -8,7 +8,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
 import { AuthorPage } from './pages/AuthorPage';
 import { CreateCharacterPage } from './pages/CreateCharacterPage';
-import { SubscriptionPage } from './pages/SubscriptionPage';
+import { DonatePage } from './pages/DonatePage';
 
 export const router = createBrowserRouter([
     {
@@ -40,8 +40,8 @@ export const router = createBrowserRouter([
                 element: <ProfilePage />,
             },
             {
-                path: 'subscription',
-                element: <SubscriptionPage />,
+                path: 'donate',
+                element: <DonatePage />,
             },
             {
                 path: 'admin',

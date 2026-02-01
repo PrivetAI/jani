@@ -444,20 +444,28 @@ export function AdminPage() {
 
                 {/* Stats */}
                 {stats && (
-                    <div className="flex gap-4 mb-6">
-                        <div className="flex-1 p-4 rounded-xl bg-surface-light border border-border">
+                    <div className="flex gap-4 mb-6 flex-wrap">
+                        <div className="flex-1 min-w-[120px] p-4 rounded-xl bg-surface-light border border-border">
                             <div className="text-2xl font-bold text-text-primary">{stats.totalUsers}</div>
                             <div className="text-sm text-text-muted">Пользователей</div>
                             {stats.newUsersToday > 0 && (
                                 <div className="text-xs text-success mt-1">+{stats.newUsersToday} за 24ч</div>
                             )}
                         </div>
-                        <div className="flex-1 p-4 rounded-xl bg-surface-light border border-border">
+                        <div className="flex-1 min-w-[120px] p-4 rounded-xl bg-surface-light border border-border">
                             <div className="text-2xl font-bold text-text-primary">{stats.totalMessages}</div>
                             <div className="text-sm text-text-muted">Сообщений всего</div>
                             {stats.messagesCount > 0 && (
                                 <div className="text-xs text-success mt-1">+{stats.messagesCount} за 24ч</div>
                             )}
+                        </div>
+                        <div className="flex-1 min-w-[120px] p-4 rounded-xl bg-surface-light border border-border">
+                            <div className="text-2xl font-bold text-text-primary">{stats.totalReferrals ?? 0}</div>
+                            <div className="text-sm text-text-muted">Рефералов</div>
+                        </div>
+                        <div className="flex-1 min-w-[120px] p-4 rounded-xl bg-surface-light border border-border">
+                            <div className="text-2xl font-bold text-text-primary">{stats.referralIndex ?? 0}%</div>
+                            <div className="text-sm text-text-muted">Реф. индекс</div>
                         </div>
                     </div>
                 )}

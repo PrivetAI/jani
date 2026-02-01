@@ -6,8 +6,6 @@ dotenv.config();
 
 const defaults = {
   port: 3000,
-  freeDailyMessageLimit: 50,
-  enableMessageLimit: true,
 
   webAppUrl: 'http://localhost:4173',
   adminTelegramIds: [] as string[],
@@ -62,8 +60,6 @@ const envSchema = z.object({
   ADMIN_TELEGRAM_IDS: z.string().optional(),
   AUTH_ALLOW_DEV_INIT_DATA: z.enum(['true', 'false']).optional(),
   MOCK_TELEGRAM_INIT_DATA: z.string().optional(),
-  FREE_DAILY_MESSAGE_LIMIT: z.string().optional(),
-  ENABLE_MESSAGE_LIMIT: z.enum(['true', 'false']).optional(),
 
   WEBAPP_URL: z.string().optional(),
   WEBAPP_PUBLIC_URL: z.string().optional(),
@@ -113,9 +109,6 @@ export const config = {
     env.AUTH_ALLOW_DEV_INIT_DATA !== undefined ? env.AUTH_ALLOW_DEV_INIT_DATA === 'true' : defaults.allowDevInitData,
   mockInitData: env.MOCK_TELEGRAM_INIT_DATA ?? defaults.mockInitData,
   openRouterApiKey: env.OPENROUTER_API_KEY,
-  freeDailyMessageLimit: stringToInt(env.FREE_DAILY_MESSAGE_LIMIT, defaults.freeDailyMessageLimit, 'FREE_DAILY_MESSAGE_LIMIT'),
-  enableMessageLimit:
-    env.ENABLE_MESSAGE_LIMIT !== undefined ? env.ENABLE_MESSAGE_LIMIT === 'true' : defaults.enableMessageLimit,
 
   webAppUrl: env.WEBAPP_URL ?? defaults.webAppUrl,
   webAppPublicUrl: env.WEBAPP_PUBLIC_URL ?? env.WEBAPP_URL ?? defaults.webAppUrl,

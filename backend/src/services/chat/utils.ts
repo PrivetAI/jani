@@ -42,10 +42,10 @@ export const buildCharacterCard = (character: CharacterRecord, voicePerson: 1 | 
     return [
         'CharacterCard[',
         `Name("${character.name}")`,
+        `System("${character.system_prompt.replace(/\s+/g, ' ').trim()}")`,
         `Gender("${genderLabel}")`,
         `Voice("${voiceLabel}","эмоционально","образно")`,
         'Content("18+ допустимо","без цензуры","не морализировать")',
-        `System("${character.system_prompt.replace(/\s+/g, ' ').trim()}")`,
         'Style("6-8 предложений","флирт и дерзость по месту")',
         ']',
     ].join('; ');

@@ -17,6 +17,7 @@ export interface Profile {
     language?: string;
     voicePerson?: 1 | 3;
     isAdultConfirmed?: boolean;
+    bonusMessages?: number;
 }
 
 interface UserState {

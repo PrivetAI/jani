@@ -14,6 +14,7 @@ export interface UserRecord {
   is_adult_confirmed: boolean;
   last_active_at: string | null;
   created_at: string;
+  bonus_messages: number;
 }
 
 const mapUser = (row: any): UserRecord => ({
@@ -29,6 +30,7 @@ const mapUser = (row: any): UserRecord => ({
   is_adult_confirmed: row.is_adult_confirmed ?? false,
   last_active_at: row.last_active_at,
   created_at: row.created_at,
+  bonus_messages: row.bonus_messages ?? 0,
 });
 
 export const findUserByTelegramId = async (telegramId: number): Promise<UserRecord | null> => {
@@ -150,6 +152,7 @@ export interface UserProfile {
   subscriptionStatus: 'none' | 'active' | 'expired';
   subscriptionEndAt?: string | null;
   isAdmin: boolean;
+  bonusMessages: number;
 }
 
 export const buildUserProfile = (
@@ -170,5 +173,108 @@ export const buildUserProfile = (
   subscriptionStatus: subscription.status,
   subscriptionEndAt: subscription.end_at ?? null,
   isAdmin: adminTelegramIds.includes(String(user.telegram_user_id)),
+  bonusMessages: user.bonus_messages,
 });
 
+// ============================================
+// Bonus Messages
+// ============================================
+
+/** Add bonus messages to user */
+export const addBonusMessages = async (userId: number, count: number): Promise<number> => {
+  const result = await query<{ bonus_messages: number }>(
+    'UPDATE users SET bonus_messages = bonus_messages + $1 WHERE id = $2 RETURNING bonus_messages',
+    [count, userId]
+  );
+  return result.rows[0]?.bonus_messages ?? 0;
+};
+
+/** Use 1 bonus message. Returns true if successfully used, false if no bonus messages available */
+export const useBonusMessage = async (userId: number): Promise<boolean> => {
+  const result = await query(
+    'UPDATE users SET bonus_messages = bonus_messages - 1 WHERE id = $1 AND bonus_messages > 0',
+    [userId]
+  );
+  return (result.rowCount ?? 0) > 0;
+};
+
+/** Get bonus messages count */
+export const getBonusMessages = async (userId: number): Promise<number> => {
+  const result = await query<{ bonus_messages: number }>(
+    'SELECT bonus_messages FROM users WHERE id = $1',
+    [userId]
+  );
+  return result.rows[0]?.bonus_messages ?? 0;
+};
+
+// ============================================
+// Dynamic Daily Limits
+// ============================================
+
+/**
+ * Daily limits based on day number since start:
+ * Day 1: 40, Day 2: 25, Day 3: 15, Day 4+: 10
+ */
+const DAILY_LIMITS = [40, 25, 15, 10] as const;
+
+/**
+ * Get daily limit for a given day number (1-indexed)
+ */
+export const getDailyLimitForDay = (dayNumber: number): number => {
+  if (dayNumber <= 0) return DAILY_LIMITS[0];
+  if (dayNumber >= DAILY_LIMITS.length) return DAILY_LIMITS[DAILY_LIMITS.length - 1];
+  return DAILY_LIMITS[dayNumber - 1];
+};
+
+/**
+ * Get or initialize limit_start_date for a user.
+ * If not set, initializes to today.
+ */
+export const getOrInitLimitStartDate = async (userId: number): Promise<Date> => {
+  // First try to get existing date
+  const result = await query<{ limit_start_date: string | null }>(
+    'SELECT limit_start_date FROM users WHERE id = $1',
+    [userId]
+  );
+
+  const existingDate = result.rows[0]?.limit_start_date;
+  if (existingDate) {
+    return new Date(existingDate);
+  }
+
+  // Initialize to today if not set
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  await query(
+    'UPDATE users SET limit_start_date = $1 WHERE id = $2',
+    [today.toISOString().split('T')[0], userId]
+  );
+
+  return today;
+};
+
+/**
+ * Calculate which day number the user is on (1-indexed).
+ * Day 1 = limit_start_date, Day 2 = next day, etc.
+ */
+export const getUserDayNumber = async (userId: number): Promise<number> => {
+  const startDate = await getOrInitLimitStartDate(userId);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  startDate.setHours(0, 0, 0, 0);
+
+  const diffMs = today.getTime() - startDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  return diffDays + 1; // 1-indexed
+};
+
+/**
+ * Get the user's current daily message limit based on their day number.
+ */
+export const getUserDailyLimit = async (userId: number): Promise<{ limit: number; dayNumber: number }> => {
+  const dayNumber = await getUserDayNumber(userId);
+  const limit = getDailyLimitForDay(dayNumber);
+  return { limit, dayNumber };
+};

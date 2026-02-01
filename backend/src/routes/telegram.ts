@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { config } from '../config.js';
-import { findOrCreateUser, updateLastCharacter, getCharacterById, createSubscription } from '../modules/index.js';
+import { findOrCreateUser, updateLastCharacter, getCharacterById, createSubscription, addBonusMessages, processRegistrationReferral, processPurchaseReferral, findUserByTelegramId } from '../modules/index.js';
 import { recordPayment } from '../repositories/paymentsRepository.js';
 import { sendTelegramMessage } from '../telegram/client.js';
 import { buildWebAppButton } from '../telegram/helpers.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logger } from '../logger.js';
-import { answerPreCheckoutQuery, parseInvoicePayload, SUBSCRIPTION_TIERS } from '../services/paymentService.js';
+import { answerPreCheckoutQuery, parseInvoicePayload, SUBSCRIPTION_TIERS, MESSAGE_BUNDLES, type InvoicePayload } from '../services/paymentService.js';
 import { notifyAdminPaymentSuccess, notifyAdminPaymentFailed } from '../services/telegramNotifier.js';
 
 interface TelegramMessage {
@@ -56,17 +56,38 @@ router.use((req, _res, next) => {
 });
 
 const handleStartCommand = async (message: TelegramMessage, payload: string | null) => {
+  // Check if this is a new user (before findOrCreate)
+  const existingUser = await findUserByTelegramId(message.from.id);
+  const isNewUser = !existingUser;
+
   const user = await findOrCreateUser({ id: message.from.id, username: message.from.username });
+
   if (payload) {
-    const id = Number(payload);
-    const character = await getCharacterById(id);
-    if (character) {
-      await updateLastCharacter(user.id, character.id);
-      await sendTelegramMessage({
-        chat_id: message.chat.id,
-        text: `Персонаж «${character.name}» выбран. Напиши мне любое сообщение, чтобы начать.`,
-      });
-      return;
+    // Check for referral code: ref_USERID
+    if (payload.startsWith('ref_')) {
+      const referrerId = Number(payload.slice(4));
+      if (isNewUser && referrerId && referrerId !== user.id) {
+        const success = await processRegistrationReferral(user.id, referrerId);
+        if (success) {
+          logger.info('Referral processed', { referrerId, newUserId: user.id });
+          await sendTelegramMessage({
+            chat_id: message.chat.id,
+            text: `🎁 Ты получил 30 бонусных сообщений за регистрацию по приглашению!`,
+          });
+        }
+      }
+    } else {
+      // Try parsing as character ID
+      const id = Number(payload);
+      const character = await getCharacterById(id);
+      if (character) {
+        await updateLastCharacter(user.id, character.id);
+        await sendTelegramMessage({
+          chat_id: message.chat.id,
+          text: `Персонаж «${character.name}» выбран. Напиши мне любое сообщение, чтобы начать.`,
+        });
+        return;
+      }
     }
   }
 
@@ -109,11 +130,15 @@ const handlePreCheckoutQuery = async (query: PreCheckoutQuery) => {
 
   // Accept the payment
   await answerPreCheckoutQuery(query.id, true);
-  logger.info('Pre-checkout query approved', { queryId: query.id, userId: user.id, tier: payload.tier });
+
+  const logDetails = payload.type === 'subscription'
+    ? { tier: payload.tier }
+    : { bundle: payload.bundle };
+  logger.info('Pre-checkout query approved', { queryId: query.id, userId: user.id, ...logDetails });
 };
 
 /**
- * Handle successful payment - create subscription
+ * Handle successful payment - create subscription or add bonus messages
  */
 const handleSuccessfulPayment = async (message: TelegramMessage) => {
   const payment = message.successful_payment!;
@@ -138,7 +163,6 @@ const handleSuccessfulPayment = async (message: TelegramMessage) => {
     return;
   }
 
-  const tierConfig = SUBSCRIPTION_TIERS[payload.tier];
   const user = await findOrCreateUser({ id: message.from.id, username: message.from.username });
 
   // Record payment with charge_id for potential refunds
@@ -149,41 +173,87 @@ const handleSuccessfulPayment = async (message: TelegramMessage) => {
     payment.telegram_payment_charge_id
   );
 
-  // Create subscription
-  const subscription = await createSubscription(user.id, tierConfig.days);
+  if (payload.type === 'subscription') {
+    // Handle subscription payment
+    const tierConfig = SUBSCRIPTION_TIERS[payload.tier];
+    const subscription = await createSubscription(user.id, tierConfig.days);
 
-  logger.info('Subscription created after payment', {
-    userId: user.id,
-    tier: payload.tier,
-    days: tierConfig.days,
-    endAt: subscription.end_at,
-    chargeId: payment.telegram_payment_charge_id,
-  });
+    logger.info('Subscription created after payment', {
+      userId: user.id,
+      tier: payload.tier,
+      days: tierConfig.days,
+      endAt: subscription.end_at,
+      chargeId: payment.telegram_payment_charge_id,
+    });
 
-  // Notify admins about successful payment 💰
-  await notifyAdminPaymentSuccess({
-    telegramUserId: message.from.id,
-    username: message.from.username,
-    tier: payload.tier,
-    tierLabel: tierConfig.label,
-    stars: tierConfig.stars,
-    days: tierConfig.days,
-    chargeId: payment.telegram_payment_charge_id,
-  });
+    // Notify admins about successful payment 💰
+    await notifyAdminPaymentSuccess({
+      telegramUserId: message.from.id,
+      username: message.from.username,
+      tier: payload.tier,
+      tierLabel: tierConfig.label,
+      stars: tierConfig.stars,
+      days: tierConfig.days,
+      chargeId: payment.telegram_payment_charge_id,
+    });
 
-  // Notify user
-  await sendTelegramMessage({
-    chat_id: message.chat.id,
-    text: `✅ Оплата прошла успешно!
+    // Notify user
+    await sendTelegramMessage({
+      chat_id: message.chat.id,
+      text: `✅ Оплата прошла успешно!
 
 🌟 <b>${tierConfig.label}</b> активирован
 
 Действует до: <b>${new Date(subscription.end_at).toLocaleDateString('ru-RU')}</b>
 
-Спасибо за поддержку! Теперь у тебя безлимитные сообщения и доступ ко всем премиум-персонажам.`,
-    reply_markup: openAppKeyboard(),
-    parse_mode: 'HTML',
-  });
+Спасибо за поддержку! Теперь у тебя безлимитные сообщения и доступен выбор модели ИИ.`,
+      reply_markup: openAppKeyboard(),
+      parse_mode: 'HTML',
+    });
+  } else {
+    // Handle bundle payment
+    const bundleConfig = MESSAGE_BUNDLES[payload.bundle];
+    const newBalance = await addBonusMessages(user.id, bundleConfig.messages);
+
+    logger.info('Bonus messages added after payment', {
+      userId: user.id,
+      bundle: payload.bundle,
+      messagesAdded: bundleConfig.messages,
+      newBalance,
+      chargeId: payment.telegram_payment_charge_id,
+    });
+
+    // Notify admins about bundle purchase 📦
+    await notifyAdminPaymentSuccess({
+      telegramUserId: message.from.id,
+      username: message.from.username,
+      tier: payload.bundle,
+      tierLabel: bundleConfig.label,
+      stars: bundleConfig.stars,
+      days: 0,
+      chargeId: payment.telegram_payment_charge_id,
+    });
+
+    // Notify user
+    await sendTelegramMessage({
+      chat_id: message.chat.id,
+      text: `✅ Оплата прошла успешно!
+
+📦 <b>${bundleConfig.label}</b> добавлено
+
+Твой баланс: <b>${newBalance} сообщений</b>
+
+Эти сообщения можно использовать сверх дневного лимита. Они не сгорают!`,
+      reply_markup: openAppKeyboard(),
+      parse_mode: 'HTML',
+    });
+  }
+
+  // Process referral bonus for any purchase (first purchase only)
+  const referrerId = await processPurchaseReferral(user.id);
+  if (referrerId) {
+    logger.info('Referral purchase bonus awarded', { referrerId, purchaserId: user.id });
+  }
 };
 
 router.post(

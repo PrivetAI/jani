@@ -2,7 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { validateTelegramInitData } from './middlewares/auth.js';
 import { chatSessionService } from './services/chatSessionService.js';
-import { getCharacterById, countUserMessagesToday, recordMessage, getActiveSubscription } from './modules/index.js';
+import { getCharacterById, countUserMessagesToday, recordMessage, getActiveSubscription, useBonusMessage, getBonusMessages, getUserDailyLimit } from './modules/index.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { notifyAdminError } from './services/telegramNotifier.js';
@@ -88,19 +88,26 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                 }
 
                 // Check daily limit for free users
-                if (!hasSubscription && config.enableMessageLimit) {
+                if (!hasSubscription) {
                     const used = await countUserMessagesToday(socket.userId);
-                    if (used >= config.freeDailyMessageLimit) {
-                        socket.emit('chat:error', {
-                            error: 'daily_limit_exceeded',
-                            message: `Дневной лимит ${config.freeDailyMessageLimit} сообщений исчерпан`,
-                            limits: {
-                                remaining: 0,
-                                total: config.freeDailyMessageLimit,
-                                resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                            },
-                        });
-                        return;
+                    const { limit } = await getUserDailyLimit(socket.userId);
+                    if (used >= limit) {
+                        // Try to use bonus message
+                        const usedBonus = await useBonusMessage(socket.userId);
+                        if (!usedBonus) {
+                            const bonusBalance = await getBonusMessages(socket.userId);
+                            socket.emit('chat:error', {
+                                error: 'daily_limit_exceeded',
+                                message: `Дневной лимит ${limit} сообщений исчерпан`,
+                                limits: {
+                                    remaining: 0,
+                                    total: limit,
+                                    resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+                                },
+                                bonusMessages: bonusBalance,
+                            });
+                            return;
+                        }
                     }
                 }
 
@@ -125,6 +132,7 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
 
                 // Get updated limits
                 const usedNow = await countUserMessagesToday(socket.userId);
+                const { limit: currentLimit } = await getUserDailyLimit(socket.userId);
 
                 // Emit response
                 socket.emit('chat:message', {
@@ -139,11 +147,11 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                         text: result.reply,
                         createdAt: new Date().toISOString(),
                     },
-                    limits: config.enableMessageLimit ? {
-                        remaining: Math.max(0, config.freeDailyMessageLimit - usedNow),
-                        total: config.freeDailyMessageLimit,
+                    limits: {
+                        remaining: Math.max(0, currentLimit - usedNow),
+                        total: currentLimit,
                         resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                    } : null,
+                    },
                 });
 
                 logger.info('Chat message sent', { userId: socket.userId, characterId, replyLength: result.reply.length });

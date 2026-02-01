@@ -99,6 +99,12 @@ export {
     updateUserProfile,
     confirmAdult,
     buildUserProfile,
+    addBonusMessages,
+    useBonusMessage,
+    getBonusMessages,
+    getUserDailyLimit,
+    getDailyLimitForDay,
+    getOrInitLimitStartDate,
     type UserRecord,
     type ProfileUpdate,
     type UserProfile,
@@ -132,3 +138,12 @@ export {
     type CommentWithReplies,
 } from '../repositories/commentsRepository.js';
 
+// Referrals
+export {
+    setReferrer,
+    getReferrer,
+    processRegistrationReferral,
+    processPurchaseReferral,
+    getReferralStats,
+    type ReferralStats,
+} from '../repositories/referralsRepository.js';

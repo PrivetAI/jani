@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getTagsWithCharacters, getAllTags, getCharacterTags, setRating, getUserRating, getCharacterRatings, getCharactersLikesCount, getUserSessions } from '../modules/index.js';
+import { listCharacters, getCharacterById, type CharacterRecord, createSubscription, recordPayment, getDialogHistory, countUserMessagesToday, type DialogRecord, updateLastCharacter, updateUserProfile, confirmAdult, buildUserProfile, findUserById, getTagsWithCharacters, getAllTags, getCharacterTags, setRating, getUserRating, getCharacterRatings, getCharactersLikesCount, getUserSessions, getUserDailyLimit } from '../modules/index.js';
 import { telegramAuth } from '../middlewares/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { config } from '../config.js';
@@ -125,14 +125,16 @@ router.post(
     // Private characters don't need moderation - auto-approved
     const needsModeration = !isPrivate;
 
-    // Create character
+    // Create character with random driver_prompt_version (1 or 2) for A/B testing
+    const driverPromptVersion = Math.random() < 0.5 ? 1 : 2;
+
     const result = await query<{ id: number }>(
       `INSERT INTO characters (
          name, description_long, avatar_url, system_prompt, access_type, is_active, is_approved, is_private, created_by,
          grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance,
-         llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty
+         llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty, driver_prompt_version
        )
-       VALUES ($1, $2, $3, $4, 'free', TRUE, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+       VALUES ($1, $2, $3, $4, 'free', TRUE, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING id`,
       [
         parsed.data.name,
@@ -152,6 +154,7 @@ router.post(
         parsed.data.llm_temperature ?? null,
         parsed.data.llm_top_p ?? null,
         parsed.data.llm_repetition_penalty ?? null,
+        driverPromptVersion,
       ]
     );
 
@@ -765,12 +768,13 @@ router.get(
     if (hasSubscription) {
       res.json({
         hasSubscription: true,
-        messagesLimit: config.enableMessageLimit ? {
+        messagesLimit: {
           total: -1,
           used: await countUserMessagesToday(req.auth!.id),
           remaining: -1,
           resetsAt: null,
-        } : null,
+          dayNumber: null,
+        },
         subscription: {
           status: subscription.status,
           endAt: subscription.end_at,
@@ -778,14 +782,16 @@ router.get(
       });
     } else {
       const used = await countUserMessagesToday(req.auth!.id);
+      const { limit, dayNumber } = await getUserDailyLimit(req.auth!.id);
       res.json({
         hasSubscription: false,
-        messagesLimit: config.enableMessageLimit ? {
-          total: config.freeDailyMessageLimit,
+        messagesLimit: {
+          total: limit,
           used,
-          remaining: Math.max(0, config.freeDailyMessageLimit - used),
+          remaining: Math.max(0, limit - used),
           resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-        } : null,
+          dayNumber,
+        },
         subscription: null,
       });
     }
@@ -825,13 +831,41 @@ router.patch(
 );
 
 // ============================================
+// Referral API
+// ============================================
+
+import { getReferralStats } from '../modules/index.js';
+
+// Get referral statistics
+router.get(
+  '/referral/stats',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const stats = await getReferralStats(req.auth!.id);
+    res.json({ stats });
+  })
+);
+
+// Get referral link
+router.get(
+  '/referral/link',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const botUsername = config.telegramBotUsername;
+    const referralLink = `https://t.me/${botUsername}?start=ref_${req.auth!.id}`;
+    res.json({ referralLink });
+  })
+);
+
+// ============================================
 // Subscription API
 // ============================================
 
-import { createInvoiceLink, SUBSCRIPTION_TIERS, type SubscriptionTier } from '../services/paymentService.js';
+import { createSubscriptionInvoiceLink, createBundleInvoiceLink, SUBSCRIPTION_TIERS, MESSAGE_BUNDLES, type SubscriptionTier, type MessageBundle } from '../services/paymentService.js';
 
 const invoiceSchema = z.object({
-  tier: z.enum(['weekly', 'monthly', 'quarterly']),
+  tier: z.string(),
+  type: z.enum(['subscription', 'bundle']).optional().default('subscription'),
 });
 
 // Create invoice link for Telegram Stars payment
@@ -844,10 +878,25 @@ router.post(
       return res.status(400).json({ message: 'Некорректный тариф', issues: parsed.error.errors });
     }
 
-    const tier = parsed.data.tier as SubscriptionTier;
-    const invoiceLink = await createInvoiceLink(req.auth!.id, tier);
+    const { tier, type } = parsed.data;
 
-    res.json({ invoiceLink, tier: SUBSCRIPTION_TIERS[tier] });
+    if (type === 'bundle') {
+      // Handle bundle purchase
+      if (!MESSAGE_BUNDLES[tier as MessageBundle]) {
+        return res.status(400).json({ message: 'Некорректный пакет сообщений' });
+      }
+      const bundle = tier as MessageBundle;
+      const invoiceLink = await createBundleInvoiceLink(req.auth!.id, bundle);
+      res.json({ invoiceLink, bundle: MESSAGE_BUNDLES[bundle] });
+    } else {
+      // Handle subscription purchase
+      if (!SUBSCRIPTION_TIERS[tier as SubscriptionTier]) {
+        return res.status(400).json({ message: 'Некорректный тариф подписки' });
+      }
+      const subscriptionTier = tier as SubscriptionTier;
+      const invoiceLink = await createSubscriptionInvoiceLink(req.auth!.id, subscriptionTier);
+      res.json({ invoiceLink, tier: SUBSCRIPTION_TIERS[subscriptionTier] });
+    }
   })
 );
 

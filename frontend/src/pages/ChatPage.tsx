@@ -153,19 +153,19 @@ export function ChatPage() {
                 <div className="flex-1 min-w-0">
                     <h3 className="font-semibold truncate">{selectedCharacter?.name || 'Чат'}</h3>
                     {limits && (
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[11px]">⚡</span>
+                        <div className="flex items-center gap-3 mt-1">
                             {limits.hasSubscription || limits.total === -1 ? (
-                                <span className="text-lg text-primary font-medium">∞</span>
+                                <span className="text-sm text-primary font-medium">⚡ ∞</span>
                             ) : (
                                 <>
-                                    <div className="flex-1 h-1 max-w-24 bg-border rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-success to-emerald-400 rounded-full transition-all"
-                                            style={{ width: `${(limits.remaining / limits.total) * 100}%` }}
-                                        />
-                                    </div>
-                                    <span className="text-[11px] text-text-muted">{limits.remaining}/{limits.total}</span>
+                                    <span className="text-[11px] text-text-muted">
+                                        ⚡ {limits.remaining}/{limits.total}
+                                    </span>
+                                    {profile?.bonusMessages !== undefined && profile.bonusMessages > 0 && (
+                                        <span className="text-[11px] text-blue-400">
+                                            ⚡ {profile.bonusMessages}
+                                        </span>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -342,11 +342,11 @@ export function ChatPage() {
             <div className="flex gap-3 px-4 pt-4 pb-5 bg-surface/90 backdrop-blur-xl border-t border-border">
                 {limits && !limits.hasSubscription && limits.remaining === 0 ? (
                     <button
-                        onClick={() => navigate('/subscription')}
+                        onClick={() => navigate('/donate')}
                         className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-primary to-indigo-500 text-white font-medium
                             hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                     >
-                        ⚡ Получить безлимит сообщений
+                        ⚡ Получить сообщения
                     </button>
                 ) : (
                     <>

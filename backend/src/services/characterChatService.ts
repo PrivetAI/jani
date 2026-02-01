@@ -24,7 +24,7 @@ import {
   sanitizeReply,
   parseJsonResponse,
 } from './chat/utils.js';
-import { SUMMARY_AND_FACTS_PROMPT } from '../prompts/chat.js';
+import { SUMMARY_AND_FACTS_PROMPT, DRIVER_PROMPT, DRIVER_PROMPT_V2 } from '../prompts/chat.js';
 
 export type { ChatRequest } from './chat/types.js';
 
@@ -39,8 +39,11 @@ export class CharacterChatService {
     userFacts?: string | null,
     emotionalContext?: string | null
   ): string {
+    // Select driver prompt based on character's version (A/B testing)
+    const driverPrompt = character.driver_prompt_version === 2 ? DRIVER_PROMPT_V2 : DRIVER_PROMPT;
+
     const parts: string[] = [
-      config.driverPrompt,
+      driverPrompt,
       '',
       buildCharacterCard(character, voicePerson),
     ];

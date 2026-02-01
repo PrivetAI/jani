@@ -12,12 +12,20 @@ interface MyCharacter {
     grammaticalGender?: 'male' | 'female';
 }
 
+interface MessageLimits {
+    total: number;
+    remaining: number;
+    resetsAt: string | null;
+}
+
 export function ProfilePage() {
     const navigate = useNavigate();
     const { profile, initData, updateProfile, isLoading } = useUserStore();
     const [activeTab, setActiveTab] = useState<'settings' | 'characters'>('settings');
     const [myCharacters, setMyCharacters] = useState<MyCharacter[]>([]);
     const [loadingChars, setLoadingChars] = useState(false);
+    const [limits, setLimits] = useState<MessageLimits | null>(null);
+    const [countdown, setCountdown] = useState<string>('');
 
     const [form, setForm] = useState({
         displayName: '',
@@ -50,6 +58,46 @@ export function ProfilePage() {
                 .finally(() => setLoadingChars(false));
         }
     }, [activeTab, initData, profile]);
+
+    // Load message limits
+    useEffect(() => {
+        if (initData && profile?.subscriptionStatus !== 'active') {
+            apiRequest<{ messagesLimit: MessageLimits | null }>('/api/messages/limits', { initData })
+                .then(data => {
+                    if (data.messagesLimit) {
+                        setLimits(data.messagesLimit);
+                    }
+                })
+                .catch(() => { });
+        }
+    }, [initData, profile?.subscriptionStatus]);
+
+    // Countdown timer
+    useEffect(() => {
+        if (!limits?.resetsAt) {
+            setCountdown('');
+            return;
+        }
+
+        const updateCountdown = () => {
+            const now = new Date().getTime();
+            const reset = new Date(limits.resetsAt!).getTime();
+            const diff = reset - now;
+
+            if (diff <= 0) {
+                setCountdown('скоро');
+                return;
+            }
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            setCountdown(`${hours}ч ${minutes}м`);
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 60000); // Update every minute
+        return () => clearInterval(interval);
+    }, [limits?.resetsAt]);
 
     const handleSave = async () => {
         setNicknameError(null);
@@ -107,7 +155,7 @@ export function ProfilePage() {
                 {activeTab === 'settings' && (
                     <>
                         {/* Info Section */}
-                        <div className="space-y-2 mb-6 p-4 rounded-xl bg-surface-light border border-border">
+                        <div className="space-y-2 mb-4 p-4 rounded-xl bg-surface-light border border-border">
                             <p className="text-sm">
                                 <span className="text-text-muted">ID:</span>{' '}
                                 <span className="text-text-primary">{profile.telegramUserId}</span>
@@ -124,15 +172,41 @@ export function ProfilePage() {
                             </p>
                         </div>
 
+                        {/* Daily Limit & Bonus Messages */}
+                        {profile.subscriptionStatus !== 'active' && (
+                            <div className="mb-6 grid grid-cols-2 gap-3">
+                                {/* Daily Limit */}
+                                {limits && limits.remaining !== undefined && limits.total !== undefined && (
+                                    <div className="p-4 rounded-xl bg-surface-light border border-border">
+                                        <p className="text-xs text-text-muted mb-1">Дневной лимит</p>
+                                        <p className="text-xl font-bold text-text-primary">
+                                            {limits.remaining}<span className="text-sm font-normal text-text-muted">/{limits.total}</span>
+                                        </p>
+                                        {countdown && (
+                                            <p className="text-xs text-text-muted mt-1">⏱ {countdown}</p>
+                                        )}
+                                    </div>
+                                )}
+                                {/* Bonus Messages */}
+                                <div className="p-4 rounded-xl bg-surface-light border border-border">
+                                    <p className="text-xs text-text-muted mb-1">Бонусные</p>
+                                    <p className="text-xl font-bold text-blue-400">
+                                        ⚡ {profile.bonusMessages ?? 0}
+                                    </p>
+                                    <p className="text-xs text-text-muted mt-1">Не сгорают</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Subscription button */}
                         {profile.subscriptionStatus === 'active' ? (
                             <div
-                                onClick={() => navigate('/subscription')}
+                                onClick={() => navigate('/donate')}
                                 className="mb-6 p-4 rounded-xl bg-surface-light border border-border cursor-pointer hover:border-border-light transition-colors"
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xl">⭐</span>
+                                        <span className="text-xl">⚡</span>
                                         <div>
                                             <p className="text-sm font-medium text-text-primary">Premium активен</p>
                                             <p className="text-xs text-text-muted">до {profile.subscriptionEndAt ? new Date(profile.subscriptionEndAt).toLocaleDateString('ru-RU') : '—'}</p>
@@ -143,15 +217,15 @@ export function ProfilePage() {
                             </div>
                         ) : (
                             <div
-                                onClick={() => navigate('/subscription')}
+                                onClick={() => navigate('/donate')}
                                 className="mb-6 p-4 rounded-xl bg-surface-light border border-border cursor-pointer hover:border-primary/50 transition-colors"
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xl">⭐</span>
+                                        <span className="text-xl">⚡</span>
                                         <div>
-                                            <p className="text-sm font-medium text-text-primary">Получить Premium</p>
-                                            <p className="text-xs text-text-muted">Безлимит сообщений + все персонажи</p>
+                                            <p className="text-sm font-medium text-text-primary">Получить сообщения</p>
+                                            <p className="text-xs text-text-muted">Пригласить друзей или купить premium</p>
                                         </div>
                                     </div>
                                     <span className="text-primary font-medium text-sm">Открыть →</span>

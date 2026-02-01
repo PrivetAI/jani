@@ -69,6 +69,21 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_adult_confirmed BOOLEAN DEFAULT FA
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_person INTEGER DEFAULT 3;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bonus_messages INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS limit_start_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INTEGER REFERENCES users(id);
+
+-- Referral rewards tracking
+CREATE TABLE IF NOT EXISTS referral_rewards (
+    id SERIAL PRIMARY KEY,
+    referrer_id INTEGER NOT NULL REFERENCES users(id),
+    referred_id INTEGER NOT NULL REFERENCES users(id),
+    reward_type TEXT NOT NULL, -- 'registration' or 'purchase'
+    messages_awarded INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_referral_rewards_referrer ON referral_rewards(referrer_id);
+CREATE INDEX IF NOT EXISTS idx_referral_rewards_referred ON referral_rewards(referred_id);
 
 CREATE TABLE IF NOT EXISTS characters (
     id SERIAL PRIMARY KEY,
@@ -95,6 +110,11 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_model TEXT;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_temperature DECIMAL(3,2);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_top_p DECIMAL(3,2);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_repetition_penalty DECIMAL(4,2);
+
+-- Characters: Driver prompt version for A/B testing (1 or 2, randomly assigned on create)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS driver_prompt_version INTEGER DEFAULT 1;
+-- Randomly assign version to existing characters that have default value
+UPDATE characters SET driver_prompt_version = floor(random() * 2 + 1)::int WHERE driver_prompt_version = 1;
 
 -- Characters: Initial relationship values (used when creating new user-character state)
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_attraction INTEGER DEFAULT 0;

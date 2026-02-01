@@ -516,7 +516,7 @@ export function CreateCharacterPage() {
 
                 {/* LLM Parameters */}
                 <div className="space-y-4 p-4 rounded-xl bg-surface-light border border-border">
-                    <h3 className="text-sm font-medium text-text-secondary">Параметры генерации (опционально)</h3>
+                    <h3 className="text-sm font-medium text-text-secondary">Параметры генерации (опционально). Менять только если понимаешь что делаешь.</h3>
 
                     {/* Temperature */}
                     <div>

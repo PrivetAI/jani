@@ -22,6 +22,9 @@ import {
     getOrCreateEmotionalState,
     getLastAssistantMessage,
     deleteDialogMessage,
+    useBonusMessage,
+    getBonusMessages,
+    getUserDailyLimit,
 } from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
 import { config } from '../config.js';
@@ -96,18 +99,25 @@ router.post(
         }
 
         // Check message limit for free users
-        if (!hasSubscription && config.enableMessageLimit) {
+        if (!hasSubscription) {
             const used = await countUserMessagesToday(req.auth!.id);
-            if (used >= config.freeDailyMessageLimit) {
-                return res.status(429).json({
-                    error: 'daily_limit_exceeded',
-                    message: `Дневной лимит ${config.freeDailyMessageLimit} сообщений исчерпан`,
-                    limits: {
-                        remaining: 0,
-                        total: config.freeDailyMessageLimit,
-                        resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                    },
-                });
+            const { limit } = await getUserDailyLimit(req.auth!.id);
+            if (used >= limit) {
+                // Try to use bonus message
+                const usedBonus = await useBonusMessage(req.auth!.id);
+                if (!usedBonus) {
+                    const bonusBalance = await getBonusMessages(req.auth!.id);
+                    return res.status(429).json({
+                        error: 'daily_limit_exceeded',
+                        message: `Дневной лимит ${limit} сообщений исчерпан`,
+                        limits: {
+                            remaining: 0,
+                            total: limit,
+                            resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+                        },
+                        bonusMessages: bonusBalance,
+                    });
+                }
             }
         }
 
@@ -124,6 +134,7 @@ router.post(
 
             // Get updated limits
             const usedNow = await countUserMessagesToday(req.auth!.id);
+            const { limit: currentLimit } = await getUserDailyLimit(req.auth!.id);
 
             res.json({
                 userMessage: {
@@ -136,9 +147,9 @@ router.post(
                     text: result.reply,
                     createdAt: new Date().toISOString(),
                 },
-                limits: (hasSubscription || !config.enableMessageLimit) ? null : {
-                    remaining: Math.max(0, config.freeDailyMessageLimit - usedNow),
-                    total: config.freeDailyMessageLimit,
+                limits: hasSubscription ? null : {
+                    remaining: Math.max(0, currentLimit - usedNow),
+                    total: currentLimit,
                     resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
                 },
             });
@@ -202,18 +213,25 @@ router.post(
         }
 
         // Check message limit (same as regular message)
-        if (!hasSubscription && config.enableMessageLimit) {
+        if (!hasSubscription) {
             const used = await countUserMessagesToday(req.auth!.id);
-            if (used >= config.freeDailyMessageLimit) {
-                return res.status(429).json({
-                    error: 'daily_limit_exceeded',
-                    message: `Дневной лимит ${config.freeDailyMessageLimit} сообщений исчерпан`,
-                    limits: {
-                        remaining: 0,
-                        total: config.freeDailyMessageLimit,
-                        resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                    },
-                });
+            const { limit } = await getUserDailyLimit(req.auth!.id);
+            if (used >= limit) {
+                // Try to use bonus message
+                const usedBonus = await useBonusMessage(req.auth!.id);
+                if (!usedBonus) {
+                    const bonusBalance = await getBonusMessages(req.auth!.id);
+                    return res.status(429).json({
+                        error: 'daily_limit_exceeded',
+                        message: `Дневной лимит ${limit} сообщений исчерпан`,
+                        limits: {
+                            remaining: 0,
+                            total: limit,
+                            resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+                        },
+                        bonusMessages: bonusBalance,
+                    });
+                }
             }
         }
 
@@ -249,6 +267,7 @@ router.post(
 
             // Get updated limits
             const usedNow = await countUserMessagesToday(req.auth!.id);
+            const { limit: currentLimit } = await getUserDailyLimit(req.auth!.id);
 
             res.json({
                 assistantMessage: {
@@ -256,9 +275,9 @@ router.post(
                     text: result.reply,
                     createdAt: new Date().toISOString(),
                 },
-                limits: (hasSubscription || !config.enableMessageLimit) ? null : {
-                    remaining: Math.max(0, config.freeDailyMessageLimit - usedNow),
-                    total: config.freeDailyMessageLimit,
+                limits: hasSubscription ? null : {
+                    remaining: Math.max(0, currentLimit - usedNow),
+                    total: currentLimit,
                     resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
                 },
             });

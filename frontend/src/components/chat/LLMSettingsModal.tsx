@@ -23,7 +23,9 @@ interface LLMSettingsModalProps {
 
 export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
     const { selectedCharacter, loadSession } = useChatStore();
-    const { initData } = useUserStore();
+    const { initData, profile } = useUserStore();
+
+    const isPremium = profile?.subscriptionStatus === 'active';
 
     const [models, setModels] = useState<AllowedModel[]>([]);
     const [settings, setSettings] = useState<LLMSettings>({
@@ -57,7 +59,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
     }, [initData, selectedCharacter]);
 
     const handleSave = async () => {
-        if (!initData || !selectedCharacter) return;
+        if (!initData || !selectedCharacter || !isPremium) return;
 
         setIsSaving(true);
         try {
@@ -77,6 +79,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
     };
 
     const handleReset = () => {
+        if (!isPremium) return;
         setSettings({ model: null, temperature: null, topP: null });
     };
 
@@ -95,7 +98,12 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
             <div className="w-full max-w-md rounded-2xl bg-surface/95 border border-border overflow-hidden">
                 {/* Header */}
                 <header className="flex items-center justify-between px-5 py-4 border-b border-border">
-                    <h3 className="font-semibold text-lg">⚙️ Настройки LLM</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg">⚙️ Настройки LLM</h3>
+                        {!isPremium && (
+                            <span className="text-xs text-primary px-2 py-1 bg-primary/10 rounded-lg">Premium</span>
+                        )}
+                    </div>
                     <button
                         onClick={onClose}
                         className="px-3 py-1.5 rounded-lg text-sm bg-surface-light border border-border text-text-secondary
@@ -106,15 +114,22 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                 </header>
 
                 {/* Content */}
-                <div className="p-5 space-y-5">
+                <div className={`p-5 space-y-5 ${!isPremium ? 'opacity-60' : ''}`}>
+                    {!isPremium && (
+                        <p className="text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">
+                            🔒 Настройка параметров LLM доступна только с Premium-подпиской
+                        </p>
+                    )}
+
                     {/* Model Select */}
                     <div className="space-y-2">
                         <label className="text-sm text-text-secondary">Модель</label>
                         <select
                             value={settings.model || ''}
                             onChange={(e) => setSettings(s => ({ ...s, model: e.target.value || null }))}
+                            disabled={!isPremium}
                             className="w-full px-3 py-2.5 rounded-xl bg-surface-light border border-border text-text-primary
-                                focus:outline-none focus:border-primary"
+                                focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <option value="">По умолчанию (персонаж)</option>
                             {models.map(m => (
@@ -132,7 +147,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
                             <label className="text-sm text-text-secondary">Температура</label>
-                            <label className="flex items-center gap-2 cursor-pointer">
+                            <label className={`flex items-center gap-2 ${isPremium ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                                 <input
                                     type="checkbox"
                                     checked={settings.temperature == null}
@@ -140,7 +155,8 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                                         ...s,
                                         temperature: e.target.checked ? null : 0.7
                                     }))}
-                                    className="w-4 h-4 rounded accent-primary cursor-pointer"
+                                    disabled={!isPremium}
+                                    className="w-4 h-4 rounded accent-primary cursor-pointer disabled:cursor-not-allowed"
                                 />
                                 <span className="text-sm text-text-muted">Авто</span>
                             </label>
@@ -152,7 +168,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                                 max="2"
                                 step="0.1"
                                 value={settings.temperature ?? 0.7}
-                                disabled={settings.temperature == null}
+                                disabled={settings.temperature == null || !isPremium}
                                 onChange={(e) => setSettings(s => ({ ...s, temperature: parseFloat(e.target.value) }))}
                                 className="flex-1 h-2 rounded-full appearance-none bg-surface-light
                                     [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
@@ -173,7 +189,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
                             <label className="text-sm text-text-secondary">Top-P</label>
-                            <label className="flex items-center gap-2 cursor-pointer">
+                            <label className={`flex items-center gap-2 ${isPremium ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                                 <input
                                     type="checkbox"
                                     checked={settings.topP == null}
@@ -181,7 +197,8 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                                         ...s,
                                         topP: e.target.checked ? null : 0.9
                                     }))}
-                                    className="w-4 h-4 rounded accent-primary cursor-pointer"
+                                    disabled={!isPremium}
+                                    className="w-4 h-4 rounded accent-primary cursor-pointer disabled:cursor-not-allowed"
                                 />
                                 <span className="text-sm text-text-muted">Авто</span>
                             </label>
@@ -193,7 +210,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                                 max="1"
                                 step="0.05"
                                 value={settings.topP ?? 0.9}
-                                disabled={settings.topP == null}
+                                disabled={settings.topP == null || !isPremium}
                                 onChange={(e) => setSettings(s => ({ ...s, topP: parseFloat(e.target.value) }))}
                                 className="flex-1 h-2 rounded-full appearance-none bg-surface-light
                                     [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
@@ -214,16 +231,18 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                     <div className="flex gap-3 pt-2">
                         <button
                             onClick={handleReset}
+                            disabled={!isPremium}
                             className="flex-1 px-4 py-2.5 rounded-xl bg-surface-light border border-border
-                                text-text-secondary hover:text-text-primary transition-colors"
+                                text-text-secondary hover:text-text-primary transition-colors
+                                disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Сбросить
                         </button>
                         <button
                             onClick={handleSave}
-                            disabled={isSaving}
+                            disabled={isSaving || !isPremium}
                             className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white font-medium
-                                hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                                hover:bg-primary/90 disabled:opacity-50 transition-colors disabled:cursor-not-allowed"
                         >
                             {isSaving ? 'Сохранение...' : 'Сохранить'}
                         </button>
