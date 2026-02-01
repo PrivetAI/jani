@@ -62,7 +62,7 @@ export function ProfilePage() {
     // Load message limits
     useEffect(() => {
         if (initData && profile?.subscriptionStatus !== 'active') {
-            apiRequest<{ messagesLimit: MessageLimits | null }>('/api/messages/limits', { initData })
+            apiRequest<{ messagesLimit: MessageLimits | null }>('/api/limits', { initData })
                 .then(data => {
                     if (data.messagesLimit) {
                         setLimits(data.messagesLimit);
@@ -180,7 +180,7 @@ export function ProfilePage() {
                                     <div className="p-4 rounded-xl bg-surface-light border border-border">
                                         <p className="text-xs text-text-muted mb-1">Дневной лимит</p>
                                         <p className="text-xl font-bold text-text-primary">
-                                            {limits.remaining}<span className="text-sm font-normal text-text-muted">/{limits.total}</span>
+                                            ⚡ {limits.remaining}<span className="text-sm font-normal text-text-muted">/{limits.total}</span>
                                         </p>
                                         {countdown && (
                                             <p className="text-xs text-text-muted mt-1">⏱ {countdown}</p>
