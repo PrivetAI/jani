@@ -27,6 +27,7 @@ import {
     getUserDailyLimit,
 } from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
+import { clearDialogSummary } from '../modules/dialogSummaries.js';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 
@@ -489,6 +490,7 @@ router.delete(
             deleteAllDialogs(userId, characterId),
             deleteAllMemories(userId, characterId),
             deleteEmotionalState(userId, characterId),
+            clearDialogSummary(userId, characterId),
         ]);
 
         // Reset session (creates fresh one)
