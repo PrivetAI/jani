@@ -340,7 +340,7 @@ export function ChatPage() {
 
             {/* Input Area */}
             <div className="flex gap-3 px-4 pt-4 pb-5 bg-surface/90 backdrop-blur-xl border-t border-border">
-                {limits && !limits.hasSubscription && limits.remaining === 0 ? (
+                {limits && !limits.hasSubscription && limits.remaining === 0 && !(profile?.bonusMessages && profile.bonusMessages > 0) ? (
                     <button
                         onClick={() => navigate('/donate')}
                         className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-primary to-indigo-500 text-white font-medium
