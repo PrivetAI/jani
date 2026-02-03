@@ -29,6 +29,7 @@ interface UserState {
     setInitData: (initData: string) => void;
     loadProfile: () => Promise<void>;
     updateProfile: (data: Partial<Profile>) => Promise<void>;
+    updateBonusMessages: (count: number) => void;
     confirmAdult: () => Promise<void>;
 }
 
@@ -80,6 +81,13 @@ export const useUserStore = create<UserState>((set, get) => ({
             set({ profile: response.profile, isLoading: false });
         } catch (err) {
             set({ error: (err as Error).message, isLoading: false });
+        }
+    },
+
+    updateBonusMessages: (count: number) => {
+        const { profile } = get();
+        if (profile) {
+            set({ profile: { ...profile, bonusMessages: count } });
         }
     },
 

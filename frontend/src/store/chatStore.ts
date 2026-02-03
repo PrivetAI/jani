@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { apiRequest } from '../lib/api';
 import { socketClient } from '../lib/socket';
 import { logger } from '../lib/logger';
+import { useUserStore } from './userStore';
 
 export interface Character {
     id: number;
@@ -133,6 +134,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             userMessage: { role: 'user'; text: string; createdAt: string };
             assistantMessage: { role: 'assistant'; text: string; createdAt: string };
             limits: { remaining: number; total: number; resetsAt: string };
+            bonusMessages?: number;
         }>('chat:message', (data) => {
             const currentState = get() as any;
             // Only update if message is for the current chat
@@ -150,6 +152,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 isTyping: false,
                 limits: data.limits ? { ...state.limits!, ...data.limits, hasSubscription: state.limits?.hasSubscription ?? false } : state.limits,
             }));
+
+            // Update bonus messages in userStore
+            if (data.bonusMessages !== undefined) {
+                useUserStore.getState().updateBonusMessages(data.bonusMessages);
+            }
 
             // Reload session to update relationship_score and messages_count
             const state = get() as any;

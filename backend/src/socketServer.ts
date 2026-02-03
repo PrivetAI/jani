@@ -130,9 +130,10 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                 // Record message in session
                 await recordMessage(socket.userId, characterId);
 
-                // Get updated limits
+                // Get updated limits and bonus
                 const usedNow = await countUserMessagesToday(socket.userId);
                 const { limit: currentLimit } = await getUserDailyLimit(socket.userId);
+                const bonusBalance = await getBonusMessages(socket.userId);
 
                 // Emit response
                 socket.emit('chat:message', {
@@ -152,6 +153,7 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                         total: currentLimit,
                         resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
                     },
+                    bonusMessages: bonusBalance,
                 });
 
                 logger.info('Chat message sent', { userId: socket.userId, characterId, replyLength: result.reply.length });
