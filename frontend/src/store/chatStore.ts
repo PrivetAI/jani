@@ -414,6 +414,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const data = await apiRequest<{
                 assistantMessage: { role: 'assistant'; text: string; createdAt: string };
                 limits: { remaining: number; total: number; resetsAt: string } | null;
+                bonusMessages?: number;
             }>(`/api/chats/${characterId}/regenerate`, {
                 method: 'POST',
                 initData
@@ -433,6 +434,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 isTyping: false,
                 limits: data.limits ? { ...state.limits!, ...data.limits, hasSubscription: state.limits?.hasSubscription ?? false } : state.limits,
             }));
+
+            // Update bonus messages in userStore
+            if (data.bonusMessages !== undefined) {
+                useUserStore.getState().updateBonusMessages(data.bonusMessages);
+            }
         } catch (err) {
             set({ error: (err as Error).message, isRegenerating: false, isTyping: false });
         }

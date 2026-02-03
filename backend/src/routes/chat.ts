@@ -266,9 +266,10 @@ router.post(
             // This counts toward daily limit but won't appear in LLM history
             await addDialogMessage(req.auth!.id, characterId, 'user', lastUserMsg.message_text, true);
 
-            // Get updated limits
+            // Get updated limits and bonus
             const usedNow = await countUserMessagesToday(req.auth!.id);
             const { limit: currentLimit } = await getUserDailyLimit(req.auth!.id);
+            const bonusBalance = await getBonusMessages(req.auth!.id);
 
             res.json({
                 assistantMessage: {
@@ -281,6 +282,7 @@ router.post(
                     total: currentLimit,
                     resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
                 },
+                bonusMessages: bonusBalance,
             });
         } catch (error: any) {
             return res.status(500).json({ error: 'llm_error', message: error.message });
