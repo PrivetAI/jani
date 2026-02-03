@@ -1,12 +1,11 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { addDialogMessage, countUserMessagesToday, getDialogHistory, getLastCharacterForUser, getCharacterById, type CharacterRecord, findOrCreateUser, updateLastCharacter, type UserRecord, getActiveSubscription, getUserDailyLimit } from '../modules/index.js';
+import { addDialogMessage, getDialogHistory, getLastCharacterForUser, getCharacterById, type CharacterRecord, findOrCreateUser, updateLastCharacter, type UserRecord, getActiveSubscription } from '../modules/index.js';
 import { getSession } from '../repositories/sessionsRepository.js';
 import { characterChatService } from './characterChatService.js';
 import {
   CharacterInactiveError,
   CharacterRequiredError,
-  LimitReachedError,
   LLMGenerationError,
   PremiumRequiredError,
 } from '../errors.js';
@@ -56,13 +55,10 @@ export class ChatSessionService {
       throw new PremiumRequiredError(character.id);
     }
 
-    if (!hasSubscription) {
-      const used = await countUserMessagesToday(user.id);
-      const { limit } = await getUserDailyLimit(user.id);
-      if (used >= limit) {
-        throw new LimitReachedError(used, limit);
-      }
-    }
+
+    // Note: Daily limit check is done in routes (chat.ts, socketServer.ts)
+    // where bonus messages are properly handled before calling this service
+
 
     const historyResult = await getDialogHistory(user.id, character.id, { limit: 60 });
     const history = historyResult.messages;
