@@ -104,7 +104,7 @@ export {
     getBonusMessages,
     getUserDailyLimit,
     getDailyLimitForDay,
-    getOrInitLimitStartDate,
+    recordUserActivity,
     type UserRecord,
     type ProfileUpdate,
     type UserProfile,

@@ -145,7 +145,7 @@ export function DonatePage() {
                         <span className="text-3xl mb-2 block">🎁</span>
                         <h2 className="text-lg font-bold text-text-primary">Бесплатные сообщения</h2>
                         <p className="text-sm text-text-secondary mt-1">
-                            Пригласи друга и получите по <span className="text-primary font-semibold">30 сообщений</span> каждый
+                            Пригласи друга и получите по <span className="text-text-muted line-through">30</span> <span className="text-primary font-semibold">100 сообщений</span> каждый
                         </p>
                         <p className="text-xs text-text-muted mt-1">
                             +50 бонусных если друг совершит любую покупку

@@ -365,17 +365,17 @@ export function ChatPage() {
                                 e.target.style.height = Math.min(e.target.scrollHeight, 144) + 'px'; // max 6 lines (~144px)
                             }}
                             onKeyDown={handleKeyDown}
-                            placeholder={isSending ? 'Подождите ответа...' : 'Напишите сообщение...'}
+                            placeholder={isSending || isRegenerating ? 'Подождите ответа...' : 'Напишите сообщение...'}
                             rows={1}
-                            disabled={isSending}
+                            disabled={isSending || isRegenerating}
                             className={`flex-1 px-4 py-3 rounded-2xl bg-surface-light border border-border text-text-primary
                                 placeholder:text-text-muted resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20
-                                ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                ${isSending || isRegenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                             style={{ minHeight: '48px' }}
                         />
                         <button
                             onClick={handleSend}
-                            disabled={!inputText.trim() || isSending}
+                            disabled={!inputText.trim() || isSending || isRegenerating}
                             className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center self-end
                                 bg-gradient-to-r from-primary to-indigo-500 text-white text-lg
                                 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"

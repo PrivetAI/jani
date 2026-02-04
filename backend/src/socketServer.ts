@@ -2,7 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { validateTelegramInitData } from './middlewares/auth.js';
 import { chatSessionService } from './services/chatSessionService.js';
-import { getCharacterById, countUserMessagesToday, recordMessage, getActiveSubscription, useBonusMessage, getBonusMessages, getUserDailyLimit } from './modules/index.js';
+import { getCharacterById, countUserMessagesToday, recordMessage, getActiveSubscription, useBonusMessage, getBonusMessages, getUserDailyLimit, recordUserActivity } from './modules/index.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { notifyAdminError } from './services/telegramNotifier.js';
@@ -127,8 +127,9 @@ export const createSocketServer = (httpServer: HttpServer): Server => {
                     characterId,
                 });
 
-                // Record message in session
+                // Record message in session and track active day (after successful send)
                 await recordMessage(socket.userId, characterId);
+                await recordUserActivity(socket.userId);
 
                 // Get updated limits and bonus
                 const usedNow = await countUserMessagesToday(socket.userId);

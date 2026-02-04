@@ -212,8 +212,9 @@ export const getBonusMessages = async (userId: number): Promise<number> => {
 // ============================================
 
 /**
- * Daily limits based on day number since start:
+ * Daily limits based on active days count:
  * Day 1: 40, Day 2: 25, Day 3: 15, Day 4+: 10
+ * Days count only when user actually sends messages.
  */
 const DAILY_LIMITS = [40, 25, 15, 10] as const;
 
@@ -227,51 +228,64 @@ export const getDailyLimitForDay = (dayNumber: number): number => {
 };
 
 /**
- * Get or initialize limit_start_date for a user.
- * If not set, initializes to today.
+ * Record user activity for current day.
+ * If this is the first message today, increment active_days_count.
+ * Returns the active_days_count (updated if first message today).
  */
-export const getOrInitLimitStartDate = async (userId: number): Promise<Date> => {
-  // First try to get existing date
-  const result = await query<{ limit_start_date: string | null }>(
-    'SELECT limit_start_date FROM users WHERE id = $1',
+export const recordUserActivity = async (userId: number): Promise<number> => {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Check if already active today
+  const result = await query<{ active_days_count: number; last_activity_date: string | null }>(
+    'SELECT active_days_count, last_activity_date::text FROM users WHERE id = $1',
     [userId]
   );
 
-  const existingDate = result.rows[0]?.limit_start_date;
-  if (existingDate) {
-    return new Date(existingDate);
+  const currentCount = result.rows[0]?.active_days_count ?? 0;
+  const lastDate = result.rows[0]?.last_activity_date;
+
+  // If already wrote today, return current count
+  if (lastDate === today) {
+    return currentCount;
   }
 
-  // Initialize to today if not set
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
+  // First message today - increment counter
+  const newCount = currentCount + 1;
   await query(
-    'UPDATE users SET limit_start_date = $1 WHERE id = $2',
-    [today.toISOString().split('T')[0], userId]
+    'UPDATE users SET active_days_count = $1, last_activity_date = $2 WHERE id = $3',
+    [newCount, today, userId]
   );
 
-  return today;
+  return newCount;
 };
 
 /**
- * Calculate which day number the user is on (1-indexed).
- * Day 1 = limit_start_date, Day 2 = next day, etc.
+ * Get user's active days count.
+ * Returns the effective day number for limit calculation.
+ * If it's a new day (not yet written today), returns count + 1 so the limit
+ * is correct from the start of the day and doesn't change mid-day.
  */
 export const getUserDayNumber = async (userId: number): Promise<number> => {
-  const startDate = await getOrInitLimitStartDate(userId);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  startDate.setHours(0, 0, 0, 0);
+  const result = await query<{ active_days_count: number; last_activity_date: string | null }>(
+    'SELECT active_days_count, last_activity_date::text FROM users WHERE id = $1',
+    [userId]
+  );
 
-  const diffMs = today.getTime() - startDate.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const count = result.rows[0]?.active_days_count ?? 0;
+  const lastDate = result.rows[0]?.last_activity_date;
+  const today = new Date().toISOString().split('T')[0];
 
-  return diffDays + 1; // 1-indexed
+  // If it's a new day (first message not yet sent), this will be day count+1
+  // This ensures the limit is correct from the START of the day
+  if (!lastDate || lastDate !== today) {
+    return count + 1;
+  }
+
+  return count;
 };
 
 /**
- * Get the user's current daily message limit based on their day number.
+ * Get the user's current daily message limit based on their active days count.
  */
 export const getUserDailyLimit = async (userId: number): Promise<{ limit: number; dayNumber: number }> => {
   const dayNumber = await getUserDayNumber(userId);

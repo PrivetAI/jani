@@ -17,7 +17,7 @@ export interface ReferralStats {
     purchaseRewards: number;
 }
 
-const REGISTRATION_BONUS = 30;
+const REGISTRATION_BONUS = 100;
 const PURCHASE_BONUS = 50;
 
 /**

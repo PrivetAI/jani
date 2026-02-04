@@ -72,6 +72,24 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_person INTEGER DEFAULT 3;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bonus_messages INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS limit_start_date DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INTEGER REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS active_days_count INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity_date DATE;
+
+-- Migration: Initialize active_days_count for existing users based on actual dialog history
+-- Counts unique days when user sent messages (role='user') - honest and accurate
+UPDATE users u
+SET active_days_count = COALESCE(d.days_count, 0),
+    last_activity_date = COALESCE(d.last_date, NULL)
+FROM (
+    SELECT 
+        user_id, 
+        COUNT(DISTINCT created_at::date) as days_count,
+        MAX(created_at::date) as last_date
+    FROM dialogs 
+    WHERE role = 'user'
+    GROUP BY user_id
+) d
+WHERE u.id = d.user_id AND (u.active_days_count IS NULL OR u.active_days_count = 0);
 
 -- Referral rewards tracking
 CREATE TABLE IF NOT EXISTS referral_rewards (

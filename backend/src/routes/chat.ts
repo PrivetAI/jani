@@ -25,6 +25,7 @@ import {
     useBonusMessage,
     getBonusMessages,
     getUserDailyLimit,
+    recordUserActivity,
 } from '../modules/index.js';
 import { chatSessionService } from '../services/chatSessionService.js';
 import { clearDialogSummary } from '../modules/dialogSummaries.js';
@@ -130,8 +131,9 @@ router.post(
                 characterId,
             });
 
-            // Record message in session
+            // Record message in session and track active day (after successful send)
             await recordMessage(req.auth!.id, characterId);
+            await recordUserActivity(req.auth!.id);
 
             // Get updated limits
             const usedNow = await countUserMessagesToday(req.auth!.id);
@@ -213,28 +215,7 @@ router.post(
             return res.status(403).json({ error: 'premium_required', message: 'Требуется подписка' });
         }
 
-        // Check message limit (same as regular message)
-        if (!hasSubscription) {
-            const used = await countUserMessagesToday(req.auth!.id);
-            const { limit } = await getUserDailyLimit(req.auth!.id);
-            if (used >= limit) {
-                // Try to use bonus message
-                const usedBonus = await useBonusMessage(req.auth!.id);
-                if (!usedBonus) {
-                    const bonusBalance = await getBonusMessages(req.auth!.id);
-                    return res.status(429).json({
-                        error: 'daily_limit_exceeded',
-                        message: `Дневной лимит ${limit} сообщений исчерпан`,
-                        limits: {
-                            remaining: 0,
-                            total: limit,
-                            resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
-                        },
-                        bonusMessages: bonusBalance,
-                    });
-                }
-            }
-        }
+        // Regeneration is free - no limit check needed
 
         // Get last assistant message
         const lastAssistant = await getLastAssistantMessage(req.auth!.id, characterId);
@@ -262,11 +243,7 @@ router.post(
                 isRegenerate: true,
             });
 
-            // For limit counting: save user message with is_regenerated flag
-            // This counts toward daily limit but won't appear in LLM history
-            await addDialogMessage(req.auth!.id, characterId, 'user', lastUserMsg.message_text, true);
-
-            // Get updated limits and bonus
+            // Get current limits for response (no change from regeneration)
             const usedNow = await countUserMessagesToday(req.auth!.id);
             const { limit: currentLimit } = await getUserDailyLimit(req.auth!.id);
             const bonusBalance = await getBonusMessages(req.auth!.id);
