@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jani Analytics</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <h1>📊 Jani Analytics</h1>
+            <div class="header-controls">
+                <select id="backupSelect">
+                    <option value="">Выберите бэкап...</option>
+                </select>
+                <label class="upload-btn">
+                    📤 Загрузить бэкап
+                    <input type="file" id="uploadInput" accept=".sql,.sql.gz,.gz" hidden>
+                </label>
+            </div>
+        </header>
+
+        <div id="loading" class="loading hidden">Загрузка...</div>
+        
+        <main id="dashboard" class="hidden">
+            <!-- Overview -->
+            <section class="overview">
+                <div class="stat-card">
+                    <span class="stat-value" id="totalUsers">-</span>
+                    <span class="stat-label">Пользователей</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="totalMessages">-</span>
+                    <span class="stat-label">Сообщений</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="totalCharacters">-</span>
+                    <span class="stat-label">Персонажей</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="totalRevenue">-</span>
+                    <span class="stat-label">Доход (stars)</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="conversionRate">-</span>
+                    <span class="stat-label">Конверсия</span>
+                </div>
+            </section>
+
+            <!-- Tabs -->
+            <nav class="tabs">
+                <button class="tab active" data-tab="users">👥 Пользователи</button>
+                <button class="tab" data-tab="messages">💬 Сообщения</button>
+                <button class="tab" data-tab="characters">🎭 Персонажи</button>
+                <button class="tab" data-tab="financial">💰 Финансы</button>
+                <button class="tab" data-tab="referrals">🔗 Рефералы</button>
+                <button class="tab" data-tab="compare">📊 Сравнение</button>
+            </nav>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content active">
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Сегментация</h3>
+                        <div class="metrics">
+                            <div class="metric"><span class="label">Всего:</span><span id="usersTotal">-</span></div>
+                            <div class="metric"><span class="label">Premium:</span><span id="usersPremium">-</span></div>
+                            <div class="metric"><span class="label">Free:</span><span id="usersFree">-</span></div>
+                            <div class="metric"><span class="label">18+ подтв.:</span><span id="usersAdult">-</span></div>
+                            <div class="metric"><span class="label">По рефералу:</span><span id="usersReferred">-</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Активность (DAU/WAU/MAU)</h3>
+                        <div class="metrics">
+                            <div class="metric"><span class="label">DAU:</span><span id="dau">-</span></div>
+                            <div class="metric"><span class="label">WAU:</span><span id="wau">-</span></div>
+                            <div class="metric"><span class="label">MAU:</span><span id="mau">-</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Языки</h3>
+                        <canvas id="languagesChart"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Новые пользователи</h3>
+                        <canvas id="newUsersChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Retention (когорты по неделям)</h3>
+                    <table id="retentionTable" class="data-table">
+                        <thead>
+                            <tr><th>Неделя</th><th>Users</th><th>D1</th><th>D7</th><th>D30</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Messages Tab -->
+            <div id="messages-tab" class="tab-content">
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Статистика сообщений</h3>
+                        <div class="metrics">
+                            <div class="metric"><span class="label">Всего:</span><span id="messagesTotal">-</span></div>
+                            <div class="metric"><span class="label">От пользователей:</span><span id="messagesUser">-</span></div>
+                            <div class="metric"><span class="label">Среднее (все):</span><span id="avgMsgsAll">-</span></div>
+                            <div class="metric highlight"><span class="label">Среднее (free):</span><span id="avgMsgsFree">-</span></div>
+                            <div class="metric highlight"><span class="label">Среднее (premium):</span><span id="avgMsgsPremium">-</span></div>
+                            <div class="metric"><span class="label">Сред. токенов:</span><span id="avgTokens">-</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Распределение сообщений</h3>
+                        <canvas id="msgsDistributionChart"></canvas>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Активность по часам</h3>
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Модели LLM</h3>
+                        <canvas id="modelsChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Сообщения по дням</h3>
+                    <canvas id="msgsByDayChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Characters Tab -->
+            <div id="characters-tab" class="tab-content">
+                <div class="card">
+                    <h3>🧪 A/B Тест: Prompt v1 vs v2</h3>
+                    <table id="abTestTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Версия</th>
+                                <th>Персонажей</th>
+                                <th>Сообщений</th>
+                                <th>Пользователей</th>
+                                <th>Сред. сообщ./юзер</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Рейтинги по версии промпта</h3>
+                        <table id="ratingsTable" class="data-table">
+                            <thead>
+                                <tr><th>Версия</th><th>Лайки</th><th>Дизлайки</th><th>% лайков</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Эмоции по версии</h3>
+                        <canvas id="emotionalChart"></canvas>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>UGC vs Official</h3>
+                        <canvas id="ugcChart"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Топ персонажей</h3>
+                        <table id="topCharsTable" class="data-table small">
+                            <thead>
+                                <tr><th>Имя</th><th>Сообщ.</th><th>Юзеров</th><th>v</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Tab -->
+            <div id="financial-tab" class="tab-content">
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Финансовые метрики</h3>
+                        <div class="metrics">
+                            <div class="metric"><span class="label">Общий доход:</span><span id="finRevenue">-</span> ⭐</div>
+                            <div class="metric"><span class="label">Платящих юзеров:</span><span id="finPaying">-</span></div>
+                            <div class="metric"><span class="label">ARPU:</span><span id="finArpu">-</span> ⭐</div>
+                            <div class="metric"><span class="label">ARPPU:</span><span id="finArppu">-</span> ⭐</div>
+                            <div class="metric"><span class="label">Конверсия:</span><span id="finConversion">-</span>%</div>
+                            <div class="metric"><span class="label">Активных подписок:</span><span id="finActiveSubs">-</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>По тарифам</h3>
+                        <canvas id="tierChart"></canvas>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Статусы платежей</h3>
+                        <canvas id="paymentStatusChart"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Доход по дням</h3>
+                        <canvas id="revenueByDayChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Referrals Tab -->
+            <div id="referrals-tab" class="tab-content">
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Реферальная программа</h3>
+                        <div class="metrics">
+                            <div class="metric"><span class="label">Приглашено:</span><span id="refTotal">-</span></div>
+                            <div class="metric"><span class="label">Активных рефереров:</span><span id="refActive">-</span></div>
+                            <div class="metric"><span class="label">Стали платящими:</span><span id="refPaying">-</span></div>
+                            <div class="metric"><span class="label">Конверсия рефералов:</span><span id="refConversion">-</span>%</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Топ рефереров</h3>
+                        <table id="topReferrersTable" class="data-table">
+                            <thead>
+                                <tr><th>Username</th><th>Приглашений</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Награды</h3>
+                    <table id="rewardsTable" class="data-table">
+                        <thead>
+                            <tr><th>Тип</th><th>Количество</th><th>Сообщений выдано</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Compare Tab -->
+            <div id="compare-tab" class="tab-content">
+                <div class="card">
+                    <h3>Сравнение бэкапов</h3>
+                    <div class="compare-controls">
+                        <select id="compareBackup1"><option value="">Бэкап 1...</option></select>
+                        <span>vs</span>
+                        <select id="compareBackup2"><option value="">Бэкап 2...</option></select>
+                        <button id="compareBtn">Сравнить</button>
+                    </div>
+                    <div id="compareResult" class="hidden">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Метрика</th><th>Бэкап 1</th><th>Бэкап 2</th><th>Изменение</th></tr>
+                            </thead>
+                            <tbody id="compareTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div id="noData" class="no-data">
+            <p>Загрузите SQL бэкап для просмотра аналитики</p>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

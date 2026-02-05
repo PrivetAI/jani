@@ -131,8 +131,8 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_repetition_penalty DECIMAL(4
 
 -- Characters: Driver prompt version for A/B testing (1 or 2, randomly assigned on create)
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS driver_prompt_version INTEGER DEFAULT 1;
--- Randomly assign version to existing characters that have default value
-UPDATE characters SET driver_prompt_version = floor(random() * 2 + 1)::int WHERE driver_prompt_version = 1;
+-- NOTE: Random assignment removed - was causing all characters to drift to v2 on each restart
+-- One-time fix applied directly to DB to split 50/50
 
 -- Characters: Initial relationship values (used when creating new user-character state)
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS initial_attraction INTEGER DEFAULT 0;
