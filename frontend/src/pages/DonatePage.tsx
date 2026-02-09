@@ -156,7 +156,7 @@ export function DonatePage() {
                                 onClick={handleCopyLink}
                                 className="flex-1 py-3 px-4 rounded-xl bg-surface border border-border text-text-primary font-medium hover:border-primary/40 transition-all active:scale-[0.98]"
                             >
-                                {copied ? '✓ Скопировано!' : 'Копировать ссылку'}
+                                {copied ? '✓ Скопировано!' : 'Поделиться'}
                             </button>
                         </div>
                     )}
