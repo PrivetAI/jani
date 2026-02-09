@@ -29,7 +29,7 @@ interface AllowedModel {
     modelId: string;
     displayName: string;
     isDefault: boolean;
-    isFallback: boolean;
+    fallbackPriority: number | null;
     isRecommended: boolean;
     isActive: boolean;
 }
@@ -753,7 +753,7 @@ export function AdminPage() {
                                         modelId: newModel.modelId.trim(),
                                         displayName: newModel.displayName.trim(),
                                         isDefault: false,
-                                        isFallback: false,
+                                        fallbackPriority: null,
                                         isRecommended: false,
                                         isActive: true,
                                     }]);
@@ -783,7 +783,7 @@ export function AdminPage() {
                                     <div className="min-w-0">
                                         <span className="text-sm font-medium text-text-primary">{model.displayName}</span>
                                         {model.isDefault && <span className="ml-2 text-xs text-primary">⭐ по умолчанию</span>}
-                                        {model.isFallback && <span className="ml-2 text-xs text-warning">🔄 fallback</span>}
+                                        {model.fallbackPriority && <span className="ml-2 text-xs text-warning">🔄 FB{model.fallbackPriority}</span>}
                                         {model.isRecommended && <span className="ml-2 text-xs text-success">✨ рекомендуемая</span>}
                                         <p className="text-xs text-text-muted break-all">{model.modelId}</p>
                                     </div>
@@ -792,28 +792,27 @@ export function AdminPage() {
                                     <button
                                         onClick={async () => {
                                             if (!initData) return;
+                                            // Cycle: null → 1 → 2 → null
+                                            const nextPriority = model.fallbackPriority === null ? 1 : model.fallbackPriority === 1 ? 2 : null;
                                             try {
                                                 await apiRequest(`/api/admin/allowed-models/${model.id}`, {
                                                     method: 'PATCH',
-                                                    body: { is_fallback: !model.isFallback },
+                                                    body: { fallback_priority: nextPriority },
                                                     initData,
                                                 });
-                                                // If setting as fallback, clear other fallbacks locally
-                                                if (!model.isFallback) {
-                                                    setAllowedModels(prev => prev.map(m => ({
-                                                        ...m,
-                                                        isFallback: m.id === model.id ? true : false
-                                                    })));
-                                                } else {
-                                                    setAllowedModels(prev => prev.map(m => m.id === model.id ? { ...m, isFallback: false } : m));
-                                                }
+                                                setAllowedModels(prev => prev.map(m => {
+                                                    if (m.id === model.id) return { ...m, fallbackPriority: nextPriority };
+                                                    // If we set a priority, clear it from other models with same priority
+                                                    if (nextPriority !== null && m.fallbackPriority === nextPriority) return { ...m, fallbackPriority: null };
+                                                    return m;
+                                                }));
                                             } catch (err) {
                                                 console.error(err);
                                             }
                                         }}
-                                        className={`px-2 py-1 rounded text-xs cursor-pointer ${model.isFallback ? 'bg-warning/20 text-warning' : 'bg-surface-light text-text-muted'}`}
+                                        className={`px-2 py-1 rounded text-xs cursor-pointer ${model.fallbackPriority ? 'bg-warning/20 text-warning' : 'bg-surface-light text-text-muted'}`}
                                     >
-                                        {model.isFallback ? '🔄 Fallback' : 'Fallback'}
+                                        {model.fallbackPriority ? `🔄 FB${model.fallbackPriority}` : 'Fallback'}
                                     </button>
                                     <button
                                         onClick={async () => {

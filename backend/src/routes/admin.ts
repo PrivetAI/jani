@@ -190,10 +190,10 @@ const characterSchema = z.object({
   is_active: z.boolean().optional(),
   grammatical_gender: z.enum(['male', 'female']).optional(),
   // Initial relationship values
-  initial_attraction: z.number().min(-50).max(50).optional(),
-  initial_trust: z.number().min(-50).max(50).optional(),
-  initial_affection: z.number().min(-50).max(50).optional(),
-  initial_dominance: z.number().min(-50).max(50).optional(),
+  initial_attraction: z.number().min(-100).max(100).optional(),
+  initial_trust: z.number().min(-100).max(100).optional(),
+  initial_affection: z.number().min(-100).max(100).optional(),
+  initial_dominance: z.number().min(-100).max(100).optional(),
   // LLM parameter overrides (null = use global defaults)
   llm_provider: z.enum(['openrouter', 'gemini', 'openai']).optional().nullable(),
   llm_model: z.string().optional().nullable(),
@@ -823,7 +823,7 @@ const allowedModelSchema = z.object({
   model_id: z.string().min(1),
   display_name: z.string().min(1),
   is_default: z.boolean().optional(),
-  is_fallback: z.boolean().optional(),
+  fallback_priority: z.number().int().min(1).max(2).nullable().optional(),
   is_recommended: z.boolean().optional(),
   is_active: z.boolean().optional(),
 });
@@ -838,10 +838,10 @@ router.get(
       model_id: string;
       display_name: string;
       is_default: boolean;
-      is_fallback: boolean;
+      fallback_priority: number | null;
       is_recommended: boolean;
       is_active: boolean;
-    }>('SELECT * FROM allowed_models ORDER BY is_default DESC, is_recommended DESC, display_name ASC');
+    }>('SELECT id, provider, model_id, display_name, is_default, fallback_priority, is_recommended, is_active FROM allowed_models ORDER BY is_default DESC, is_recommended DESC, display_name ASC');
 
     res.json({
       models: result.rows.map(m => ({
@@ -850,7 +850,7 @@ router.get(
         modelId: m.model_id,
         displayName: m.display_name,
         isDefault: m.is_default,
-        isFallback: m.is_fallback,
+        fallbackPriority: m.fallback_priority,
         isRecommended: m.is_recommended,
         isActive: m.is_active,
       })),
@@ -872,13 +872,13 @@ router.post(
       await query('UPDATE allowed_models SET is_default = FALSE WHERE is_default = TRUE');
     }
 
-    // If setting as fallback, clear other fallbacks (only one global fallback)
-    if (parsed.data.is_fallback) {
-      await query('UPDATE allowed_models SET is_fallback = FALSE WHERE is_fallback = TRUE');
+    // If setting fallback priority, clear other models with same priority
+    if (parsed.data.fallback_priority) {
+      await query('UPDATE allowed_models SET fallback_priority = NULL WHERE fallback_priority = $1', [parsed.data.fallback_priority]);
     }
 
     const result = await query<{ id: number }>(
-      `INSERT INTO allowed_models (provider, model_id, display_name, is_default, is_fallback, is_recommended, is_active)
+      `INSERT INTO allowed_models (provider, model_id, display_name, is_default, fallback_priority, is_recommended, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [
@@ -886,7 +886,7 @@ router.post(
         parsed.data.model_id,
         parsed.data.display_name,
         parsed.data.is_default ?? false,
-        parsed.data.is_fallback ?? false,
+        parsed.data.fallback_priority ?? null,
         parsed.data.is_recommended ?? false,
         parsed.data.is_active ?? true,
       ]
@@ -911,9 +911,9 @@ router.patch(
       await query('UPDATE allowed_models SET is_default = FALSE WHERE is_default = TRUE AND id != $1', [id]);
     }
 
-    // If setting as fallback, clear other fallbacks (only one global fallback)
-    if (parsed.data.is_fallback) {
-      await query('UPDATE allowed_models SET is_fallback = FALSE WHERE is_fallback = TRUE AND id != $1', [id]);
+    // If setting fallback priority, clear other models with same priority
+    if (parsed.data.fallback_priority) {
+      await query('UPDATE allowed_models SET fallback_priority = NULL WHERE fallback_priority = $1 AND id != $2', [parsed.data.fallback_priority, id]);
     }
 
     const updates: string[] = [];
@@ -936,9 +936,9 @@ router.patch(
       updates.push(`is_default = $${paramIndex++}`);
       values.push(parsed.data.is_default);
     }
-    if (parsed.data.is_fallback !== undefined) {
-      updates.push(`is_fallback = $${paramIndex++}`);
-      values.push(parsed.data.is_fallback);
+    if (parsed.data.fallback_priority !== undefined) {
+      updates.push(`fallback_priority = $${paramIndex++}`);
+      values.push(parsed.data.fallback_priority);
     }
     if (parsed.data.is_recommended !== undefined) {
       updates.push(`is_recommended = $${paramIndex++}`);

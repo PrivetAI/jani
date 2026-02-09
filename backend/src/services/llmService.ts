@@ -12,6 +12,7 @@ interface FallbackModel {
   provider: string;
   model_id: string;
   display_name: string;
+  fallback_priority: number;
 }
 
 export class LLMService {
@@ -20,13 +21,13 @@ export class LLMService {
   private openai = new OpenAIProvider();
 
   /**
-   * Get the global fallback model from DB
+   * Get all fallback models ordered by priority (1, 2, ...)
    */
-  private async getFallbackModel(): Promise<FallbackModel | null> {
+  private async getFallbackModels(): Promise<FallbackModel[]> {
     const result = await query<FallbackModel>(
-      'SELECT provider, model_id, display_name FROM allowed_models WHERE is_fallback = TRUE AND is_active = TRUE LIMIT 1'
+      'SELECT provider, model_id, display_name, fallback_priority FROM allowed_models WHERE fallback_priority IS NOT NULL AND is_active = TRUE ORDER BY fallback_priority ASC'
     );
-    return result.rows[0] ?? null;
+    return result.rows;
   }
 
   /**
@@ -47,10 +48,8 @@ export class LLMService {
   }
 
   /**
-   * Generate reply with automatic fallback on error
-   * - On primary model error: try fallback once, notify admin
-   * - On fallback error: notify admin, throw error
-   * - Fallback is per-request, does not persist between requests
+   * Generate reply with automatic fallback chain on error
+   * Flow: primary → fallback1 → fallback2 → error
    */
   async generateReply(messages: LLMMessage[], options: LLMRequestOptions = {}): Promise<string> {
     const primaryProvider = options.provider ?? 'openrouter';
@@ -59,29 +58,22 @@ export class LLMService {
     try {
       return await this.executeWithProvider(primaryProvider, messages, options);
     } catch (primaryError) {
-      logger.error('Primary LLM failed, attempting fallback', {
+      logger.error('Primary LLM failed, attempting fallback chain', {
         provider: primaryProvider,
         model: primaryModel,
         error: (primaryError as Error).message,
       });
 
-      // Get global fallback model
-      const fallback = await this.getFallbackModel();
+      // Get all fallback models ordered by priority
+      const fallbacks = await this.getFallbackModels();
 
-      if (!fallback) {
-        // No fallback configured - notify admin and throw
-        logger.error('No fallback model configured');
-        notifyAdminError({
-          error: primaryError as Error,
-          provider: primaryProvider,
-          model: primaryModel,
-        }).catch(() => { }); // fire-and-forget
-        throw primaryError;
-      }
+      // Filter out fallbacks that match primary model
+      const availableFallbacks = fallbacks.filter(
+        fb => !(fb.provider === primaryProvider && fb.model_id === primaryModel)
+      );
 
-      // Check if fallback is the same as primary (avoid infinite loop)
-      if (fallback.provider === primaryProvider && fallback.model_id === primaryModel) {
-        logger.error('Fallback model is same as primary, cannot retry');
+      if (availableFallbacks.length === 0) {
+        logger.error('No fallback models available');
         notifyAdminError({
           error: primaryError as Error,
           provider: primaryProvider,
@@ -90,45 +82,60 @@ export class LLMService {
         throw primaryError;
       }
 
-      // Try fallback
-      try {
-        logger.info('Switching to fallback model', {
-          fallbackProvider: fallback.provider,
-          fallbackModel: fallback.model_id,
-        });
+      // Try each fallback in priority order
+      const errors: string[] = [`Основная ${primaryProvider}/${primaryModel}: ${(primaryError as Error).message}`];
 
-        const fallbackOptions: LLMRequestOptions = {
-          ...options,
-          provider: fallback.provider as 'openrouter' | 'gemini' | 'openai',
-          model: fallback.model_id,
-        };
+      for (let i = 0; i < availableFallbacks.length; i++) {
+        const fb = availableFallbacks[i];
+        try {
+          logger.info(`Trying fallback ${fb.fallback_priority}`, {
+            fallbackProvider: fb.provider,
+            fallbackModel: fb.model_id,
+          });
 
-        const result = await this.executeWithProvider(fallback.provider, messages, fallbackOptions);
+          const fbOptions: LLMRequestOptions = {
+            ...options,
+            provider: fb.provider as 'openrouter' | 'gemini' | 'openai',
+            model: fb.model_id,
+          };
 
-        // Notify admin that fallback was used (success case)
-        notifyAdminError({
-          error: `⚠️ Fallback triggered (успешно)\n\nОсновная модель упала: ${(primaryError as Error).message}\nИспользован fallback: ${fallback.display_name}`,
-          provider: primaryProvider,
-          model: primaryModel,
-        }).catch(() => { });
+          const result = await this.executeWithProvider(fb.provider, messages, fbOptions);
 
-        return result;
-      } catch (fallbackError) {
-        // Both primary and fallback failed - notify admin
-        logger.error('Fallback LLM also failed', {
-          fallbackProvider: fallback.provider,
-          fallbackModel: fallback.model_id,
-          error: (fallbackError as Error).message,
-        });
+          // Success — notify admin which fallback was used
+          notifyAdminError({
+            error: `⚠️ Fallback ${fb.fallback_priority} сработал\n\n${errors.join('\n')}\n✅ Использован: ${fb.display_name}`,
+            provider: primaryProvider,
+            model: primaryModel,
+          }).catch(() => { });
 
-        notifyAdminError({
-          error: `🔥 Полный отказ LLM\n\nОсновная: ${primaryProvider}/${primaryModel} - ${(primaryError as Error).message}\nFallback: ${fallback.display_name} - ${(fallbackError as Error).message}`,
-          provider: fallback.provider,
-          model: fallback.model_id,
-        }).catch(() => { });
+          return result;
+        } catch (fbError) {
+          logger.error(`Fallback ${fb.fallback_priority} failed`, {
+            fallbackProvider: fb.provider,
+            fallbackModel: fb.model_id,
+            error: (fbError as Error).message,
+          });
+          errors.push(`FB${fb.fallback_priority} ${fb.display_name}: ${(fbError as Error).message}`);
 
-        throw fallbackError;
+          // Notify admin about intermediate fallback failure
+          if (i < availableFallbacks.length - 1) {
+            notifyAdminError({
+              error: `⚠️ FB${fb.fallback_priority} упал, пробую FB${availableFallbacks[i + 1].fallback_priority}\n\n${errors.join('\n')}\n\n➡️ Следующий: ${availableFallbacks[i + 1].display_name}`,
+              provider: fb.provider,
+              model: fb.model_id,
+            }).catch(() => { });
+          }
+        }
       }
+
+      // All fallbacks exhausted
+      notifyAdminError({
+        error: `🔥 Полный отказ LLM\n\n${errors.join('\n')}`,
+        provider: primaryProvider,
+        model: primaryModel,
+      }).catch(() => { });
+
+      throw primaryError;
     }
   }
 }

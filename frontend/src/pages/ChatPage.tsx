@@ -263,6 +263,26 @@ export function ChatPage() {
                         <span className="text-text-muted text-xs">↑ Прокрутите вверх для загрузки</span>
                     </div>
                 )}
+
+                {/* Greeting message (shown when chat is empty, before user sends first message) */}
+                {messages.length === 0 && !isLoadingMessages && selectedCharacter?.greetingMessage && (
+                    <div className="flex gap-2 flex-row">
+                        <Avatar
+                            src={selectedCharacter.avatarUrl}
+                            name={selectedCharacter.name}
+                            gender={selectedCharacter.grammaticalGender}
+                        />
+                        <div className="flex flex-col items-start max-w-[85%]">
+                            <span className="text-xs text-text-muted mb-1 px-4">
+                                {selectedCharacter.name}
+                            </span>
+                            <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-surface border border-border leading-relaxed text-left">
+                                {formatMessage(selectedCharacter.greetingMessage)}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {messages.map((msg, index) => {
                     // Check if this is the last assistant message
                     const isLastAssistant = msg.role === 'assistant' &&

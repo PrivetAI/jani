@@ -18,6 +18,7 @@ const characterResponse = (character: CharacterRecord, tags?: string[]) => ({
   isPrivate: character.is_private,
   grammaticalGender: character.grammatical_gender,
   tags: tags ?? [],
+  greetingMessage: character.greeting_message,
 });
 
 router.get(
@@ -90,10 +91,10 @@ const createCharacterSchema = z.object({
   system_prompt: z.string().min(1).max(4000),
   avatar_url: z.string().optional().nullable(),
   grammatical_gender: z.enum(['male', 'female']).optional(),
-  initial_attraction: z.number().min(-50).max(50).optional(),
-  initial_trust: z.number().min(-50).max(50).optional(),
-  initial_affection: z.number().min(-50).max(50).optional(),
-  initial_dominance: z.number().min(-50).max(50).optional(),
+  initial_attraction: z.number().min(-100).max(100).optional(),
+  initial_trust: z.number().min(-100).max(100).optional(),
+  initial_affection: z.number().min(-100).max(100).optional(),
+  initial_dominance: z.number().min(-100).max(100).optional(),
   tag_ids: z.array(z.number()).optional(),
   llm_model: z.string().optional().nullable(),
   llm_provider: z.string().optional().nullable(),
@@ -101,6 +102,7 @@ const createCharacterSchema = z.object({
   llm_top_p: z.number().min(0).max(1).optional().nullable(),
   llm_repetition_penalty: z.number().min(0.5).max(2).optional().nullable(),
   is_private: z.boolean().optional(),
+  greeting_message: z.string().max(1000).optional().nullable(),
 });
 
 router.post(
@@ -132,9 +134,9 @@ router.post(
       `INSERT INTO characters (
          name, description_long, avatar_url, system_prompt, access_type, is_active, is_approved, is_private, created_by,
          grammatical_gender, initial_attraction, initial_trust, initial_affection, initial_dominance,
-         llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty, driver_prompt_version
+         llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty, driver_prompt_version, greeting_message
        )
-       VALUES ($1, $2, $3, $4, 'free', TRUE, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+       VALUES ($1, $2, $3, $4, 'free', TRUE, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        RETURNING id`,
       [
         parsed.data.name,
@@ -155,6 +157,7 @@ router.post(
         parsed.data.llm_top_p ?? null,
         parsed.data.llm_repetition_penalty ?? null,
         driverPromptVersion,
+        parsed.data.greeting_message ?? null,
       ]
     );
 
@@ -265,6 +268,7 @@ router.put(
          llm_repetition_penalty = $16,
          is_private = $17,
          is_approved = $18,
+         greeting_message = $19,
          rejection_reason = NULL
        WHERE id = $1 AND created_by = $2`,
       [
@@ -286,6 +290,7 @@ router.put(
         parsed.data.llm_repetition_penalty ?? null,
         isPrivate,
         !needsModeration, // is_approved = true for private
+        parsed.data.greeting_message ?? null,
       ]
     );
 
@@ -356,10 +361,11 @@ router.get(
       llm_temperature: number | null;
       llm_top_p: number | null;
       llm_repetition_penalty: number | null;
+      greeting_message: string | null;
     }>(
       `SELECT id, name, description_long, avatar_url, system_prompt, grammatical_gender,
        initial_attraction, initial_trust, initial_affection, initial_dominance, created_by, is_approved, is_private,
-       llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty
+       llm_model, llm_provider, llm_temperature, llm_top_p, llm_repetition_penalty, greeting_message
        FROM characters WHERE id = $1`,
       [characterId]
     );
@@ -397,6 +403,7 @@ router.get(
         isApproved: character.is_approved,
         isPrivate: character.is_private ?? false,
         tagIds: tags.map(t => t.id),
+        greetingMessage: character.greeting_message,
       },
     });
   })
@@ -479,6 +486,39 @@ router.post(
       userRating: parsed.data.rating,
       likesCount: ratings.likes,
       dislikesCount: ratings.dislikes,
+    });
+  })
+);
+
+// ============================================
+// Character Deeplink (Share)
+// ============================================
+
+router.get(
+  '/characters/:id/deeplink',
+  telegramAuth,
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const character = await getCharacterById(id);
+
+    if (!character || !character.is_active) {
+      return res.status(404).json({ message: 'Персонаж не найден' });
+    }
+
+    // Private characters can only be shared by creator
+    if (character.is_private && character.created_by !== req.auth!.id) {
+      return res.status(403).json({ message: 'Нельзя поделиться чужим личным персонажем' });
+    }
+
+    // Format: c_<characterId>_ref_<userId> — includes both character and referral
+    const userId = req.auth!.id;
+    const deeplink = `https://t.me/${config.telegramBotUsername}?start=c_${character.id}_ref_${userId}`;
+    const shareText = `Попробуй пообщаться с ${character.name} в Jani AI! 💬`;
+
+    res.json({
+      deeplink,
+      shareText,
+      characterName: character.name,
     });
   })
 );

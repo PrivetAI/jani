@@ -146,6 +146,9 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES us
 -- Private characters (visible only to creator)
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE;
 
+-- Greeting message (shown to user on first interaction)
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS greeting_message TEXT;
+
 -- Cross-reference: users.last_character_id
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_character_id INTEGER REFERENCES characters(id);
 
@@ -270,7 +273,8 @@ CREATE TABLE IF NOT EXISTS allowed_models (
     model_id TEXT NOT NULL UNIQUE,   -- 'gemini-2.0-flash-exp'
     display_name TEXT NOT NULL,      -- 'Gemini 2.0 Flash'
     is_default BOOLEAN DEFAULT FALSE,
-    is_fallback BOOLEAN DEFAULT FALSE, -- Global fallback model for errors
+    is_fallback BOOLEAN DEFAULT FALSE, -- DEPRECATED, use fallback_priority
+    fallback_priority INTEGER DEFAULT NULL, -- NULL=not fallback, 1=fallback1, 2=fallback2
     is_recommended BOOLEAN DEFAULT FALSE, -- Recommended for user-created characters
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -278,6 +282,10 @@ CREATE TABLE IF NOT EXISTS allowed_models (
 
 -- Migration: add is_fallback column if missing
 ALTER TABLE allowed_models ADD COLUMN IF NOT EXISTS is_fallback BOOLEAN DEFAULT FALSE;
+-- Migration: add fallback_priority column
+ALTER TABLE allowed_models ADD COLUMN IF NOT EXISTS fallback_priority INTEGER;
+-- Migrate: is_fallback=TRUE → fallback_priority=1
+UPDATE allowed_models SET fallback_priority = 1 WHERE is_fallback = TRUE AND fallback_priority IS NULL;
 -- Migration: add is_recommended column if missing
 ALTER TABLE allowed_models ADD COLUMN IF NOT EXISTS is_recommended BOOLEAN DEFAULT FALSE;
 

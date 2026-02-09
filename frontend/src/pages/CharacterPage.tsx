@@ -43,6 +43,8 @@ export function CharacterPage() {
     const [newComment, setNewComment] = useState('');
     const [replyTo, setReplyTo] = useState<number | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [shareLoading, setShareLoading] = useState(false);
+    const [shareCopied, setShareCopied] = useState(false);
 
     useEffect(() => {
         if (!initData || !id) return;
@@ -95,6 +97,24 @@ export function CharacterPage() {
 
     const handleStartChat = () => {
         navigate(`/chat/${id}`);
+    };
+
+    const handleShare = async () => {
+        if (!initData || !id || shareLoading) return;
+
+        setShareLoading(true);
+        try {
+            const result = await apiRequest<{ deeplink: string; shareText: string }>(`/api/characters/${id}/deeplink`, { initData });
+
+            // Always copy to clipboard
+            await navigator.clipboard.writeText(result.deeplink);
+            setShareCopied(true);
+            setTimeout(() => setShareCopied(false), 2000);
+        } catch (err) {
+            console.error('Share error:', err);
+        } finally {
+            setShareLoading(false);
+        }
     };
 
     const handleSubmitComment = async () => {
@@ -288,6 +308,28 @@ export function CharacterPage() {
                     >
                         <span className="text-lg">👎</span>
                         <span className="font-medium">{character.dislikesCount}</span>
+                    </button>
+
+                    {/* Share button */}
+                    <button
+                        onClick={handleShare}
+                        disabled={shareLoading}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all
+                            bg-surface-light border border-border text-text-secondary 
+                            hover:border-primary/50 hover:text-primary disabled:opacity-50 ml-auto"
+                    >
+                        {shareCopied ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                        ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                <polyline points="16 6 12 2 8 6" />
+                                <line x1="12" y1="2" x2="12" y2="15" />
+                            </svg>
+                        )}
+                        <span className="font-medium">{shareCopied ? 'Скопировано!' : 'Поделиться'}</span>
                     </button>
                 </div>
 

@@ -3,6 +3,7 @@ import { apiRequest } from '../lib/api';
 import { socketClient } from '../lib/socket';
 import { logger } from '../lib/logger';
 import { useUserStore } from './userStore';
+import { preprocessMessage } from '../utils/messagePreprocessor';
 
 export interface Character {
     id: number;
@@ -13,6 +14,7 @@ export interface Character {
     grammaticalGender?: 'male' | 'female';
     tags?: string[];
     likesCount?: number;
+    greetingMessage?: string | null;
 }
 
 export interface DialogMessage {
@@ -276,20 +278,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     sendMessage: (characterId: number, text: string, _initData: string) => {
-        logger.store('chatStore', 'sendMessage', { characterId, text });
+        const processedText = preprocessMessage(text);
+        logger.store('chatStore', 'sendMessage', { characterId, text: processedText });
         set({ isSending: true, error: null });
 
         // Optimistic update - add user message immediately
         const userMessage: DialogMessage = {
             id: Date.now(),
             role: 'user',
-            text,
+            text: processedText,
             createdAt: new Date().toISOString(),
         };
-        set(state => ({ messages: [...state.messages, userMessage] }));
+
+        const state = get();
+        const newMessages: DialogMessage[] = [];
+
+        // If this is the first message and character has greeting, add it first
+        if (state.messages.length === 0 && state.selectedCharacter?.greetingMessage) {
+            newMessages.push({
+                id: Date.now() - 1, // Ensure greeting has earlier ID
+                role: 'assistant',
+                text: state.selectedCharacter.greetingMessage,
+                createdAt: new Date().toISOString(),
+            });
+        }
+        newMessages.push(userMessage);
+
+        set(state => ({ messages: [...state.messages, ...newMessages] }));
 
         // Send via WebSocket
-        socketClient.emit('chat:send', { characterId, message: text });
+        socketClient.emit('chat:send', { characterId, message: processedText });
     },
 
     loadMemories: async (characterId: number, initData: string) => {

@@ -26,6 +26,8 @@ export interface CharacterRecord {
   llm_repetition_penalty: number | null;
   // Driver prompt version for A/B testing (1 or 2)
   driver_prompt_version: number;
+  // Greeting message for first interaction
+  greeting_message: string | null;
 }
 
 const mapCharacter = (row: any): CharacterRecord => ({
@@ -51,6 +53,7 @@ const mapCharacter = (row: any): CharacterRecord => ({
   llm_top_p: row.llm_top_p ? parseFloat(row.llm_top_p) : null,
   llm_repetition_penalty: row.llm_repetition_penalty ? parseFloat(row.llm_repetition_penalty) : null,
   driver_prompt_version: row.driver_prompt_version ?? 1,
+  greeting_message: row.greeting_message ?? null,
 });
 
 export interface CharacterFilters {

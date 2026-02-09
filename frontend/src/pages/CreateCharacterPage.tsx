@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
+import { preprocessMessage } from '../utils/messagePreprocessor';
 
 interface Tag {
     id: number;
@@ -36,6 +37,7 @@ interface CharacterData {
     llmTopP: number | null;
     llmRepetitionPenalty: number | null;
     isPrivate?: boolean;
+    greetingMessage?: string | null;
 }
 
 export function CreateCharacterPage() {
@@ -68,6 +70,7 @@ export function CreateCharacterPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
+    const [greetingMessage, setGreetingMessage] = useState('');
 
     // Load tags and character data (for edit mode)
     useEffect(() => {
@@ -102,6 +105,7 @@ export function CreateCharacterPage() {
                     setTopP(c.llmTopP != null ? Number(c.llmTopP) : null);
                     setRepetitionPenalty(c.llmRepetitionPenalty != null ? Number(c.llmRepetitionPenalty) : null);
                     setIsPrivate(c.isPrivate ?? false);
+                    setGreetingMessage(c.greetingMessage || '');
                 }
             } catch (err: any) {
                 setError(err.message || 'Ошибка загрузки');
@@ -182,6 +186,7 @@ export function CreateCharacterPage() {
                 llm_top_p: topP,
                 llm_repetition_penalty: repetitionPenalty,
                 is_private: isPrivate,
+                greeting_message: greetingMessage.trim() ? preprocessMessage(greetingMessage.trim()) : null,
             };
 
             if (isEdit) {
@@ -317,6 +322,27 @@ export function CreateCharacterPage() {
                             placeholder:text-text-muted"
                     />
                     <p className="mt-1 text-xs text-text-muted text-right">{description.length}/2000</p>
+                </div>
+
+                {/* Greeting Message */}
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                        Начальное сообщение <span className="text-text-muted font-normal">(опционально)</span>
+                    </label>
+                    <div className="mb-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-xs text-text-secondary">
+                        💬 Это сообщение будет показано пользователю при первом входе в чат. Создаёт атмосферу и помогает начать диалог.
+                    </div>
+                    <textarea
+                        value={greetingMessage}
+                        onChange={e => setGreetingMessage(e.target.value)}
+                        placeholder={`*Виктория подняла взгляд от бокала, который протирала, и слегка улыбнулась*\n\nО, новое лицо. Редкость в такое время. Что будешь пить?`}
+                        maxLength={1000}
+                        rows={4}
+                        className="w-full px-4 py-3 rounded-xl bg-surface-light border border-border
+                            focus:border-primary focus:outline-none resize-none transition-colors
+                            placeholder:text-text-muted"
+                    />
+                    <p className="mt-1 text-xs text-text-muted text-right">{greetingMessage.length}/1000</p>
                 </div>
 
                 {/* System Prompt */}

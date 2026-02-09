@@ -63,6 +63,46 @@ const handleStartCommand = async (message: TelegramMessage, payload: string | nu
   const user = await findOrCreateUser({ id: message.from.id, username: message.from.username });
 
   if (payload) {
+    // Combined format: c_<characterId>_ref_<userId>
+    const combinedMatch = payload.match(/^c_(\d+)_ref_(\d+)$/);
+    if (combinedMatch) {
+      const characterId = Number(combinedMatch[1]);
+      const referrerId = Number(combinedMatch[2]);
+      
+      // Process referral first (only for new users)
+      if (isNewUser && referrerId && referrerId !== user.id) {
+        const success = await processRegistrationReferral(user.id, referrerId);
+        if (success) {
+          logger.info('Referral processed from character link', { referrerId, newUserId: user.id, characterId });
+          await sendTelegramMessage({
+            chat_id: message.chat.id,
+            text: `🎁 Ты получил 30 бонусных сообщений за регистрацию по приглашению!`,
+          });
+        }
+      }
+      
+      // Then open character
+      const character = await getCharacterById(characterId);
+      if (character && character.is_active) {
+        await updateLastCharacter(user.id, character.id);
+        logger.info('Character deeplink with ref opened', { userId: user.id, characterId, characterName: character.name });
+        
+        await sendTelegramMessage({
+          chat_id: message.chat.id,
+          text: `💬 Открой чат с персонажем «${character.name}»`,
+          reply_markup: buildWebAppButton(`Начать чат с ${character.name}`, `/chat/${character.id}`),
+        });
+        return;
+      } else {
+        await sendTelegramMessage({
+          chat_id: message.chat.id,
+          text: `❌ Персонаж не найден или недоступен.`,
+          reply_markup: openAppKeyboard(),
+        });
+        return;
+      }
+    }
+    
     // Check for referral code: ref_USERID
     if (payload.startsWith('ref_')) {
       const referrerId = Number(payload.slice(4));
@@ -76,8 +116,31 @@ const handleStartCommand = async (message: TelegramMessage, payload: string | nu
           });
         }
       }
+    } else if (payload.startsWith('c_')) {
+      // Character deeplink: c_<characterId> (without ref)
+      const characterId = Number(payload.slice(2));
+      const character = await getCharacterById(characterId);
+      if (character && character.is_active) {
+        await updateLastCharacter(user.id, character.id);
+        logger.info('Character deeplink opened', { userId: user.id, characterId, characterName: character.name });
+        
+        // Open WebApp directly to chat with this character
+        await sendTelegramMessage({
+          chat_id: message.chat.id,
+          text: `💬 Открой чат с персонажем «${character.name}»`,
+          reply_markup: buildWebAppButton(`Начать чат с ${character.name}`, `/chat/${character.id}`),
+        });
+        return;
+      } else {
+        await sendTelegramMessage({
+          chat_id: message.chat.id,
+          text: `❌ Персонаж не найден или недоступен.`,
+          reply_markup: openAppKeyboard(),
+        });
+        return;
+      }
     } else {
-      // Try parsing as character ID
+      // Try parsing as character ID (legacy support)
       const id = Number(payload);
       const character = await getCharacterById(id);
       if (character) {

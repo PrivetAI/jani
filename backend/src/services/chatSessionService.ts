@@ -61,7 +61,16 @@ export class ChatSessionService {
 
 
     const historyResult = await getDialogHistory(user.id, character.id, { limit: 60 });
-    const history = historyResult.messages;
+    let history = historyResult.messages;
+
+    // If this is the first message and character has a greeting, save it as first assistant message
+    if (!request.isRegenerate && history.length === 0 && character.greeting_message) {
+      await addDialogMessage(user.id, character.id, 'assistant', character.greeting_message);
+      // Re-fetch history to include the greeting
+      const updatedHistory = await getDialogHistory(user.id, character.id, { limit: 60 });
+      history = updatedHistory.messages;
+    }
+
     // Note: user message is saved AFTER successful LLM response (inside try block)
     await updateLastCharacter(user.id, character.id);
 
