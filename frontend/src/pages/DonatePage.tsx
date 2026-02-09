@@ -97,9 +97,17 @@ export function DonatePage() {
 
     const handleCopyLink = async () => {
         if (!referralLink) return;
-        await copyToClipboard(referralLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+
+        const shareText = 'Присоединяйся к Inny! 🎁 Мы оба получим бонусные сообщения';
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(shareText)}`;
+
+        if (window.Telegram?.WebApp?.openTelegramLink) {
+            window.Telegram.WebApp.openTelegramLink(shareUrl);
+        } else {
+            await copyToClipboard(referralLink);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
     };
 
 
