@@ -7,6 +7,7 @@ interface TelegramWebApp {
     url: string,
     callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void
   ) => void;
+  openTelegramLink?: (url: string) => void;
 }
 
 declare global {

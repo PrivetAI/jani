@@ -107,9 +107,16 @@ export function CharacterPage() {
         try {
             const result = await apiRequest<{ deeplink: string; shareText: string }>(`/api/characters/${id}/deeplink`, { initData });
 
-            await copyToClipboard(result.deeplink);
-            setShareCopied(true);
-            setTimeout(() => setShareCopied(false), 2000);
+            const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(result.deeplink)}&text=${encodeURIComponent(result.shareText)}`;
+
+            if (window.Telegram?.WebApp?.openTelegramLink) {
+                window.Telegram.WebApp.openTelegramLink(shareUrl);
+            } else {
+                // Fallback for non-Telegram environment
+                await copyToClipboard(result.deeplink);
+                setShareCopied(true);
+                setTimeout(() => setShareCopied(false), 2000);
+            }
         } catch (err) {
             console.error('Share error:', err);
         } finally {
