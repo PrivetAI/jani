@@ -513,7 +513,7 @@ router.get(
     // Format: c_<characterId>_ref_<userId> — includes both character and referral
     const userId = req.auth!.id;
     const deeplink = `https://t.me/${config.telegramBotUsername}?start=c_${character.id}_ref_${userId}`;
-    const shareText = `Попробуй пообщаться с ${character.name} в Jani AI! 💬`;
+    const shareText = `Попробуй пообщаться с ${character.name} в Inny ! 💬`;
 
     res.json({
       deeplink,
