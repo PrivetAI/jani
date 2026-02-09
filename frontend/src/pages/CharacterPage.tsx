@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
+import { copyToClipboard } from '../lib/clipboard';
 
 interface CharacterDetail {
     id: number;
@@ -106,8 +107,7 @@ export function CharacterPage() {
         try {
             const result = await apiRequest<{ deeplink: string; shareText: string }>(`/api/characters/${id}/deeplink`, { initData });
 
-            // Always copy to clipboard
-            await navigator.clipboard.writeText(result.deeplink);
+            await copyToClipboard(result.deeplink);
             setShareCopied(true);
             setTimeout(() => setShareCopied(false), 2000);
         } catch (err) {

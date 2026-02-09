@@ -21,7 +21,7 @@ SERVICE=${1:-all}
 echo "🚀 Deploying to $VPS_HOST..."
 
 # Commands to execute on VPS
-COMMANDS="cd $VPS_PATH && git pull"
+COMMANDS="cd $VPS_PATH && git fetch origin && git reset --hard origin/main && git clean -fd"
 
 case $SERVICE in
     frontend)

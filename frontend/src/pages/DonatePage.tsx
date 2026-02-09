@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
+import { copyToClipboard } from '../lib/clipboard';
 
 interface Tier {
     id: string;
@@ -96,20 +97,9 @@ export function DonatePage() {
 
     const handleCopyLink = async () => {
         if (!referralLink) return;
-        try {
-            await navigator.clipboard.writeText(referralLink);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
-            const textarea = document.createElement('textarea');
-            textarea.value = referralLink;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }
+        await copyToClipboard(referralLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
 
