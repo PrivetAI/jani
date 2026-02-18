@@ -1,5 +1,6 @@
 import { useChatStore } from '../../store/chatStore';
 import { decline } from '../../utils/gender';
+import { Icon } from '../Icon';
 
 interface SessionInfoPanelProps {
     onClose: () => void;
@@ -26,7 +27,7 @@ const getBarColor = (value: number) => {
     return 'from-danger to-red-400';
 };
 
-const EmotionalBar = ({ label, value, emoji }: { label: string; value: number; emoji: string }) => {
+const EmotionalBar = ({ label, value, emoji }: { label: string; value: number; emoji: React.ReactNode }) => {
     const percentage = normalizeValue(value);
     const colorClass = getBarColor(value);
 
@@ -87,7 +88,7 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                     {/* Closeness (Main Bar) */}
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                            <span className="text-sm text-text-secondary">❤️ Близость</span>
+                            <span className="text-sm text-text-secondary"><Icon name="heart" size={14} className="inline mr-1" /> Близость</span>
                             <span className="text-lg font-bold text-primary">{closeness}/100</span>
                         </div>
                         <div className="w-full h-4 bg-surface-light rounded-full overflow-hidden">
@@ -102,10 +103,10 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                     {emotionalState && (
                         <div className="space-y-3 p-4 rounded-xl bg-surface-light/30 border border-border-light">
                             <h5 className="text-sm font-medium text-text-secondary mb-3">Измерения отношений</h5>
-                            <EmotionalBar label="Влечение" value={emotionalState.attraction} emoji="💋" />
-                            <EmotionalBar label="Доверие" value={emotionalState.trust} emoji="🤝" />
-                            <EmotionalBar label="Привязанность" value={emotionalState.affection} emoji="💝" />
-                            <EmotionalBar label="Доминирование" value={emotionalState.dominance} emoji={emotionalState.dominance >= 0 ? '👑' : '🙇'} />
+                            <EmotionalBar label="Влечение" value={emotionalState.attraction} emoji={<Icon name="kiss" size={14} />} />
+                            <EmotionalBar label="Доверие" value={emotionalState.trust} emoji={<Icon name="handshake" size={14} />} />
+                            <EmotionalBar label="Привязанность" value={emotionalState.affection} emoji={<Icon name="heart-gift" size={14} />} />
+                            <EmotionalBar label="Доминирование" value={emotionalState.dominance} emoji={<Icon name={emotionalState.dominance >= 0 ? 'crown' : 'bow'} size={14} />} />
                             <p className="text-[10px] text-text-muted mt-2">
                                 {emotionalState.dominance > 20
                                     ? `${decline(selectedCharacter?.grammaticalGender, 'Он доминирует', 'Она доминирует')}`
@@ -120,11 +121,11 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                     <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 rounded-xl bg-surface-light/50 border border-border-light">
                             <p className="text-xs text-text-muted uppercase tracking-wide">Сообщений</p>
-                            <p className="text-sm font-medium mt-1">💬 {session.messagesCount}</p>
+                            <p className="text-sm font-medium mt-1"><Icon name="chat" size={14} className="inline mr-1" /> {session.messagesCount}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-surface-light/50 border border-border-light">
                             <p className="text-xs text-text-muted uppercase tracking-wide">Воспоминаний</p>
-                            <p className="text-sm font-medium mt-1">🧠 {memories.length}</p>
+                            <p className="text-sm font-medium mt-1"><Icon name="brain" size={14} className="inline mr-1" /> {memories.length}</p>
                         </div>
                     </div>
 
@@ -144,7 +145,7 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
                     {limits && !limits.hasSubscription && (
                         <div className="p-3 rounded-xl bg-warning/10 border border-warning/30">
                             <p className="text-sm text-warning">
-                                ⚡ Осталось сообщений: <strong>{limits.remaining}/{limits.total}</strong>
+                                <Icon name="bolt" size={14} className="inline mr-1" /> Осталось сообщений: <strong>{limits.remaining}/{limits.total}</strong>
                             </p>
                         </div>
                     )}

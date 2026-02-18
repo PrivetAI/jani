@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Icon } from '../Icon';
 
 interface SearchBarProps {
     onSearch: (value: string) => void;
@@ -17,7 +18,7 @@ export function SearchBar({ onSearch }: SearchBarProps) {
 
     return (
         <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">🔍</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted"><Icon name="search" size={16} /></span>
             <input
                 type="text"
                 placeholder="Поиск персонажей..."

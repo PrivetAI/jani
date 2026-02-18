@@ -4,6 +4,7 @@ import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
 import { copyToClipboard } from '../lib/clipboard';
+import { Icon } from '../components/Icon';
 
 interface CharacterDetail {
     id: number;
@@ -300,7 +301,7 @@ export function CharacterPage() {
                                 : 'bg-surface-light border border-border text-text-secondary hover:border-success/50 hover:text-success'
                             } disabled:opacity-50`}
                     >
-                        <span className="text-lg">👍</span>
+                        <span className="text-lg"><Icon name="thumbs-up" size={20} /></span>
                         <span className="font-medium">{character.likesCount}</span>
                     </button>
 
@@ -313,7 +314,7 @@ export function CharacterPage() {
                                 : 'bg-surface-light border border-border text-text-secondary hover:border-danger/50 hover:text-danger'
                             } disabled:opacity-50`}
                     >
-                        <span className="text-lg">👎</span>
+                        <span className="text-lg"><Icon name="thumbs-down" size={20} /></span>
                         <span className="font-medium">{character.dislikesCount}</span>
                     </button>
 

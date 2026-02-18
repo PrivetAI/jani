@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { SearchBar } from '../components/characters/SearchBar';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
+import { Icon } from '../components/Icon';
 
 interface Tag {
     id: number;
@@ -43,14 +44,14 @@ function CharacterCard({ char, tags, selectedTags, hasSubscription, onSelect, on
                         ${isPremiumLocked
                             ? 'bg-gradient-to-r from-amber-500/90 to-yellow-500/90 backdrop-blur-sm'
                             : 'bg-gradient-to-r from-purple-500/80 to-pink-500/80 backdrop-blur-sm'}`}>
-                        {isPremiumLocked ? '🔒 Premium' : '⭐ Premium'}
+                        {isPremiumLocked ? <><Icon name="lock" size={12} className="inline mr-1" /> Premium</> : <><Icon name="star" size={12} className="inline mr-1" /> Premium</>}
                     </span>
                 )}
                 {/* Lock overlay for non-subscribers */}
                 {isPremiumLocked && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                         <div className="text-center">
-                            <span className="text-4xl">🔒</span>
+                            <span className="text-4xl"><Icon name="lock" size={36} /></span>
                         </div>
                     </div>
                 )}
@@ -81,7 +82,7 @@ function CharacterCard({ char, tags, selectedTags, hasSubscription, onSelect, on
                 {/* Likes count */}
                 {(char.likesCount ?? 0) > 0 && (
                     <div className="flex items-center gap-1 mt-2 text-text-muted text-xs">
-                        <span>👍</span>
+                        <span><Icon name="thumbs-up" size={14} /></span>
                         <span>{char.likesCount}</span>
                     </div>
                 )}
@@ -235,7 +236,7 @@ export function CharactersPage() {
                     {myCharacters.length > 0 && (
                         <section>
                             <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                                <span>💬</span>
+                                <span><Icon name="chat" size={18} /></span>
                                 Мои персонажи
                             </h3>
                             {renderCharacterGrid(myCharacters)}

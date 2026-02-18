@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useUserStore } from '../store/userStore';
 import { useNavigate } from 'react-router-dom';
+import { Icon } from '../components/Icon';
 
 export function OnboardingPage() {
     const [step, setStep] = useState(1);
@@ -97,7 +98,7 @@ export function OnboardingPage() {
                                             : 'bg-surface-light border-border text-text-secondary hover:border-primary/50'
                                             }`}
                                     >
-                                        👨 Мужской
+                                        <Icon name="male" size={16} className="inline mr-1" /> Мужской
                                     </button>
                                     <button
                                         type="button"
@@ -107,7 +108,7 @@ export function OnboardingPage() {
                                             : 'bg-surface-light border-border text-text-secondary hover:border-accent/50'
                                             }`}
                                     >
-                                        👩 Женский
+                                        <Icon name="female" size={16} className="inline mr-1" /> Женский
                                     </button>
                                     <button
                                         type="button"
@@ -117,7 +118,7 @@ export function OnboardingPage() {
                                             : 'bg-surface-light border-border text-text-secondary hover:border-purple-500/50'
                                             }`}
                                     >
-                                        ⚧️ Другой
+                                        <Icon name="nonbinary" size={16} className="inline mr-1" /> Другой
                                     </button>
                                 </div>
                             </div>
@@ -145,7 +146,7 @@ export function OnboardingPage() {
 
                         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
                             <h3 className="text-amber-400 font-semibold mb-2 flex items-center gap-2">
-                                <span>⚠️</span> Важно
+                                <span><Icon name="warning" size={16} /></span> Важно
                             </h3>
                             <p className="text-amber-200/80 text-sm">
                                 Контент может содержать материалы для взрослых (18+).

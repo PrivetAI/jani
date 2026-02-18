@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTelegramInitData } from './hooks/useTelegramInitData';
+import { Icon } from './components/Icon';
 import { useUserStore } from './store/userStore';
 
 export default function App() {
@@ -46,16 +47,16 @@ export default function App() {
       {showNav && (
         <nav className="bottom-nav">
           <Link to="/characters" className={location.pathname.includes('/characters') ? 'active' : ''}>
-            <span className="text-lg">👥</span>
+            <Icon name="users" size={20} />
             <span>Персонажи</span>
           </Link>
           <Link to="/profile" className={location.pathname.includes('/profile') ? 'active' : ''}>
-            <span className="text-lg">👤</span>
+            <Icon name="user" size={20} />
             <span>Профиль</span>
           </Link>
           {profile?.isAdmin && (
             <Link to="/admin" className={location.pathname.includes('/admin') ? 'active' : ''}>
-              <span className="text-lg">⚙️</span>
+              <Icon name="settings" size={20} />
               <span>Админ</span>
             </Link>
           )}

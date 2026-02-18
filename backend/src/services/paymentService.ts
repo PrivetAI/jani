@@ -5,8 +5,9 @@ const TELEGRAM_API_BASE = `https://api.telegram.org/bot${config.telegramBotToken
 
 // Subscription tiers
 export const SUBSCRIPTION_TIERS = {
-    monthly: { stars: 349, days: 30, label: 'Premium на 30 дней' },
-    quarterly: { stars: 899, days: 90, label: 'Premium на 90 дней' },
+    monthly: { stars: 599, days: 30, label: 'Premium на 1 месяц' },
+    quarterly: { stars: 1490, days: 90, label: 'Premium на 3 месяца' },
+    semiannual: { stars: 2690, days: 180, label: 'Premium на 6 месяцев' },
 } as const;
 
 export type SubscriptionTier = keyof typeof SUBSCRIPTION_TIERS;
@@ -50,7 +51,7 @@ export async function createSubscriptionInvoiceLink(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             title: tierConfig.label,
-            description: `Безлимитные сообщения и доступ к настройке моделей ИИ на ${tierConfig.days} дней`,
+            description: `Безлимитные сообщения и выбор ИИ моделей на ${tierConfig.days} дней`,
             payload: JSON.stringify(payload),
             currency: 'XTR',
             prices: [{ label: tierConfig.label, amount: tierConfig.stars }],

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useUserStore } from '../../store/userStore';
 import { apiRequest } from '../../lib/api';
+import { Icon } from '../Icon';
 
 interface AllowedModel {
     id: number;
@@ -99,7 +100,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                 {/* Header */}
                 <header className="flex items-center justify-between px-5 py-4 border-b border-border">
                     <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-lg">⚙️ Настройки LLM</h3>
+                        <h3 className="font-semibold text-lg"><Icon name="settings" size={18} className="inline mr-1" /> Настройки LLM</h3>
                         {!isPremium && (
                             <span className="text-xs text-primary px-2 py-1 bg-primary/10 rounded-lg">Premium</span>
                         )}
@@ -117,7 +118,7 @@ export function LLMSettingsModal({ onClose }: LLMSettingsModalProps) {
                 <div className={`p-5 space-y-5 ${!isPremium ? 'opacity-60' : ''}`}>
                     {!isPremium && (
                         <p className="text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">
-                            🔒 Настройка параметров LLM доступна только с Premium-подпиской
+                            <Icon name="lock" size={14} className="inline mr-1" /> Настройка параметров LLM доступна только с Premium-подпиской
                         </p>
                     )}
 

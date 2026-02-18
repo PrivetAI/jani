@@ -901,7 +901,7 @@ router.get(
 // Subscription API
 // ============================================
 
-import { createSubscriptionInvoiceLink, createBundleInvoiceLink, SUBSCRIPTION_TIERS, MESSAGE_BUNDLES, type SubscriptionTier, type MessageBundle } from '../services/paymentService.js';
+import { createSubscriptionInvoiceLink, SUBSCRIPTION_TIERS, type SubscriptionTier } from '../services/paymentService.js';
 
 const invoiceSchema = z.object({
   tier: z.string(),
@@ -918,25 +918,14 @@ router.post(
       return res.status(400).json({ message: 'Некорректный тариф', issues: parsed.error.errors });
     }
 
-    const { tier, type } = parsed.data;
+    const { tier } = parsed.data;
 
-    if (type === 'bundle') {
-      // Handle bundle purchase
-      if (!MESSAGE_BUNDLES[tier as MessageBundle]) {
-        return res.status(400).json({ message: 'Некорректный пакет сообщений' });
-      }
-      const bundle = tier as MessageBundle;
-      const invoiceLink = await createBundleInvoiceLink(req.auth!.id, bundle);
-      res.json({ invoiceLink, bundle: MESSAGE_BUNDLES[bundle] });
-    } else {
-      // Handle subscription purchase
-      if (!SUBSCRIPTION_TIERS[tier as SubscriptionTier]) {
-        return res.status(400).json({ message: 'Некорректный тариф подписки' });
-      }
-      const subscriptionTier = tier as SubscriptionTier;
-      const invoiceLink = await createSubscriptionInvoiceLink(req.auth!.id, subscriptionTier);
-      res.json({ invoiceLink, tier: SUBSCRIPTION_TIERS[subscriptionTier] });
+    if (!SUBSCRIPTION_TIERS[tier as SubscriptionTier]) {
+      return res.status(400).json({ message: 'Некорректный тариф подписки' });
     }
+    const subscriptionTier = tier as SubscriptionTier;
+    const invoiceLink = await createSubscriptionInvoiceLink(req.auth!.id, subscriptionTier);
+    res.json({ invoiceLink, tier: SUBSCRIPTION_TIERS[subscriptionTier] });
   })
 );
 

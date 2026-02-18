@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { copyToClipboard } from '../lib/clipboard';
+import { Icon } from '../components/Icon';
 
 interface Tier {
     id: string;
@@ -10,13 +11,6 @@ interface Tier {
     days: number;
     label: string;
     highlight?: boolean;
-}
-
-interface Bundle {
-    id: string;
-    stars: number;
-    messages: number;
-    label: string;
 }
 
 interface InvoiceResponse {
@@ -31,14 +25,9 @@ interface ReferralStats {
 }
 
 const TIERS: Tier[] = [
-    { id: 'monthly', stars: 349, days: 30, label: '1 месяц' },
-    { id: 'quarterly', stars: 899, days: 90, label: '3 месяца', highlight: true },
-];
-
-const BUNDLES: Bundle[] = [
-    { id: 'bundle_100', stars: 149, messages: 100, label: '100 сообщений' },
-    { id: 'bundle_300', stars: 319, messages: 300, label: '300 сообщений' },
-    { id: 'bundle_700', stars: 589, messages: 700, label: '700 сообщений' },
+    { id: 'monthly', stars: 599, days: 30, label: '1 месяц' },
+    { id: 'quarterly', stars: 1490, days: 90, label: '3 месяца' },
+    { id: 'semiannual', stars: 2690, days: 180, label: '6 месяцев', highlight: true },
 ];
 
 export function DonatePage() {
@@ -62,7 +51,7 @@ export function DonatePage() {
         }
     }, [initData]);
 
-    const handlePurchase = async (tierId: string, type: 'subscription' | 'bundle') => {
+    const handlePurchase = async (tierId: string) => {
         if (!initData) return;
 
         setLoading(tierId);
@@ -71,7 +60,7 @@ export function DonatePage() {
         try {
             const data = await apiRequest<InvoiceResponse>('/api/payments/create-invoice', {
                 method: 'POST',
-                body: { tier: tierId, type },
+                body: { tier: tierId, type: 'subscription' },
                 initData,
             });
 
@@ -112,7 +101,6 @@ export function DonatePage() {
 
 
     const isActive = profile?.subscriptionStatus === 'active';
-    const bonusMessages = profile?.bonusMessages ?? 0;
 
     return (
         <div className="min-h-screen p-4 pb-24">
@@ -140,7 +128,7 @@ export function DonatePage() {
                 {/* ==================== 1. REFERRAL SECTION ==================== */}
                 <section className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-primary/10 to-indigo-500/10 border border-primary/20">
                     <div className="text-center mb-4">
-                        <span className="text-3xl mb-2 block">🎁</span>
+                        <span className="text-3xl mb-2 block"><Icon name="gift" size={28} /></span>
                         <h2 className="text-lg font-bold text-text-primary">Бесплатные сообщения</h2>
                         <p className="text-sm text-text-secondary mt-1">
                             Пригласи друга и получите по <span className="text-text-muted line-through">30</span> <span className="text-primary font-semibold">100 сообщений</span> каждый
@@ -178,8 +166,8 @@ export function DonatePage() {
                 {/* ==================== 2. PREMIUM SUBSCRIPTION ==================== */}
                 <section className="mb-6">
                     <div className="text-center mb-4">
-                        <h2 className="text-lg font-bold text-text-primary">⭐ Premium-подписка</h2>
-                        <p className="text-sm text-text-muted mt-1">Безлимит сообщений + продвинутая ии модель</p>
+                        <h2 className="text-lg font-bold text-text-primary"><Icon name="star" size={18} className="inline mr-1" /> Premium-подписка</h2>
+                        <p className="text-sm text-text-muted mt-1">Безлимит сообщений + выбор ИИ моделей</p>
                     </div>
 
                     {/* Current status */}
@@ -200,7 +188,7 @@ export function DonatePage() {
                         {TIERS.map((tier) => (
                             <button
                                 key={tier.id}
-                                onClick={() => handlePurchase(tier.id, 'subscription')}
+                                onClick={() => handlePurchase(tier.id)}
                                 disabled={loading !== null}
                                 className={`w-full p-4 rounded-xl border transition-all
                                     ${tier.highlight
@@ -226,44 +214,6 @@ export function DonatePage() {
                                         }`}
                                     >
                                         {loading === tier.id ? '...' : `${tier.stars} ★`}
-                                    </div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </section>
-
-                {/* ==================== 3. MESSAGE BUNDLES ==================== */}
-                <section className="mb-6">
-                    <div className="text-center mb-4">
-                        <h2 className="text-lg font-bold text-text-primary"> Пакеты сообщений</h2>
-                        <p className="text-sm text-text-muted mt-1">Работают сверх дневного лимита • Не сгорают</p>
-                    </div>
-
-                    {/* Current balance */}
-                    {bonusMessages > 0 && (
-                        <div className="mb-3 p-3 rounded-xl bg-primary/10 border border-primary/20 text-center">
-                            <p className="text-sm text-text-primary">
-                                Баланс: <span className="font-bold text-primary">{bonusMessages}</span> сообщений
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
-                        {BUNDLES.map((bundle) => (
-                            <button
-                                key={bundle.id}
-                                onClick={() => handlePurchase(bundle.id, 'bundle')}
-                                disabled={loading !== null}
-                                className={`w-full p-4 rounded-xl border transition-all
-                                    bg-surface-light border-border hover:border-primary/30
-                                    ${loading === bundle.id ? 'opacity-50 cursor-wait' : 'hover:scale-[1.01] active:scale-[0.99]'}
-                                    disabled:cursor-not-allowed`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <p className="font-semibold text-text-primary">{bundle.label}</p>
-                                    <div className="px-4 py-2 rounded-lg font-bold text-lg bg-surface border border-border text-text-primary">
-                                        {loading === bundle.id ? '...' : `${bundle.stars} ★`}
                                     </div>
                                 </div>
                             </button>

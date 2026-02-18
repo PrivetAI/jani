@@ -101,12 +101,10 @@ export class LLMService {
 
           const result = await this.executeWithProvider(fb.provider, messages, fbOptions);
 
-          // Success — notify admin which fallback was used
-          notifyAdminError({
-            error: `⚠️ Fallback ${fb.fallback_priority} сработал\n\n${errors.join('\n')}\n✅ Использован: ${fb.display_name}`,
-            provider: primaryProvider,
-            model: primaryModel,
-          }).catch(() => { });
+          logger.info(`Fallback ${fb.fallback_priority} succeeded`, {
+            fallbackProvider: fb.provider,
+            fallbackModel: fb.model_id,
+          });
 
           return result;
         } catch (fbError) {
@@ -116,15 +114,6 @@ export class LLMService {
             error: (fbError as Error).message,
           });
           errors.push(`FB${fb.fallback_priority} ${fb.display_name}: ${(fbError as Error).message}`);
-
-          // Notify admin about intermediate fallback failure
-          if (i < availableFallbacks.length - 1) {
-            notifyAdminError({
-              error: `⚠️ FB${fb.fallback_priority} упал, пробую FB${availableFallbacks[i + 1].fallback_priority}\n\n${errors.join('\n')}\n\n➡️ Следующий: ${availableFallbacks[i + 1].display_name}`,
-              provider: fb.provider,
-              model: fb.model_id,
-            }).catch(() => { });
-          }
         }
       }
 

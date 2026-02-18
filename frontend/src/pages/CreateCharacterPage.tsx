@@ -4,6 +4,7 @@ import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
 import { preprocessMessage } from '../utils/messagePreprocessor';
+import { Icon } from '../components/Icon';
 
 interface Tag {
     id: number;
@@ -330,7 +331,7 @@ export function CreateCharacterPage() {
                         Начальное сообщение <span className="text-text-muted font-normal">(опционально)</span>
                     </label>
                     <div className="mb-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-xs text-text-secondary">
-                        💬 Это сообщение будет показано пользователю при первом входе в чат. Создаёт атмосферу и помогает начать диалог.
+                        <Icon name="chat" size={14} className="inline mr-1" /> Это сообщение будет показано пользователю при первом входе в чат. Создаёт атмосферу и помогает начать диалог.
                     </div>
                     <textarea
                         value={greetingMessage}
@@ -351,7 +352,7 @@ export function CreateCharacterPage() {
                         Системный промпт * <span className="text-text-muted font-normal">(описание персонажа)</span>
                     </label>
                     <div className="mb-2 p-3 rounded-lg bg-primary/10 border border-primary/30 text-xs text-text-secondary">
-                        💡 <strong>Важно:</strong> Опишите персонажа, с которым  вы будете общаться.
+                        <Icon name="lightbulb" size={14} className="inline mr-1" /> <strong>Важно:</strong> Опишите персонажа, с которым  вы будете общаться.
                         Промпт начинается с "Ты — [Имя персонажа]"
                     </div>
                     <textarea
@@ -379,7 +380,7 @@ export function CreateCharacterPage() {
                     {/* Tips */}
                     <details className="mt-3 p-3 rounded-xl bg-surface border border-border">
                         <summary className="text-sm font-medium text-primary cursor-pointer">
-                            💡 Как создать хорошего персонажа
+                            <Icon name="lightbulb" size={14} className="inline mr-1" /> Как создать хорошего персонажа
                         </summary>
                         <div className="mt-3 space-y-4 text-xs text-text-secondary">
                             <p>
@@ -390,7 +391,7 @@ export function CreateCharacterPage() {
 
                             {/* Structure */}
                             <div className="p-3 rounded-lg bg-surface-light space-y-2">
-                                <p className="font-semibold text-text-primary text-sm">📝 Структура хорошего промпта:</p>
+                                <p className="font-semibold text-text-primary text-sm"><Icon name="pencil" size={14} className="inline mr-1" /> Структура хорошего промпта:</p>
                                 <div className="space-y-2 text-text-muted text-xs">
                                     <div>
                                         <span className="font-medium text-primary">Характер</span> — опишите 5-7 черт личности.
@@ -417,7 +418,7 @@ export function CreateCharacterPage() {
 
                             {/* Character traits examples */}
                             <div className="p-3 rounded-lg bg-surface-light space-y-2">
-                                <p className="font-semibold text-text-primary text-sm">🎭 Примеры черт характера:</p>
+                                <p className="font-semibold text-text-primary text-sm"><Icon name="theater" size={14} className="inline mr-1" /> Примеры черт характера:</p>
                                 <div className="space-y-2 text-text-muted text-xs">
                                     <div>
                                         <p className="text-primary text-xs font-medium mb-1">Положительные:</p>
@@ -432,7 +433,7 @@ export function CreateCharacterPage() {
 
                             {/* Speech style examples */}
                             <div className="p-3 rounded-lg bg-surface-light space-y-2">
-                                <p className="font-semibold text-text-primary text-sm">💬 Примеры стиля речи:</p>
+                                <p className="font-semibold text-text-primary text-sm"><Icon name="chat" size={14} className="inline mr-1" /> Примеры стиля речи:</p>
                                 <ul className="space-y-1 text-text-muted text-xs">
                                     <li>• <strong>Военный:</strong> короткие приказы, жаргон</li>
                                     <li>• <strong>Интеллигент:</strong> книжные выражения, сложные конструкции</li>
@@ -443,7 +444,7 @@ export function CreateCharacterPage() {
 
                             {/* Scenario examples */}
                             <div className="p-3 rounded-lg bg-surface-light space-y-2">
-                                <p className="font-semibold text-text-primary text-sm">🎬 Примеры сценариев:</p>
+                                <p className="font-semibold text-text-primary text-sm"><Icon name="clapperboard" size={14} className="inline mr-1" /> Примеры сценариев:</p>
                                 <ul className="space-y-1 text-text-muted text-xs">
                                     <li>• Случайная встреча в кафе, баре, парке</li>
                                     <li>• Вы коллеги/соседи/одногруппники</li>
@@ -455,7 +456,7 @@ export function CreateCharacterPage() {
 
                             {/* Secret sauce */}
                             <div className="p-3 rounded-lg bg-gradient-to-r from-primary/10 to-indigo-500/10 border border-primary/30 space-y-2">
-                                <p className="font-semibold text-text-primary text-sm">✨ Секрет живого персонажа:</p>
+                                <p className="font-semibold text-text-primary text-sm"><Icon name="sparkles" size={14} className="inline mr-1" /> Секрет живого персонажа:</p>
                                 <ul className="space-y-1 text-text-muted text-xs">
                                     <li>• <strong>Противоречия:</strong> "суровый снаружи, но заботливый внутри"</li>
                                     <li>• <strong>Скрытые черты:</strong> "втайне пишет стихи", "боится темноты"</li>
@@ -531,12 +532,12 @@ export function CreateCharacterPage() {
                         <option value="">Выберите модель...</option>
                         {availableModels.map(model => (
                             <option key={model.id} value={model.modelId}>
-                                {model.isRecommended ? '⭐ ' : ''}{model.displayName}{model.isRecommended ? ' (рекоменд.)' : ''}
+                                {model.isRecommended ? '★ ' : ''}{model.displayName}{model.isRecommended ? ' (рекоменд.)' : ''}
                             </option>
                         ))}
                     </select>
                     {availableModels.some(m => m.isRecommended) && (
-                        <p className="mt-1 text-xs text-text-muted">⭐ — рекомендуемые модели для персонажей</p>
+                        <p className="mt-1 text-xs text-text-muted"><Icon name="star" size={12} className="inline mr-1" /> — рекомендуемые модели для персонажей</p>
                     )}
                 </div>
 
@@ -547,7 +548,7 @@ export function CreateCharacterPage() {
                     {/* Temperature */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-text-muted">🌡️ Temperature</span>
+                            <span className="text-xs text-text-muted"><Icon name="thermometer" size={12} className="inline mr-1" /> Temperature</span>
                             <label className="flex items-center gap-2 text-xs">
                                 <input
                                     type="checkbox"
@@ -577,7 +578,7 @@ export function CreateCharacterPage() {
                     {/* Top P */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-text-muted">📊 Top P</span>
+                            <span className="text-xs text-text-muted"><Icon name="chart" size={12} className="inline mr-1" /> Top P</span>
                             <label className="flex items-center gap-2 text-xs">
                                 <input
                                     type="checkbox"
@@ -607,7 +608,7 @@ export function CreateCharacterPage() {
                     {/* Repetition Penalty */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-text-muted">🔄 Repetition Penalty</span>
+                            <span className="text-xs text-text-muted"><Icon name="refresh" size={12} className="inline mr-1" /> Repetition Penalty</span>
                             <label className="flex items-center gap-2 text-xs">
                                 <input
                                     type="checkbox"
@@ -642,7 +643,7 @@ export function CreateCharacterPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <div className="flex justify-between text-xs text-text-muted mb-1">
-                                <span>❤️ Влечение</span>
+                                <span><Icon name="heart" size={12} className="inline mr-1" /> Влечение</span>
                                 <span>{initialAttraction}</span>
                             </div>
                             <input type="range" min="-100" max="100" value={initialAttraction}
@@ -652,7 +653,7 @@ export function CreateCharacterPage() {
 
                         <div>
                             <div className="flex justify-between text-xs text-text-muted mb-1">
-                                <span>🤝 Доверие</span>
+                                <span><Icon name="handshake" size={12} className="inline mr-1" /> Доверие</span>
                                 <span>{initialTrust}</span>
                             </div>
                             <input type="range" min="-100" max="100" value={initialTrust}
@@ -662,7 +663,7 @@ export function CreateCharacterPage() {
 
                         <div>
                             <div className="flex justify-between text-xs text-text-muted mb-1">
-                                <span>💕 Привязанность</span>
+                                <span><Icon name="heart-gift" size={12} className="inline mr-1" /> Привязанность</span>
                                 <span>{initialAffection}</span>
                             </div>
                             <input type="range" min="-100" max="100" value={initialAffection}
@@ -672,7 +673,7 @@ export function CreateCharacterPage() {
 
                         <div>
                             <div className="flex justify-between text-xs text-text-muted mb-1">
-                                <span>👑 Доминирование</span>
+                                <span><Icon name="crown" size={12} className="inline mr-1" /> Доминирование</span>
                                 <span>{initialDominance}</span>
                             </div>
                             <input type="range" min="-100" max="100" value={initialDominance}

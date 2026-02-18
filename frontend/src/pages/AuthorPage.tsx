@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
+import { Icon } from '../components/Icon';
 
 interface AuthorInfo {
     id: number;
@@ -117,7 +118,7 @@ export function AuthorPage() {
                                         {char.description}
                                     </p>
                                     <div className="flex items-center gap-2 mt-2 text-xs text-text-muted">
-                                        <span>👍 {char.likesCount}</span>
+                                        <span><Icon name="thumbs-up" size={14} className="inline" /> {char.likesCount}</span>
                                     </div>
                                 </div>
                             </div>

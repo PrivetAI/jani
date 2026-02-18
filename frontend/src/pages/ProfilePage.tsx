@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { apiRequest } from '../lib/api';
 import { getCharacterAvatarUrl } from '../lib/imageUrl';
+import { Icon } from '../components/Icon';
 
 interface MyCharacter {
     id: number;
@@ -138,7 +139,7 @@ export function ProfilePage() {
                                 : 'bg-surface-light border border-border text-text-secondary hover:text-text-primary'
                             }`}
                     >
-                        ⚙️ Настройки
+                        <Icon name="settings" size={16} className="inline mr-1" /> Настройки
                     </button>
                     <button
                         onClick={() => setActiveTab('characters')}
@@ -148,7 +149,7 @@ export function ProfilePage() {
                                 : 'bg-surface-light border border-border text-text-secondary hover:text-text-primary'
                             }`}
                     >
-                        👤 Мои персонажи
+                        <Icon name="user" size={16} className="inline mr-1" /> Мои персонажи
                     </button>
                 </div>
 
@@ -167,7 +168,7 @@ export function ProfilePage() {
                             <p className="text-sm">
                                 <span className="text-text-muted">Подписка:</span>{' '}
                                 <span className={profile.subscriptionStatus === 'active' ? 'text-success' : 'text-text-secondary'}>
-                                    {profile.subscriptionStatus === 'active' ? '✅ Активна' : '❌ Нет'}
+                                    {profile.subscriptionStatus === 'active' ? <><Icon name="check" size={14} className="inline mr-1" /> Активна</> : <><Icon name="cross" size={14} className="inline mr-1" /> Нет</>}
                                 </span>
                             </p>
                         </div>
@@ -180,10 +181,10 @@ export function ProfilePage() {
                                     <div className="p-4 rounded-xl bg-surface-light border border-border">
                                         <p className="text-xs text-text-muted mb-1">Дневной лимит</p>
                                         <p className="text-xl font-bold text-text-primary">
-                                            ⚡ {limits.remaining}<span className="text-sm font-normal text-text-muted">/{limits.total}</span>
+                                            <Icon name="bolt" size={16} className="inline" /> {limits.remaining}<span className="text-sm font-normal text-text-muted">/{limits.total}</span>
                                         </p>
                                         {countdown && (
-                                            <p className="text-xs text-text-muted mt-1">⏱ {countdown}</p>
+                                            <p className="text-xs text-text-muted mt-1"><Icon name="clock" size={12} className="inline mr-1" /> {countdown}</p>
                                         )}
                                     </div>
                                 )}
@@ -191,7 +192,7 @@ export function ProfilePage() {
                                 <div className="p-4 rounded-xl bg-surface-light border border-border">
                                     <p className="text-xs text-text-muted mb-1">Бонусные</p>
                                     <p className="text-xl font-bold text-blue-400">
-                                        ⚡ {profile.bonusMessages ?? 0}
+                                        <Icon name="bolt" size={16} className="inline" /> {profile.bonusMessages ?? 0}
                                     </p>
                                     <p className="text-xs text-text-muted mt-1">Не сгорают</p>
                                 </div>
@@ -206,7 +207,7 @@ export function ProfilePage() {
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xl">⚡</span>
+                                        <span className="text-xl"><Icon name="bolt" size={20} /></span>
                                         <div>
                                             <p className="text-sm font-medium text-text-primary">Premium активен</p>
                                             <p className="text-xs text-text-muted">до {profile.subscriptionEndAt ? new Date(profile.subscriptionEndAt).toLocaleDateString('ru-RU') : '—'}</p>
@@ -222,7 +223,7 @@ export function ProfilePage() {
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xl">⚡</span>
+                                        <span className="text-xl"><Icon name="bolt" size={20} /></span>
                                         <div>
                                             <p className="text-sm font-medium text-text-primary">Получить сообщения</p>
                                             <p className="text-xs text-text-muted">Пригласить друзей или купить premium</p>
@@ -366,9 +367,9 @@ export function ProfilePage() {
                                         >
                                             <h4 className="font-medium text-text-primary">{char.name}</h4>
                                             {char.isApproved ? (
-                                                <span className="text-xs text-success">✅ Одобрен</span>
+                                                <span className="text-xs text-success"><Icon name="check" size={12} className="inline mr-1" /> Одобрен</span>
                                             ) : (
-                                                <span className="text-xs text-yellow-400">⏳ На модерации</span>
+                                                <span className="text-xs text-yellow-400"><Icon name="hourglass" size={12} className="inline mr-1" /> На модерации</span>
                                             )}
                                         </div>
                                         <button
@@ -378,7 +379,7 @@ export function ProfilePage() {
                                             }}
                                             className="px-3 py-1 text-sm rounded-lg bg-surface border border-border text-text-secondary hover:border-primary transition-colors cursor-pointer"
                                         >
-                                            ✏️
+                                            <Icon name="edit" size={16} />
                                         </button>
                                     </div>
                                 ))}

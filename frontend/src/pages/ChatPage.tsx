@@ -8,6 +8,7 @@ import { LLMSettingsModal } from '../components/chat/LLMSettingsModal';
 import { formatMessage } from '../utils/textFormatter';
 import { getTypingStatus } from '../utils/gender';
 import { getImageUrl, getCharacterAvatarUrl } from '../lib/imageUrl';
+import { Icon } from '../components/Icon';
 
 function Avatar({ src, name, isUser, gender }: { src?: string | null; name: string; isUser?: boolean; gender?: 'male' | 'female' }) {
     const initial = name?.charAt(0)?.toUpperCase() || '?';
@@ -155,15 +156,15 @@ export function ChatPage() {
                     {limits && (
                         <div className="flex items-center gap-3 mt-1">
                             {limits.hasSubscription || limits.total === -1 ? (
-                                <span className="text-sm text-primary font-medium">⚡ ∞</span>
+                                <span className="text-sm text-primary font-medium"><Icon name="bolt" size={14} className="inline" /> <Icon name="infinity" size={14} className="inline" /></span>
                             ) : (
                                 <>
                                     <span className="text-[11px] text-text-muted">
-                                        ⚡ {limits.remaining}/{limits.total}
+                                        <Icon name="bolt" size={12} className="inline" /> {limits.remaining}/{limits.total}
                                     </span>
                                     {profile?.bonusMessages !== undefined && profile.bonusMessages > 0 && (
                                         <span className="text-[11px] text-blue-400">
-                                            ⚡ {profile.bonusMessages}
+                                            <Icon name="bolt" size={12} className="inline" /> {profile.bonusMessages}
                                         </span>
                                     )}
                                 </>
@@ -177,7 +178,7 @@ export function ChatPage() {
                         bg-surface-light border border-border-light text-text-secondary
                         hover:bg-primary/20 hover:text-primary hover:border-primary/30 transition-colors"
                 >
-                    ⚙️
+                    <Icon name="settings" size={18} />
                 </button>
                 <button
                     onClick={() => setShowSession(true)}
@@ -185,7 +186,7 @@ export function ChatPage() {
                         bg-surface-light border border-border-light text-text-secondary
                         hover:bg-primary/20 hover:text-primary hover:border-primary/30 transition-colors"
                 >
-                    📊
+                    <Icon name="chart" size={18} />
                 </button>
                 <button
                     onClick={() => setShowMemory(true)}
@@ -193,7 +194,7 @@ export function ChatPage() {
                         bg-surface-light border border-border-light text-text-secondary
                         hover:bg-primary/20 hover:text-primary hover:border-primary/30 transition-colors"
                 >
-                    🧠
+                    <Icon name="brain" size={18} />
                 </button>
                 <button
                     onClick={() => setShowDeleteConfirm(true)}
@@ -201,7 +202,7 @@ export function ChatPage() {
                         bg-surface-light border border-border-light text-text-secondary
                         hover:bg-danger/20 hover:text-danger hover:border-danger/30 transition-colors"
                 >
-                    🔄
+                    <Icon name="refresh" size={18} />
                 </button>
             </header>
 
@@ -351,7 +352,7 @@ export function ChatPage() {
                 {error && !isSending && !isTyping && (
                     <div className="flex justify-center py-2">
                         <div className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
-                            ⚠️ {error}
+                            <Icon name="warning" size={14} className="inline mr-1" /> {error}
                         </div>
                     </div>
                 )}
@@ -367,7 +368,7 @@ export function ChatPage() {
                             className="w-full py-3 rounded-2xl bg-gradient-to-r from-primary to-indigo-500 text-white font-medium
                                 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                         >
-                            ⚡ Получить сообщения
+                            <Icon name="bolt" size={16} className="inline" /> Получить сообщения
                         </button>
                         <span className="text-xs text-text-muted">или возвращайся завтра</span>
                     </div>
@@ -403,7 +404,7 @@ export function ChatPage() {
                                 bg-gradient-to-r from-primary to-indigo-500 text-white text-lg
                                 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                         >
-                            ➤
+                            <Icon name="send" size={18} />
                         </button>
                     </>
                 )}
