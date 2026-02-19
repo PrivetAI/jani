@@ -470,6 +470,22 @@ export function AdminPage() {
                     </div>
                 )}
 
+                {/* Prompt Version Stats */}
+                {stats?.promptVersionStats && stats.promptVersionStats.length > 0 && (
+                    <div className="mb-6 p-4 rounded-xl bg-surface-light border border-border">
+                        <h3 className="text-sm font-semibold mb-3 text-text-secondary">🎭 Драйвер промпты</h3>
+                        <div className="flex gap-4 flex-wrap">
+                            {stats.promptVersionStats.map((ps: { version: number; count: number }) => (
+                                <div key={ps.version} className="flex-1 min-w-[150px] p-3 rounded-lg bg-background border border-border">
+                                    <div className="text-lg font-bold text-text-primary">Промпт v{ps.version}</div>
+                                    <div className="text-2xl font-bold text-primary">{ps.count}</div>
+                                    <div className="text-xs text-text-muted">персонажей</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Global Summary Settings */}
                 <div className="mb-6 p-4 rounded-xl bg-surface-light border border-border">
                     <h3 className="text-sm font-semibold mb-3 text-text-secondary">⚙️ Настройки саммаризации</h3>

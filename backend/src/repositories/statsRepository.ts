@@ -10,6 +10,7 @@ export interface BasicStats {
   referralIndex: number;
   topCharactersByUsers: { character_id: number; name: string; users: number }[];
   topCharactersByMessages: { character_id: number; name: string; messages: number }[];
+  promptVersionStats: { version: number; count: number }[];
 }
 
 const periodToInterval: Record<string, string> = {
@@ -50,6 +51,13 @@ export const loadStats = async (period: keyof typeof periodToInterval = 'day'): 
     query<{ count: string }>("SELECT COUNT(DISTINCT referred_id) FROM referral_rewards WHERE reward_type = 'registration'"),
     query<{ count: string }>("SELECT COUNT(*) FROM users WHERE referred_by IS NOT NULL"),
   ]);
+
+  const { rows: promptVersionRows } = await query<{ version: number; count: string }>(
+    `SELECT COALESCE(driver_prompt_version, 1) as version, COUNT(*) as count
+     FROM characters
+     GROUP BY COALESCE(driver_prompt_version, 1)
+     ORDER BY version`
+  );
 
   const [topUsers, topMessages] = await Promise.all([
     query<{ character_id: number; name: string; users: string }>(
@@ -97,6 +105,10 @@ export const loadStats = async (period: keyof typeof periodToInterval = 'day'): 
         messages: Number(row.messages),
       })
     ),
+    promptVersionStats: promptVersionRows.map((row) => ({
+      version: Number(row.version),
+      count: Number(row.count),
+    })),
   };
 
   statsCache.set(cacheKey, { data: result, cachedAt: Date.now() });
