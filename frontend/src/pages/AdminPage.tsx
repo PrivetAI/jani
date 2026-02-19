@@ -953,7 +953,7 @@ export function AdminPage() {
 
                 {/* Rejection Reason Modal */}
                 {rejectModalCharId && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 flex items-center justify-center z-50 p-4">
                         <div className="bg-surface rounded-xl p-6 max-w-md w-full border border-border">
                             <h3 className="text-lg font-semibold text-text-primary mb-4">Причина отклонения</h3>
                             <textarea
@@ -1132,7 +1132,7 @@ export function AdminPage() {
                                             alt={file.filename}
                                             className="w-full h-full object-cover"
                                         />
-                                        <div className={`absolute inset-0 ${isUsed ? 'bg-success/10' : 'bg-danger/10'}`} />
+                                        <div className={`absolute top-0 right-0 bottom-0 left-0 ${isUsed ? 'bg-success/10' : 'bg-danger/10'}`} />
                                         {!isUsed && (
                                             <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-danger animate-pulse" />
                                         )}

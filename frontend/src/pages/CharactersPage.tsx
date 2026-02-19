@@ -49,7 +49,7 @@ function CharacterCard({ char, tags, selectedTags, hasSubscription, onSelect, on
                 )}
                 {/* Lock overlay for non-subscribers */}
                 {isPremiumLocked && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center bg-black/30">
                         <div className="text-center">
                             <span className="text-4xl"><Icon name="lock" size={36} /></span>
                         </div>

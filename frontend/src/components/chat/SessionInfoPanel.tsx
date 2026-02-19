@@ -52,7 +52,7 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
 
     if (!session) {
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="fixed top-0 right-0 bottom-0 left-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                 <div className="w-full max-w-md p-6 rounded-2xl bg-surface/95 border border-border">
                     <p className="text-text-muted text-center">Загрузка данных сессии...</p>
                 </div>
@@ -64,7 +64,7 @@ export function SessionInfoPanel({ onClose }: SessionInfoPanelProps) {
     const closeness = emotionalState.closeness;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="fixed top-0 right-0 bottom-0 left-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-2xl bg-surface/95 border border-border overflow-hidden max-h-[85vh] overflow-y-auto">
                 {/* Header */}
                 <header className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface/95">

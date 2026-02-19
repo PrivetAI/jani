@@ -1,22 +1,6 @@
-@import "tailwindcss";
-
-/* Custom theme extending Tailwind v4 */
-@theme {
-  --color-background: #030712;
-  --color-surface: rgba(15, 23, 42, 0.65);
-  --color-surface-light: rgba(30, 41, 59, 0.4);
-  --color-border: rgba(148, 163, 184, 0.2);
-  --color-border-light: rgba(255, 255, 255, 0.1);
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-primary: #3b82f6;
-  --color-primary-light: rgba(59, 130, 246, 0.4);
-  --color-accent: #ec4899;
-  --color-success: #22c55e;
-  --color-danger: #ef4444;
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Base styles */
 html, body {
@@ -27,7 +11,7 @@ body {
   @apply bg-background text-text-primary font-sans antialiased;
   background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15), transparent 35%),
     radial-gradient(circle at 80% 0%, rgba(236, 72, 153, 0.1), transparent 40%),
-    var(--color-background);
+    #030712;
   background-attachment: fixed;
 }
 
@@ -50,7 +34,7 @@ body {
 .bottom-nav {
   @apply fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center
     border-t border-border;
-  height: 72px; /* 64px + 8px extra */
+  height: 72px;
   padding-bottom: 8px;
   background-color: #0f172a;
 }
@@ -90,6 +74,7 @@ body {
 /* Select option styling (for dark mode dropdown) */
 select {
   appearance: none;
+  -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 0.5rem center;
   background-repeat: no-repeat;

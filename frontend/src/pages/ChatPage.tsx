@@ -217,7 +217,7 @@ export function ChatPage() {
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                <div className="fixed top-0 right-0 bottom-0 left-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="w-full max-w-sm p-5 rounded-2xl bg-surface/95 border border-border space-y-4">
                         <h3 className="text-lg font-semibold text-center">Удалить диалог?</h3>
                         <p className="text-sm text-text-secondary text-center">

@@ -30,7 +30,7 @@ export function MemoryViewer({ onClose }: MemoryViewerProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="fixed top-0 right-0 bottom-0 left-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <div className="w-full max-w-md max-h-[80vh] flex flex-col rounded-2xl bg-surface/95 border border-border overflow-hidden">
                 {/* Header */}
                 <header className="flex items-center justify-between px-5 py-4 border-b border-border">
