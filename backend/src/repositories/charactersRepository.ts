@@ -52,7 +52,7 @@ const mapCharacter = (row: any): CharacterRecord => ({
   llm_temperature: row.llm_temperature ? parseFloat(row.llm_temperature) : null,
   llm_top_p: row.llm_top_p ? parseFloat(row.llm_top_p) : null,
   llm_repetition_penalty: row.llm_repetition_penalty ? parseFloat(row.llm_repetition_penalty) : null,
-  driver_prompt_version: row.driver_prompt_version ?? 1,
+  driver_prompt_version: row.driver_prompt_version ?? 2,
   greeting_message: row.greeting_message ?? null,
 });
 

@@ -130,7 +130,7 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_top_p DECIMAL(3,2);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS llm_repetition_penalty DECIMAL(4,2);
 
 -- Characters: Driver prompt version for A/B testing (1 or 2, randomly assigned on create)
-ALTER TABLE characters ADD COLUMN IF NOT EXISTS driver_prompt_version INTEGER DEFAULT 1;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS driver_prompt_version INTEGER DEFAULT 2;
 -- NOTE: Random assignment removed - was causing all characters to drift to v2 on each restart
 -- One-time fix applied directly to DB to split 50/50
 

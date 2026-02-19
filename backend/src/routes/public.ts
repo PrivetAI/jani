@@ -127,8 +127,8 @@ router.post(
     // Private characters don't need moderation - auto-approved
     const needsModeration = !isPrivate;
 
-    // Create character with random driver_prompt_version (1 or 2) for A/B testing
-    const driverPromptVersion = Math.random() < 0.5 ? 1 : 2;
+    // Default to v2 prompt for all new characters
+    const driverPromptVersion = 2;
 
     const result = await query<{ id: number }>(
       `INSERT INTO characters (
