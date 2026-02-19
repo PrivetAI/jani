@@ -86,8 +86,8 @@ function manualDowngrade(css: string): string {
   // margin-block → margin-top + margin-bottom
   css = css.replace(/margin-block\s*:\s*([^;}]+)/g, 'margin-top:$1;margin-bottom:$1');
 
-  // inset: X → top:X;right:X;bottom:X;left:X
-  css = css.replace(/\binset\s*:\s*([^;}]+)/g, (_, val) => {
+  // inset: X → top:X;right:X;bottom:X;left:X (but NOT inside custom props like --tw-ring-inset)
+  css = css.replace(/(?<![-\w])inset\s*:\s*([^;}]+)/g, (_, val) => {
     const v = val.trim();
     return `top:${v};right:${v};bottom:${v};left:${v}`;
   });
