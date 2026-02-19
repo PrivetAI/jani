@@ -1,10 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-// @ts-ignore -- no type declarations
-import browserslist from 'browserslist';
-import { browserslistToTargets } from 'lightningcss';
-
 const proxyTarget = process.env.VITE_PROXY_TARGET ?? 'http://localhost:3000';
 
 export default defineConfig({
@@ -12,9 +8,17 @@ export default defineConfig({
   css: {
     transformer: 'lightningcss',
     lightningcss: {
-      targets: browserslistToTargets(
-        browserslist('defaults, chrome >= 69, android >= 69, samsung >= 10')
-      ),
+      // Chrome 69 = 69 << 16 | 0 << 8 = 4521984
+      // Safari 12 = 12 << 16 | 0 << 8 = 786432
+      // Firefox 62 = 62 << 16 = 4063232
+      targets: {
+        chrome: 69 << 16,
+        safari: 12 << 16,
+        firefox: 62 << 16,
+        ios_saf: 12 << 16,
+        android: 69 << 16,
+        samsung: 10 << 16,
+      },
     },
   },
   preview: {
